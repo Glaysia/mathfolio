@@ -7,7 +7,8 @@
 | 개발 PC | 현재 Windows PC |
 | 개발 경로 | `C:\Users\harry\Projects\mathcraft` |
 | Git | 2.52.0.windows.1 |
-| Windows Cargo | 1.99.0 설치 완료, MSVC 링커 설치 대기 |
+| Windows Cargo | 1.99.0, CLI/GUI 빌드 및 CLI 실행 확인 |
+| Windows MSVC | Build Tools 17.14.37710.0, MSVC 14.44.35207, SDK 10.0.26100.0, `C:\BuildTools\Mathcraft2022` |
 | Linux 대상 | SSH 별칭 `peets`, hostname `5950xlinux` |
 | Linux OS | `/etc/os-release`: Ubuntu 26.04.1 LTS |
 | KDE | `/usr/bin/plasmashell` 존재. GUI 세션 실행 검증 전 |

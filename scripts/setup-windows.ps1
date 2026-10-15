@@ -9,7 +9,8 @@ if (-not $taskPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Admini
 $taskVswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $taskVsPath = $null
 if (Test-Path $taskVswhere) {
-    $taskVsPath = & $taskVswhere -all -latest -products '*' -property installationPath
+    $taskVsCandidates = & $taskVswhere -all -products '*' -property installationPath
+    $taskVsPath = $taskVsCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 if ($taskVsPath) {
     $taskVsSetup = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
@@ -17,7 +18,7 @@ if ($taskVsPath) {
     $taskVsProcess = Start-Process -FilePath $taskVsSetup -ArgumentList $taskVsArguments -WorkingDirectory $env:TEMP -WindowStyle Hidden -Wait -PassThru
     $taskVsExit = $taskVsProcess.ExitCode
 } else {
-    winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --silent --accept-package-agreements --accept-source-agreements --override '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
+    winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --silent --accept-package-agreements --accept-source-agreements --override '--installPath "C:\BuildTools\Mathcraft2022" --quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
     $taskVsExit = $LASTEXITCODE
 }
 if ($taskVsExit -notin @(0, 3010)) {

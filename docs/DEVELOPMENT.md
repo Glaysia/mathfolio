@@ -13,9 +13,16 @@
 
 Rust와 rust-analyzer 설치, 사용자 PATH 등록은 완료했다. 설치 전 열려 있던 터미널은 다시 열거나 `$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"`를 실행한다.
 
-기존 Visual Studio Build Tools 2022 설치가 불완전한 상태다. C++ workload와 Windows SDK 설치에는 관리자 권한이 필요하다. 현재 시도한 UAC 요청은 취소로 반환되었고 `link.exe`가 없어 Windows 빌드는 아직 실패한다.
+Visual Studio Build Tools 2022와 C++ workload, Windows SDK 설치를 완료했다. 기존 등록 경로의 폴더가 없어 별도 경로에 새로 설치했다.
 
-관리자 PowerShell에서 프로젝트 디렉터리로 이동한 후 다음 명령으로 설치와 검증을 이어갈 수 있다.
+- 설치 경로: `C:\BuildTools\Mathcraft2022`
+- Build Tools: 17.14.37710.0
+- MSVC: 14.44.35207
+- Windows SDK: 10.0.26100.0
+- 설치 종료 코드: 0, 재부팅 요구 없음
+- 일반 PowerShell에서 Rust가 MSVC 링커를 자동으로 찾으며 빌드 성공.
+
+새 Windows 환경에서는 관리자 PowerShell에서 프로젝트 디렉터리로 이동한 후 다음 명령으로 설치와 검증을 수행한다.
 
 ```powershell
 ./scripts/setup-windows.ps1
@@ -49,9 +56,9 @@ cargo run -p mathcraft-app --locked
 | --- | --- | --- |
 | Rust/Cargo 1.99.0 | 설치 확인 | 설치 확인 |
 | rustfmt / Clippy / rust-analyzer | 설치 확인 | 설치 확인 |
-| 전체 workspace fmt / Clippy | fmt 통과, 빌드 검사는 MSVC 대기 | 통과 |
-| CLI 및 GUI 빌드 | `link.exe` 부재로 실패 | 통과 |
-| CLI 실행 | MSVC 대기 | 통과 |
+| 전체 workspace fmt / Clippy | 통과 | 통과 |
+| CLI 및 GUI 빌드 | 통과 | 통과 |
+| CLI 실행 | 통과 | 통과 |
 | GUI 화면 / IME / 클립보드 | 미검증 | 미검증: KDE 사용자 GUI 세션 없음 |
 
 현재 골격에 자동 테스트 사례는 없다. `cargo test`는 두 바이너리의 테스트 하네스 빌드와 실행만 확인했다. 원본 동작 사례를 확보한 뒤 계산 코어에 의미 있는 테스트를 추가한다.

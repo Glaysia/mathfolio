@@ -80,7 +80,7 @@ GUI는 Rust 네이티브 후보인 egui/eframe을 우선 평가한다. 확정 �
 
 1. 분석용 Mathcad 설치 환경의 실제 접속 방법 확인.
 2. GitHub 인증 복구 후 기본 비공개 `mathcraft` 원격 저장소 생성 및 push. 현재는 로컬 Git 저장소만 생성 가능하다.
-3. Rust 1.99.0은 양쪽에 설치 완료. peets 빌드 검증 완료, Windows MSVC 관리자 설치 및 빌드 검증 진행.
+3. 완료: Rust 1.99.0 및 필수 빌드 도구를 양쪽에 설치하고 CLI/GUI 빌드, fmt/Clippy, CLI 실행 검증.
 4. 원본 워크시트 기준 사례를 만들고 M0 진행.
 
 ## 참고
