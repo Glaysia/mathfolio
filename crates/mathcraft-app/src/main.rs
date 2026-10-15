@@ -37,8 +37,27 @@ fn main() -> eframe::Result {
 
 fn configure(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::light();
-    visuals.panel_fill = egui::Color32::from_rgb(237, 239, 242);
+    visuals.panel_fill = egui::Color32::from_rgb(248, 249, 251);
+    visuals.window_fill = egui::Color32::from_rgb(255, 255, 255);
+    visuals.selection.bg_fill = egui::Color32::from_rgb(220, 233, 250);
+    visuals.selection.stroke.color = egui::Color32::from_rgb(36, 97, 173);
     ctx.set_visuals(visuals);
+    ctx.global_style_mut(|style| {
+        style.spacing.item_spacing = egui::vec2(8., 6.);
+        style.spacing.button_padding = egui::vec2(10., 5.);
+        style.spacing.interact_size.y = 28.;
+        style
+            .text_styles
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(14.));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Button, egui::FontId::proportional(14.));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Small, egui::FontId::proportional(12.));
+    });
+    // Worksheet zoom is separate from accessibility / operating-system UI scale.
+    ctx.options_mut(|options| options.zoom_with_keyboard = false);
     let mut fonts = egui::FontDefinitions::default();
     for path in [
         "C:\\Windows\\Fonts\\malgun.ttf",

@@ -588,6 +588,54 @@ impl Editor {
         Ok(())
     }
 
+    /// Select UTF-16 text inside one atom. Invalid boundaries leave state intact.
+    pub fn place_text_selection(
+        &mut self,
+        node: NodeId,
+        anchor: usize,
+        focus: usize,
+    ) -> Result<(), EditError> {
+        let text = self
+            .arena
+            .get(node)
+            .ok_or(EditError::MissingNode)?
+            .kind
+            .text()
+            .ok_or(EditError::NotAnAtom)?;
+        let boundary = |offset| {
+            offset == 0
+                || text
+                    .chars()
+                    .scan(0, |units, ch| {
+                        *units += ch.len_utf16();
+                        Some(*units)
+                    })
+                    .any(|units| units == offset)
+        };
+        if !boundary(anchor) || !boundary(focus) {
+            return Err(EditError::InvalidTextBoundary);
+        }
+        self.place_text_caret(node, focus)?;
+        self.caret.value_range = Some(ValueRange { anchor, focus });
+        Ok(())
+    }
+
+    /// Keep the live expression and editing context without recursively copying
+    /// its undo history. The worksheet owns its document-wide command history.
+    pub fn clone_without_history(&self) -> Self {
+        Self {
+            arena: self.arena.clone(),
+            root: self.root,
+            caret: self.caret,
+            selection: self.selection,
+            scope: self.scope.clone(),
+            edit_group_depth: 0,
+            edit_group_checkpointed: false,
+            undo: vec![],
+            redo: vec![],
+        }
+    }
+
     pub fn select_subtree(&mut self, node: NodeId) -> Result<(), EditError> {
         self.arena.get(node).ok_or(EditError::MissingNode)?;
         self.selection = Selection::Subtree(node);
@@ -1909,5 +1957,46 @@ mod tests {
         assert!(editor.redo());
         assert_eq!(editor.to_portable().unwrap(), imported);
         assert_eq!(editor.validate(), Ok(()));
+    }
+
+    #[test]
+    fn text_selection_rejects_surrogate_splits_without_mutating_state() {
+        let mut editor = Editor::new();
+        let id = editor.root();
+        editor
+            .set_atom(id, NodeKind::Identifier("a😀b".into()))
+            .unwrap();
+        editor.place_text_selection(id, 4, 1).unwrap();
+        let before = editor.caret();
+        assert_eq!(
+            editor.place_text_selection(id, 1, 2),
+            Err(EditError::InvalidTextBoundary)
+        );
+        assert_eq!(editor.caret(), before);
+        assert_eq!(
+            editor.place_text_selection(id, 2, 4),
+            Err(EditError::InvalidTextBoundary)
+        );
+        assert_eq!(editor.caret(), before);
+    }
+
+    #[test]
+    fn document_history_copy_retains_live_scope_and_drops_nested_undo_stacks() {
+        let mut editor = Editor::new();
+        let id = editor.root();
+        editor
+            .set_atom(id, NodeKind::Identifier("abc".into()))
+            .unwrap();
+        editor.place_text_caret(id, 1).unwrap();
+        editor.expand_scope();
+        let mut copy = editor.clone_without_history();
+        assert_eq!(copy.to_portable().unwrap(), editor.to_portable().unwrap());
+        assert_eq!(copy.caret(), editor.caret());
+        assert_eq!(copy.selection(), editor.selection());
+        assert!(!copy.undo());
+        copy.contract_scope();
+        assert_eq!(copy.caret().value_range.unwrap().focus, 1);
+        assert_ne!(copy.selection(), editor.selection());
+        assert!(editor.undo());
     }
 }

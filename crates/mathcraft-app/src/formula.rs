@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 const INK: Color32 = Color32::from_rgb(32, 38, 48);
 const CARET: Color32 = Color32::from_rgb(28, 102, 206);
-const PADDING: f32 = 12.0;
-const FONT_SIZE: f32 = 26.0;
+const PADDING: f32 = 8.0;
+const FONT_SIZE: f32 = 22.0;
 
 #[derive(Clone, Copy, Debug)]
 pub enum FormulaResult<'a> {
@@ -68,6 +68,12 @@ struct HitNode {
     text_origin: Pos2,
 }
 
+#[derive(Clone)]
+struct DragAnchor {
+    node: NodeId,
+    offset: usize,
+}
+
 /// Paint and edit one structural formula. The caller supplies a stable egui ID
 /// scope when rendering multiple editors (`ui.push_id(worksheet_region_id, …)`).
 ///
@@ -109,7 +115,7 @@ pub fn measured_size(ui: &Ui, editor: &Editor, result: Option<FormulaResult<'_>>
         FONT_SIZE,
         result,
     );
-    (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(76., 58.))
+    (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(64., 44.))
 }
 
 pub fn formula_ui_with_display(
@@ -134,8 +140,8 @@ pub(crate) fn formula_ui_with_actions(
         FONT_SIZE,
         result,
     );
-    let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(76.0, 58.0));
-    let (rect, mut response) = ui.allocate_exact_size(desired, Sense::click());
+    let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(64.0, 44.0));
+    let (rect, mut response) = ui.allocate_exact_size(desired, Sense::click_and_drag());
     if focus {
         response.request_focus();
     }
@@ -156,7 +162,12 @@ pub(crate) fn formula_ui_with_actions(
                     .take(cursor.index.into())
                     .map(char::len_utf16)
                     .sum();
-                let _ = editor.place_text_caret(hit.node, offset);
+                let anchor = editor.caret().value_range.map_or(offset, |r| r.anchor);
+                if ui.input(|i| i.modifiers.shift) && editor.caret().node == hit.node {
+                    let _ = editor.place_text_selection(hit.node, anchor, offset);
+                } else {
+                    let _ = editor.place_text_caret(hit.node, offset);
+                }
             } else {
                 let side = if pointer.x < hit.rect.center().x {
                     Direction::Left
@@ -171,7 +182,66 @@ pub(crate) fn formula_ui_with_actions(
         }
     }
 
+    let drag_id = response.id.with("text-drag");
+    if response.drag_started() {
+        response.request_focus();
+        let from_global = ui
+            .ctx()
+            .layer_transform_from_global(ui.layer_id())
+            .unwrap_or_default();
+        if let Some(point) = ui
+            .input(|i| i.pointer.press_origin())
+            .map(|p| from_global * p)
+            && let Some(hit) = hit_node(&hits, point)
+        {
+            let offset = hit_text_offset(hit, point);
+            ui.data_mut(|data| {
+                data.insert_temp(
+                    drag_id,
+                    DragAnchor {
+                        node: hit.node,
+                        offset,
+                    },
+                )
+            });
+        }
+    }
+    if response.dragged()
+        && let Some(anchor) = ui.data(|data| data.get_temp::<DragAnchor>(drag_id))
+        && let Some(point) = response.interact_pointer_pos()
+    {
+        if let Some(hit) = hits.iter().find(|h| h.node == anchor.node)
+            && hit.atom.is_some()
+            && (hit.rect.expand2(vec2(10000., 3.)).contains(point))
+        {
+            let _ = editor.place_text_selection(
+                anchor.node,
+                anchor.offset,
+                hit_text_offset(hit, point),
+            );
+        } else if let Some(hit) = hit_node(&hits, point) {
+            let mut node = anchor.node;
+            loop {
+                if node_contains(editor.arena(), node, hit.node) {
+                    let _ = editor.select_subtree(node);
+                    break;
+                }
+                let Some(parent) = editor.arena().get(node).and_then(|n| n.parent()) else {
+                    break;
+                };
+                node = parent;
+            }
+        }
+    }
+    if response.drag_stopped() {
+        ui.data_mut(|data| data.remove::<DragAnchor>(drag_id));
+    }
+
     let mut evaluation_requested = false;
+    let ime_id = response.id.with("ime-preedit");
+    let mut preedit = ui
+        .data(|data| data.get_temp::<String>(ime_id))
+        .unwrap_or_default();
     if response.has_focus() {
         ui.memory_mut(|memory| {
             memory.set_focus_lock_filter(
@@ -179,6 +249,7 @@ pub(crate) fn formula_ui_with_actions(
                 egui::EventFilter {
                     tab: true,
                     horizontal_arrows: true,
+                    vertical_arrows: true,
                     ..Default::default()
                 },
             );
@@ -186,6 +257,8 @@ pub(crate) fn formula_ui_with_actions(
         // This widget owns keyboard events only while it has focus. Pointer and
         // viewport events remain available to the surrounding worksheet.
         let events = ui.input_mut(|input| {
+            let composing = !preedit.is_empty() || input.events.iter().any(|e| matches!(e,
+                egui::Event::Ime(egui::ImeEvent::Preedit { text, .. } | egui::ImeEvent::Commit(text)) if !text.is_empty()));
             let mut ours = Vec::new();
             input.events.retain(|event| {
                 let owned = match event {
@@ -193,7 +266,8 @@ pub(crate) fn formula_ui_with_actions(
                     | egui::Event::Paste(_)
                     | egui::Event::Copy
                     | egui::Event::Cut => true,
-                    egui::Event::Key { key, .. } => !matches!(key, Key::Enter | Key::Escape),
+                    egui::Event::Ime(_) => true,
+                    egui::Event::Key { key, .. } => composing || !matches!(key, Key::Enter | Key::Escape),
                     _ => false,
                 };
                 if owned {
@@ -209,9 +283,28 @@ pub(crate) fn formula_ui_with_actions(
         for event in events {
             match event {
                 egui::Event::Text(text) => {
+                    if !preedit.is_empty() {
+                        continue;
+                    }
                     let outcome = input_text_with_actions(editor, &text);
                     changed |= outcome.document_changed;
                     evaluation_requested |= outcome.evaluation_requested;
+                }
+                egui::Event::Ime(egui::ImeEvent::Preedit { text, .. }) => {
+                    preedit = text;
+                    ui.ctx().request_repaint();
+                }
+                egui::Event::Ime(egui::ImeEvent::Commit(text)) => {
+                    preedit.clear();
+                    let outcome = input_text_with_actions(editor, &text);
+                    changed |= outcome.document_changed;
+                    evaluation_requested |= outcome.evaluation_requested;
+                }
+                egui::Event::Ime(egui::ImeEvent::DeleteSurrounding {
+                    before_chars,
+                    after_chars,
+                }) => {
+                    changed |= delete_surrounding(editor, before_chars, after_chars);
                 }
                 egui::Event::Paste(text) => {
                     let outcome = paste_tree_or_text_with_actions(editor, &text);
@@ -222,10 +315,19 @@ pub(crate) fn formula_ui_with_actions(
                     if let Some(text) = copy_tree(editor) {
                         ui.ctx().copy_text(text);
                         if event == egui::Event::Cut {
-                            if editor.selection() == Selection::None {
-                                let _ = editor.select_subtree(editor.caret().node);
+                            if editor.selection() == Selection::None
+                                && editor
+                                    .caret()
+                                    .value_range
+                                    .is_some_and(|r| r.anchor != r.focus)
+                            {
+                                changed |= delete_character(editor, true);
+                            } else {
+                                if editor.selection() == Selection::None {
+                                    let _ = editor.select_subtree(editor.caret().node);
+                                }
+                                changed |= editor.delete_structure(true);
                             }
-                            changed |= editor.delete_structure(true);
                         }
                     }
                 }
@@ -235,6 +337,9 @@ pub(crate) fn formula_ui_with_actions(
                     modifiers,
                     ..
                 } => {
+                    if !preedit.is_empty() {
+                        continue;
+                    }
                     if modifiers.command && key == Key::Z {
                         changed |= if modifiers.shift {
                             editor.redo()
@@ -243,12 +348,20 @@ pub(crate) fn formula_ui_with_actions(
                         };
                     } else if modifiers.command && key == Key::Y {
                         changed |= editor.redo();
+                    } else if modifiers.command && key == Key::A {
+                        let _ = editor.select_subtree(editor.root());
                     } else if !modifiers.command && !modifiers.alt {
                         match key {
                             Key::Backspace => changed |= delete_character(editor, true),
                             Key::Delete => changed |= delete_character(editor, false),
+                            Key::ArrowLeft | Key::ArrowRight if modifiers.shift => {
+                                extend_text_selection(editor, key == Key::ArrowRight)
+                            }
                             Key::ArrowLeft => move_horizontal(editor, false),
                             Key::ArrowRight => move_horizontal(editor, true),
+                            Key::ArrowUp | Key::ArrowDown => {
+                                move_vertical(editor, &hits, key == Key::ArrowDown)
+                            }
                             Key::Tab => cycle_leaf(editor, !modifiers.shift, true),
                             Key::Home => atom_extreme(editor, false),
                             Key::End => atom_extreme(editor, true),
@@ -259,10 +372,14 @@ pub(crate) fn formula_ui_with_actions(
                 _ => {}
             }
         }
+        ui.data_mut(|data| data.insert_temp(ime_id, preedit.clone()));
         if changed {
             response.mark_changed();
             ui.ctx().request_repaint();
         }
+    } else {
+        ui.data_mut(|data| data.remove::<String>(ime_id));
+        preedit.clear();
     }
 
     let layout = measure_with_display(
@@ -275,7 +392,8 @@ pub(crate) fn formula_ui_with_actions(
     let mut hits = vec![];
     collect_hits(&layout, origin, &mut hits);
     let paint = ui.painter();
-    if let Selection::Subtree(node) = editor.selection()
+    if response.has_focus()
+        && let Selection::Subtree(node) = editor.selection()
         && let Some(hit) = hits.iter().find(|hit| hit.node == node)
     {
         paint.rect_filled(hit.rect.expand(3.0), 2.0, CARET.gamma_multiply(0.12));
@@ -287,15 +405,49 @@ pub(crate) fn formula_ui_with_actions(
         );
     }
     paint_box(paint, &layout, origin);
+    let caret_node = match editor.selection() {
+        Selection::Subtree(id) => id,
+        Selection::None => editor.caret().node,
+    };
     if response.has_focus()
-        && let Some(hit) = hits.iter().find(|hit| hit.node == editor.caret().node)
+        && let Some(hit) = hits.iter().find(|hit| hit.node == caret_node)
     {
+        if let Some(range) = editor.caret().value_range
+            && range.anchor != range.focus
+        {
+            let a = text_caret_rect(hit, range.anchor);
+            let b = text_caret_rect(hit, range.focus);
+            paint.rect_filled(a.union(b).expand(1.), 0., CARET.gamma_multiply(0.18));
+        }
         paint_caret(paint, hit, editor);
+        let cursor = caret_rect(hit, editor);
+        if !preedit.is_empty() {
+            let preview = text_galley(paint, &preedit, FONT_SIZE);
+            let preview_rect = Rect::from_min_size(cursor.left_top(), preview.size());
+            paint.rect_filled(preview_rect.expand(2.), 0., Color32::WHITE);
+            paint.galley(preview_rect.min, preview, INK);
+            paint.line_segment(
+                [preview_rect.left_bottom(), preview_rect.right_bottom()],
+                Stroke::new(1., CARET),
+            );
+        }
+        let to_global = ui
+            .ctx()
+            .layer_transform_to_global(ui.layer_id())
+            .unwrap_or_default();
+        if ui.memory(|m| m.owns_ime_events(response.id)) {
+            ui.output_mut(|output| {
+                output.ime = Some(egui::output::IMEOutput {
+                    purpose: egui::IMEPurpose::Normal,
+                    rect: to_global * rect,
+                    cursor_rect: to_global * cursor,
+                    should_interrupt_composition: false,
+                })
+            });
+        }
     }
     FormulaResponse {
-        response: response.on_hover_text(
-            "수식 직접 입력 · / 분수 · ^ 지수 · ( ) 괄호 · Space 범위 선택 · Tab 입력 칸 이동",
-        ),
+        response: response.on_hover_cursor(egui::CursorIcon::Text),
         evaluation_requested,
     }
 }
@@ -947,6 +1099,155 @@ fn hit_node(hits: &[HitNode], point: Pos2) -> Option<&HitNode> {
         .min_by(|left, right| left.rect.area().total_cmp(&right.rect.area()))
 }
 
+fn hit_text_offset(hit: &HitNode, point: Pos2) -> usize {
+    hit.atom.as_ref().map_or(0, |galley| {
+        let cursor = galley.cursor_from_pos(point - hit.text_origin);
+        galley
+            .text()
+            .chars()
+            .take(cursor.index.into())
+            .map(char::len_utf16)
+            .sum()
+    })
+}
+
+fn node_contains(arena: &Arena, ancestor: NodeId, mut node: NodeId) -> bool {
+    loop {
+        if ancestor == node {
+            return true;
+        }
+        let Some(parent) = arena.get(node).and_then(|n| n.parent()) else {
+            return false;
+        };
+        node = parent;
+    }
+}
+
+fn text_caret_rect(hit: &HitNode, offset: usize) -> Rect {
+    let Some(galley) = &hit.atom else {
+        return hit.rect;
+    };
+    let mut units = 0;
+    let index = galley
+        .text()
+        .chars()
+        .take_while(|ch| {
+            let take = units < offset;
+            units += ch.len_utf16();
+            take
+        })
+        .count();
+    galley
+        .pos_from_cursor(egui::text::CCursor::new(index))
+        .translate(hit.text_origin.to_vec2())
+}
+
+fn caret_rect(hit: &HitNode, editor: &Editor) -> Rect {
+    if matches!(editor.selection(), Selection::Subtree(id) if id == hit.node) {
+        let x = if editor.scope_direction() == Direction::Left {
+            hit.rect.left()
+        } else {
+            hit.rect.right()
+        };
+        return Rect::from_min_max(pos2(x, hit.rect.top()), pos2(x + 1., hit.rect.bottom()));
+    }
+    if let Some(range) = editor.caret().value_range {
+        return text_caret_rect(hit, range.focus);
+    }
+    if let Some(galley) = &hit.atom {
+        return text_caret_rect(
+            hit,
+            if editor.caret().caret_side == Direction::Left {
+                0
+            } else {
+                galley.text().encode_utf16().count()
+            },
+        );
+    }
+    let x = if editor.caret().caret_side == Direction::Left {
+        hit.rect.left()
+    } else {
+        hit.rect.right()
+    };
+    Rect::from_min_max(pos2(x, hit.rect.top()), pos2(x + 1., hit.rect.bottom()))
+}
+
+fn move_vertical(editor: &mut Editor, hits: &[HitNode], down: bool) {
+    let Some(here) = hits.iter().find(|h| h.node == editor.caret().node) else {
+        return;
+    };
+    let caret = caret_rect(here, editor);
+    let mut leaves = Vec::new();
+    self::leaves(editor.arena(), editor.root(), &mut leaves);
+    let candidate = hits
+        .iter()
+        .filter(|h| {
+            h.node != here.node
+                && leaves.contains(&h.node)
+                && if down {
+                    h.rect.center().y > here.rect.center().y + 3.
+                } else {
+                    h.rect.center().y < here.rect.center().y - 3.
+                }
+        })
+        .min_by(|a, b| {
+            let score = |h: &HitNode| {
+                let dx = if caret.center().x < h.rect.left() {
+                    h.rect.left() - caret.center().x
+                } else if caret.center().x > h.rect.right() {
+                    caret.center().x - h.rect.right()
+                } else {
+                    0.
+                };
+                (h.rect.center().y - here.rect.center().y).abs() + dx * 2.
+            };
+            score(a).total_cmp(&score(b))
+        });
+    if let Some(hit) = candidate {
+        if hit.atom.is_some() {
+            let offset = hit_text_offset(hit, pos2(caret.center().x, hit.rect.center().y));
+            let _ = editor.place_text_caret(hit.node, offset);
+        } else {
+            let _ = editor.place_caret(hit.node, Direction::Right);
+        }
+    }
+}
+
+fn extend_text_selection(editor: &mut Editor, forward: bool) {
+    let node = editor.caret().node;
+    let Some(text) = atomic_text(editor, node) else {
+        return;
+    };
+    let range = editor.caret().value_range;
+    let offset = range.map_or_else(
+        || {
+            if editor.caret().caret_side == Direction::Left {
+                0
+            } else {
+                text.encode_utf16().count()
+            }
+        },
+        |r| r.focus,
+    );
+    let Some(byte) = byte_at_utf16(&text, offset) else {
+        return;
+    };
+    let next = if forward {
+        text[byte..]
+            .chars()
+            .next()
+            .map(|ch| offset + ch.len_utf16())
+    } else {
+        text[..byte]
+            .chars()
+            .next_back()
+            .map(|ch| offset - ch.len_utf16())
+    };
+    if let Some(focus) = next {
+        let _ = editor.place_text_selection(node, range.map_or(offset, |r| r.anchor), focus);
+    }
+}
+
 fn paint_box(painter: &Painter, layout: &FormulaBox, origin: Pos2) {
     for primitive in &layout.primitives {
         match primitive {
@@ -972,31 +1273,8 @@ fn paint_box(painter: &Painter, layout: &FormulaBox, origin: Pos2) {
 }
 
 fn paint_caret(painter: &Painter, hit: &HitNode, editor: &Editor) {
-    let caret = editor.caret();
-    let caret_rect = hit.atom.as_ref().map_or(hit.rect, |galley| {
-        Rect::from_min_size(hit.text_origin, galley.size())
-    });
-    let mut x = if caret.caret_side == Direction::Left {
-        caret_rect.left()
-    } else {
-        caret_rect.right()
-    };
-    if let Some(galley) = &hit.atom
-        && let Some(range) = caret.value_range
-    {
-        let mut length = 0;
-        let index = galley
-            .text()
-            .chars()
-            .take_while(|ch| {
-                let take = length < range.focus;
-                length += ch.len_utf16();
-                take
-            })
-            .count();
-        let cursor = egui::text::CCursor::new(index);
-        x = hit.text_origin.x + galley.pos_from_cursor(cursor).left();
-    }
+    let caret_rect = caret_rect(hit, editor);
+    let x = caret_rect.left();
     painter.line_segment(
         [pos2(x, caret_rect.top()), pos2(x, caret_rect.bottom())],
         Stroke::new(1.5, CARET),
@@ -1141,7 +1419,12 @@ fn input_text_operations(editor: &mut Editor, text: &str) -> InputOutcome {
             }
             '\r' | '\n' | '\t' => {}
             ch if !ch.is_control() => {
-                if editor.selection() != Selection::None {
+                if editor.selection() != Selection::None
+                    || editor
+                        .caret()
+                        .value_range
+                        .is_some_and(|r| r.anchor != r.focus)
+                {
                     changed |= insert_character(editor, ch);
                     continue;
                 }
@@ -1244,6 +1527,17 @@ fn process_equals(editor: &mut Editor) -> InputOutcome {
 const TREE_CLIPBOARD_PREFIX: &str = "mathcraft-tree:";
 
 fn copy_tree(editor: &Editor) -> Option<String> {
+    if editor.selection() == Selection::None
+        && let Some(range) = editor.caret().value_range
+        && range.anchor != range.focus
+    {
+        let text = atomic_text(editor, editor.caret().node)?;
+        return Some(
+            text[byte_at_utf16(&text, range.anchor.min(range.focus))?
+                ..byte_at_utf16(&text, range.anchor.max(range.focus))?]
+                .to_owned(),
+        );
+    }
     let target = match editor.selection() {
         Selection::None => editor.caret().node,
         Selection::Subtree(id) => id,
@@ -1391,6 +1685,20 @@ fn insert_character(editor: &mut Editor, ch: char) -> bool {
     if replace {
         text.clear();
     }
+    let offset = if !replace
+        && let Some(range) = editor.caret().value_range
+        && range.anchor != range.focus
+    {
+        let start = range.anchor.min(range.focus);
+        let end = range.anchor.max(range.focus);
+        let (Some(a), Some(b)) = (byte_at_utf16(&text, start), byte_at_utf16(&text, end)) else {
+            return false;
+        };
+        text.replace_range(a..b, "");
+        start
+    } else {
+        offset
+    };
     let Some(byte) = byte_at_utf16(&text, offset) else {
         return false;
     };
@@ -1414,6 +1722,22 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
     let Some(mut text) = atomic_text(editor, target) else {
         return editor.delete_structure(backwards);
     };
+    if let Some(range) = editor.caret().value_range
+        && range.anchor != range.focus
+    {
+        let start = range.anchor.min(range.focus);
+        let end = range.anchor.max(range.focus);
+        let (Some(a), Some(b)) = (byte_at_utf16(&text, start), byte_at_utf16(&text, end)) else {
+            return false;
+        };
+        text.replace_range(a..b, "");
+        let kind = edited_text_kind(editor, target, text);
+        if editor.set_atom(target, kind).is_err() {
+            return false;
+        }
+        let _ = editor.place_text_caret(target, start);
+        return true;
+    }
     if editor.selection() == Selection::Subtree(target) {
         let kind = edited_text_kind(editor, target, String::new());
         return editor.set_atom(target, kind).is_ok();
@@ -1450,6 +1774,52 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
     }
     let _ = editor.place_text_caret(target, next_offset);
     true
+}
+
+fn delete_surrounding(editor: &mut Editor, before: usize, after: usize) -> bool {
+    if editor.selection() != Selection::None {
+        return false;
+    }
+    let node = editor.caret().node;
+    let Some(text) = atomic_text(editor, node) else {
+        return false;
+    };
+    let focus = editor.caret().value_range.map_or_else(
+        || {
+            if editor.caret().caret_side == Direction::Left {
+                0
+            } else {
+                text.encode_utf16().count()
+            }
+        },
+        |r| r.focus,
+    );
+    let anchor = editor.caret().value_range.map_or(focus, |r| r.anchor);
+    let (Some(a), Some(b)) = (
+        byte_at_utf16(&text, anchor.min(focus)),
+        byte_at_utf16(&text, anchor.max(focus)),
+    ) else {
+        return false;
+    };
+    let chars: Vec<_> = text.chars().collect();
+    let start = text[..a].chars().count().saturating_sub(before);
+    let end = text[..b]
+        .chars()
+        .count()
+        .saturating_add(after)
+        .min(chars.len());
+    if start == end {
+        return false;
+    }
+    let start_utf16 = chars[..start].iter().map(|ch| ch.len_utf16()).sum();
+    let end_utf16 = chars[..end].iter().map(|ch| ch.len_utf16()).sum();
+    if editor
+        .place_text_selection(node, start_utf16, end_utf16)
+        .is_err()
+    {
+        return false;
+    }
+    delete_character(editor, true)
 }
 
 fn leaves(arena: &Arena, node: NodeId, out: &mut Vec<NodeId>) {
@@ -1501,6 +1871,17 @@ fn atom_extreme(editor: &mut Editor, end: bool) {
 }
 
 fn move_horizontal(editor: &mut Editor, forward: bool) {
+    if let Some(range) = editor.caret().value_range
+        && range.anchor != range.focus
+    {
+        let offset = if forward {
+            range.anchor.max(range.focus)
+        } else {
+            range.anchor.min(range.focus)
+        };
+        let _ = editor.place_text_caret(editor.caret().node, offset);
+        return;
+    }
     if let Selection::Subtree(node) = editor.selection() {
         let _ = editor.place_caret(
             node,
@@ -1611,6 +1992,179 @@ fn move_horizontal(editor: &mut Editor, forward: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf16_selection_replaces_copies_and_deletes_without_splitting_unicode() {
+        let mut editor = Editor::new();
+        input_text(&mut editor, "a😀bc");
+        let id = editor.root();
+        editor.place_text_caret(id, 5).unwrap();
+        for _ in 0..3 {
+            extend_text_selection(&mut editor, false);
+        }
+        assert_eq!(copy_tree(&editor).as_deref(), Some("😀bc"));
+        assert!(input_text(&mut editor, "한"));
+        assert_eq!(atomic_text(&editor, id).as_deref(), Some("a한"));
+        assert!(editor.undo());
+        assert_eq!(editor.caret().value_range.unwrap().focus, 1);
+        assert!(delete_character(&mut editor, false));
+        assert_eq!(atomic_text(&editor, id).as_deref(), Some("a"));
+        assert!(editor.undo());
+        move_horizontal(&mut editor, true);
+        assert_eq!(editor.caret().value_range.unwrap().focus, 5);
+        assert_eq!(editor.caret().value_range.unwrap().anchor, 5);
+    }
+
+    #[test]
+    fn pointer_drag_selects_text_without_editing_the_expression() {
+        let context = egui::Context::default();
+        let mut editor = typed_one_character_at_a_time("hello");
+        let before = editor.to_portable().unwrap();
+        let mut points = [Pos2::ZERO; 2];
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let response = formula_ui(ui, &mut editor);
+            let layout = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+            let mut hits = vec![];
+            collect_hits(
+                &layout,
+                response.rect.min + vec2(PADDING, PADDING),
+                &mut hits,
+            );
+            let atom = &hits[0];
+            for (i, offset) in [1, 4].into_iter().enumerate() {
+                points[i] = text_caret_rect(atom, offset).center();
+            }
+        });
+        output.drop_without_applying_deltas();
+        for events in [
+            vec![
+                egui::Event::PointerMoved(points[0]),
+                egui::Event::PointerButton {
+                    pos: points[0],
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            vec![egui::Event::PointerMoved(points[1])],
+            vec![egui::Event::PointerButton {
+                pos: points[1],
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        ] {
+            let output = context.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    assert!(!formula_ui(ui, &mut editor).changed());
+                },
+            );
+            output.drop_without_applying_deltas();
+        }
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(copy_tree(&editor).as_deref(), Some("ell"));
+    }
+
+    #[test]
+    fn vertical_navigation_follows_fraction_and_matrix_geometry() {
+        let context = egui::Context::default();
+        let mut fraction = typed_one_character_at_a_time("12/34");
+        let root = fraction.root();
+        let children = fraction.arena().get(root).unwrap().children().to_vec();
+        let mut matrix = typed_one_character_at_a_time("[1,2;3,4]");
+        let matrix_root = matrix.root();
+        let cells = matrix.arena().get(matrix_root).unwrap().children().to_vec();
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure(ui.painter(), fraction.arena(), root, FONT_SIZE);
+            let mut hits = vec![];
+            collect_hits(&layout, pos2(0., 0.), &mut hits);
+            move_vertical(&mut fraction, &hits, false);
+            assert_eq!(fraction.caret().node, children[0]);
+            move_vertical(&mut fraction, &hits, true);
+            assert_eq!(fraction.caret().node, children[1]);
+            let layout = measure(ui.painter(), matrix.arena(), matrix_root, FONT_SIZE);
+            hits.clear();
+            collect_hits(&layout, pos2(0., 0.), &mut hits);
+            matrix.place_text_caret(cells[0], 1).unwrap();
+            move_vertical(&mut matrix, &hits, true);
+            assert_eq!(matrix.caret().node, cells[2]);
+            move_vertical(&mut matrix, &hits, false);
+            assert_eq!(matrix.caret().node, cells[0]);
+        });
+        output.drop_without_applying_deltas();
+    }
+
+    #[test]
+    fn ime_surrounding_deletion_stays_inside_the_current_identifier() {
+        let mut editor = typed_one_character_at_a_time("7+abc");
+        let before = editor.to_portable().unwrap();
+        let root = editor.root();
+        let left = editor.arena().get(root).unwrap().children()[0];
+        assert!(delete_surrounding(&mut editor, usize::MAX, usize::MAX));
+        assert_eq!(
+            editor.arena().get(left).unwrap().kind(),
+            &NodeKind::Number("7".into())
+        );
+        assert_eq!(editor.root(), root);
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+
+    #[test]
+    fn ime_preedit_is_transient_and_commit_is_one_undo_command() {
+        let context = egui::Context::default();
+        let mut editor = typed_one_character_at_a_time("x");
+        let before = editor.to_portable().unwrap();
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            formula_ui_with_focus(ui, &mut editor, None, true);
+        });
+        output.drop_without_applying_deltas();
+        let output = context.run_ui(
+            egui::RawInput {
+                events: vec![egui::Event::Ime(egui::ImeEvent::Preedit {
+                    text: "한".into(),
+                    active_range_chars: Some(0..1),
+                })],
+                ..Default::default()
+            },
+            |ui| {
+                assert!(!formula_ui(ui, &mut editor).changed());
+            },
+        );
+        assert!(output.platform_output.ime.is_some());
+        output.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+        let output = context.run_ui(
+            egui::RawInput {
+                events: vec![
+                    egui::Event::Ime(egui::ImeEvent::Commit("한글".into())),
+                    egui::Event::Key {
+                        key: Key::Enter,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+                ..Default::default()
+            },
+            |ui| {
+                assert!(formula_ui(ui, &mut editor).changed());
+                assert!(!ui.input(|i| i.key_pressed(Key::Enter)));
+            },
+        );
+        output.drop_without_applying_deltas();
+        assert_eq!(
+            atomic_text(&editor, editor.root()).as_deref(),
+            Some("x한글")
+        );
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
 
     #[test]
     fn text_input_edits_ast_operands_and_keeps_unicode_boundaries() {

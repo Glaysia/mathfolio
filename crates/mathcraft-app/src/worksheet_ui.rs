@@ -16,6 +16,24 @@ use std::{
 const BLUE: Color32 = Color32::from_rgb(25, 88, 170);
 const RED: Color32 = Color32::from_rgb(175, 40, 45);
 
+struct HistoryEntry {
+    document: CanvasDocument,
+    selected: Option<u64>,
+    insertion: Option<(f64, f64)>,
+    editing_region: Option<u64>,
+    active_editor: Option<(u64, Editor)>,
+    text_cursor: Option<(u64, egui::text::CCursorRange)>,
+}
+
+#[derive(Clone, Copy)]
+enum RegionAction {
+    Edit,
+    Copy,
+    Cut,
+    Duplicate,
+    Delete,
+}
+
 enum Pending {
     New,
     Open(PathBuf),
@@ -24,6 +42,7 @@ enum Pending {
 pub struct WorksheetApp {
     document: CanvasDocument,
     editors: HashMap<u64, Editor>,
+    text_cursors: HashMap<u64, egui::text::CCursorRange>,
     results: HashMap<u64, RegionEvaluation>,
     calculation_error: Option<String>,
     path: Option<PathBuf>,
@@ -34,8 +53,8 @@ pub struct WorksheetApp {
     insertion: Option<(f64, f64)>,
     text_mode: bool,
     focus_new: Option<u64>,
-    undo: Vec<CanvasDocument>,
-    redo: Vec<CanvasDocument>,
+    undo: Vec<HistoryEntry>,
+    redo: Vec<HistoryEntry>,
     dragging: Option<(u64, f64, f64)>,
     pending: Option<Pending>,
     closing: bool,
@@ -44,6 +63,10 @@ pub struct WorksheetApp {
     frames: usize,
     capture_sent: bool,
     zoom: f32,
+    show_grid: bool,
+    show_shortcuts: bool,
+    reveal: Option<(f64, f64)>,
+    menu_resume: Option<u64>,
     last_title: String,
 }
 impl Default for WorksheetApp {
@@ -51,10 +74,11 @@ impl Default for WorksheetApp {
         Self {
             document: CanvasDocument::default(),
             editors: HashMap::new(),
+            text_cursors: HashMap::new(),
             results: HashMap::new(),
             calculation_error: None,
             path: None,
-            status: "Click the page and type. : define · = evaluate · / fraction · ^ power".into(),
+            status: String::new(),
             dirty: false,
             selected: None,
             editing_region: None,
@@ -71,24 +95,41 @@ impl Default for WorksheetApp {
             frames: 0,
             capture_sent: false,
             zoom: 1.,
+            show_grid: false,
+            show_shortcuts: false,
+            reveal: None,
+            menu_resume: None,
             last_title: String::new(),
         }
     }
 }
 impl WorksheetApp {
-    fn snapshot(&self) -> CanvasDocument {
-        CanvasDocument {
-            version: self.document.version,
-            title: self.document.title.clone(),
-            width: self.document.width,
-            height: self.document.height,
-            grid: self.document.grid,
-            next_id: self.document.next_id,
-            regions: self.document.regions.clone(),
-            native_archive: None,
+    fn snapshot(&self) -> HistoryEntry {
+        HistoryEntry {
+            text_cursor: self
+                .selected
+                .and_then(|id| self.text_cursors.get(&id).map(|range| (id, *range))),
+            selected: self.selected,
+            insertion: self.insertion,
+            editing_region: self.editing_region,
+            active_editor: self.selected.and_then(|id| {
+                self.editors
+                    .get(&id)
+                    .map(|e| (id, e.clone_without_history()))
+            }),
+            document: CanvasDocument {
+                version: self.document.version,
+                title: self.document.title.clone(),
+                width: self.document.width,
+                height: self.document.height,
+                grid: self.document.grid,
+                next_id: self.document.next_id,
+                regions: self.document.regions.clone(),
+                native_archive: None,
+            },
         }
     }
-    fn remember(&mut self, before: CanvasDocument) {
+    fn remember(&mut self, before: HistoryEntry) {
         if self.undo.len() >= 50 {
             self.undo.remove(0);
         }
@@ -96,12 +137,26 @@ impl WorksheetApp {
         self.redo.clear();
         self.dirty = true;
     }
-    fn restore(&mut self, mut doc: CanvasDocument) {
-        doc.native_archive = self.document.native_archive.take();
-        self.document = doc;
+    fn restore(&mut self, mut state: HistoryEntry) {
+        state.document.native_archive = self.document.native_archive.take();
+        self.document = state.document;
         self.editors.clear();
-        self.selected = None;
-        self.editing_region = None;
+        self.text_cursors.clear();
+        if let Some((id, cursor)) = state.text_cursor {
+            self.text_cursors.insert(id, cursor);
+        }
+        self.selected = state
+            .selected
+            .filter(|id| self.document.regions.iter().any(|r| r.id == *id));
+        self.insertion = state.insertion;
+        self.editing_region = state.editing_region.filter(|id| Some(*id) == self.selected);
+        self.focus_new = self.editing_region;
+        self.dragging = None;
+        if let Some((id, editor)) = state.active_editor
+            && self.document.regions.iter().any(|r| r.id == id)
+        {
+            self.editors.insert(id, editor);
+        }
         self.dirty = true;
         self.recalculate();
     }
@@ -127,7 +182,9 @@ impl WorksheetApp {
     fn apply(&mut self, action: Pending) {
         match action {
             Pending::New => {
+                let view = (self.zoom, self.show_grid);
                 *self = Self::default();
+                (self.zoom, self.show_grid) = view;
             }
             Pending::Open(path) => self.open(&path),
             Pending::Close => self.closing = true,
@@ -146,11 +203,15 @@ impl WorksheetApp {
             Ok(document) => {
                 self.document = document;
                 self.editors.clear();
+                self.text_cursors.clear();
                 self.undo.clear();
                 self.redo.clear();
                 self.results.clear();
                 self.dirty = false;
                 self.selected = None;
+                self.editing_region = None;
+                self.focus_new = None;
+                self.dragging = None;
                 self.insertion = None;
                 self.path = if path
                     .extension()
@@ -179,6 +240,7 @@ impl WorksheetApp {
         Ok(())
     }
     fn save(&mut self, save_as: bool) -> bool {
+        self.focus_new = self.editing_region.or(self.focus_new);
         if let Err(e) = self.sync_editors() {
             self.status = format!("Could not save: {e}");
             return false;
@@ -312,14 +374,17 @@ impl WorksheetApp {
         self.remember(before);
         self.selected = Some(id);
         self.focus_new = Some(id);
+        self.reveal = Some(position);
         self.insertion = None;
         id
     }
     fn remove_selected(&mut self) {
-        if let Some(id) = self.selected.take() {
+        if let Some(id) = self.selected {
             let before = self.snapshot();
+            self.selected = None;
             self.document.regions.retain(|r| r.id != id);
             self.editors.remove(&id);
+            self.text_cursors.remove(&id);
             self.editing_region = None;
             self.remember(before);
             self.recalculate();
@@ -465,7 +530,26 @@ impl WorksheetApp {
                 .map(|(id, _)| id.index())
                 .max()
                 .unwrap_or(0);
-            if let Err(error) = editor.replace_selection(&tree) {
+            let inserted = match tree.kind {
+                NodeKind::Fraction => {
+                    editor.insert_fraction();
+                    Ok(())
+                }
+                NodeKind::Power => {
+                    editor.insert_power();
+                    Ok(())
+                }
+                NodeKind::Root => {
+                    editor.insert_root();
+                    Ok(())
+                }
+                NodeKind::Absolute => {
+                    editor.insert_absolute();
+                    Ok(())
+                }
+                _ => editor.replace_selection(&tree).map(|_| ()),
+            };
+            if let Err(error) = inserted {
                 self.status = format!("Could not insert: {error}");
                 return;
             }
@@ -494,21 +578,21 @@ impl WorksheetApp {
         };
         for (label, tree) in [
             (
-                "Fraction",
+                "분수        /",
                 PortableTree {
                     kind: NodeKind::Fraction,
                     children: vec![p(), p()],
                 },
             ),
             (
-                "Power",
+                "거듭제곱    ^",
                 PortableTree {
                     kind: NodeKind::Power,
                     children: vec![p(), p()],
                 },
             ),
             (
-                "Square root",
+                "제곱근      √",
                 PortableTree {
                     kind: NodeKind::Root,
                     children: vec![
@@ -521,42 +605,42 @@ impl WorksheetApp {
                 },
             ),
             (
-                "Absolute value",
+                "절댓값      |",
                 PortableTree {
                     kind: NodeKind::Absolute,
                     children: vec![p()],
                 },
             ),
             (
-                "2 × 2 matrix",
+                "2 × 2 행렬",
                 PortableTree {
                     kind: NodeKind::Matrix { rows: 2, cols: 2 },
                     children: vec![p(), p(), p(), p()],
                 },
             ),
             (
-                "3-element vector",
+                "3원소 벡터",
                 PortableTree {
                     kind: NodeKind::Matrix { rows: 3, cols: 1 },
                     children: vec![p(), p(), p()],
                 },
             ),
             (
-                "Array index",
+                "배열 인덱스 [",
                 PortableTree {
                     kind: NodeKind::Index { indices: 1 },
                     children: vec![p(), p()],
                 },
             ),
             (
-                "Range",
+                "범위        ..",
                 PortableTree {
                     kind: NodeKind::Range { has_step: false },
                     children: vec![p(), p()],
                 },
             ),
             (
-                "Imaginary unit",
+                "허수 단위",
                 PortableTree {
                     kind: NodeKind::Imaginary("1".into()),
                     children: vec![],
@@ -585,8 +669,465 @@ impl WorksheetApp {
             }
         }
     }
-    fn page_ui(&mut self, ui: &mut egui::Ui) {
-        let before = self.snapshot();
+    fn choose_open(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("Worksheets", &["mathcraft", "mcdx"])
+            .pick_file()
+        {
+            self.request(Pending::Open(path));
+        }
+    }
+    fn begin_region(&mut self, text: bool) {
+        let position = self.insertion.unwrap_or_else(|| {
+            self.selected
+                .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+                .map(|r| (r.left, r.top + self.document.grid * 5.))
+                .unwrap_or((self.document.grid * 2., self.document.grid * 2.))
+        });
+        self.text_mode = text;
+        self.insert(position, text);
+        // Text insertion is a command; clicking elsewhere resumes math writing.
+        self.text_mode = false;
+    }
+    fn chrome_ui(&mut self, ui: &mut egui::Ui) {
+        let editing_before = self.editing_region;
+        if self.editing_region.is_none() && self.focus_new.is_none()
+            && (self.selected.is_some() || self.insertion.is_some())
+            && self.menu_resume.is_none() && !ui.ctx().any_popup_open()
+            && ui.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Key {
+                key: egui::Key::Tab | egui::Key::ArrowLeft | egui::Key::ArrowRight | egui::Key::ArrowUp | egui::Key::ArrowDown,
+                pressed: true, modifiers, ..
+            } if !modifiers.command && !modifiers.alt)))
+        {
+            // Suppress automatic widget focus traversal for page-owned navigation,
+            // including the first frame after switching out of formula editing.
+            ui.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
+        }
+        egui::Panel::top("worksheet-toolbar").show(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
+                ui.label(egui::RichText::new("Mathcraft").strong().color(BLUE));
+                ui.add_space(8.);
+                ui.menu_button("파일", |ui| {
+                    if ui
+                        .add(egui::Button::new("새 워크시트").shortcut_text("Ctrl+N"))
+                        .clicked()
+                    {
+                        self.request(Pending::New);
+                        ui.close();
+                    }
+                    if ui
+                        .add(egui::Button::new("열기…").shortcut_text("Ctrl+O"))
+                        .clicked()
+                    {
+                        self.choose_open();
+                        ui.close();
+                    }
+                    ui.separator();
+                    if ui
+                        .add(egui::Button::new("저장").shortcut_text("Ctrl+S"))
+                        .clicked()
+                    {
+                        self.save(false);
+                        ui.close();
+                    }
+                    if ui
+                        .add(egui::Button::new("다른 이름으로 저장…").shortcut_text("Ctrl+Shift+S"))
+                        .clicked()
+                    {
+                        self.save(true);
+                        ui.close();
+                    }
+                    if ui.button("Mathcad 문서로 내보내기…").clicked() {
+                        self.export_mcdx();
+                        ui.close();
+                    }
+                });
+                ui.menu_button("편집", |ui| {
+                    if ui
+                        .add_enabled(
+                            !self.undo.is_empty(),
+                            egui::Button::new("실행 취소").shortcut_text("Ctrl+Z"),
+                        )
+                        .clicked()
+                    {
+                        self.undo();
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(
+                            !self.redo.is_empty(),
+                            egui::Button::new("다시 실행").shortcut_text("Ctrl+Y"),
+                        )
+                        .clicked()
+                    {
+                        self.redo();
+                        ui.close();
+                    }
+                    ui.separator();
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("영역 복제"))
+                        .clicked()
+                    {
+                        self.duplicate_selected();
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("영역 삭제"))
+                        .clicked()
+                    {
+                        self.remove_selected();
+                        ui.close();
+                    }
+                });
+                ui.menu_button("삽입", |ui| {
+                    if ui
+                        .add(egui::Button::new("수식 영역").shortcut_text("Ctrl+Shift+M"))
+                        .clicked()
+                    {
+                        self.begin_region(false);
+                        ui.close();
+                    }
+                    if ui
+                        .add(egui::Button::new("텍스트 영역").shortcut_text("Ctrl+T"))
+                        .clicked()
+                    {
+                        self.begin_region(true);
+                        ui.close();
+                    }
+                    ui.separator();
+                    self.insert_menu(ui);
+                });
+                ui.menu_button("보기", |ui| {
+                    ui.checkbox(&mut self.show_grid, "격자 점 표시");
+                    if ui.button("실제 크기 · 100%").clicked() {
+                        self.zoom = 1.;
+                        ui.close();
+                    }
+                    if ui.button("페이지 너비에 맞춤").clicked() {
+                        self.fit_width(ui.ctx());
+                        ui.close();
+                    }
+                });
+                if ui.button("단축키").on_hover_text("F1").clicked() {
+                    self.show_shortcuts = !self.show_shortcuts;
+                }
+            });
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui
+                    .button("저장")
+                    .on_hover_text("워크시트 저장 · Ctrl+S")
+                    .clicked()
+                {
+                    self.save(false);
+                }
+                ui.separator();
+                if ui
+                    .add_enabled(!self.undo.is_empty(), egui::Button::new("↶"))
+                    .on_hover_text("실행 취소 · Ctrl+Z")
+                    .clicked()
+                {
+                    self.undo();
+                }
+                if ui
+                    .add_enabled(!self.redo.is_empty(), egui::Button::new("↷"))
+                    .on_hover_text("다시 실행 · Ctrl+Y")
+                    .clicked()
+                {
+                    self.redo();
+                }
+                ui.separator();
+                if ui
+                    .button("수식")
+                    .on_hover_text("새 수식 영역 · Ctrl+Shift+M")
+                    .clicked()
+                {
+                    self.begin_region(false);
+                }
+                if ui
+                    .button("텍스트")
+                    .on_hover_text("새 텍스트 영역 · Ctrl+T")
+                    .clicked()
+                {
+                    self.begin_region(true);
+                }
+                ui.menu_button("수식 도구 ▾", |ui| self.insert_menu(ui));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .button("다시 계산")
+                        .on_hover_text("워크시트 전체 다시 계산 · F9")
+                        .clicked()
+                    {
+                        self.recalculate();
+                        self.focus_new = self.editing_region;
+                    }
+                });
+            });
+        });
+        let hint = if self.status.is_empty() {
+            self.context_hint().to_string()
+        } else {
+            self.status.clone()
+        };
+        let errors = self.results.values().filter(|r| r.error.is_some()).count();
+        let calculation_error = self.calculation_error.clone();
+        let dirty = self.dirty;
+        egui::Panel::bottom("worksheet-status").exact_size(34.)
+            .frame(egui::Frame::new().fill(Color32::from_rgb(248, 249, 251)).inner_margin(egui::Margin::symmetric(10, 3)))
+            .show(ui, |ui| {
+                egui::containers::Sides::new().shrink_left().truncate().show(ui,
+                    |ui| {
+                        if let Some(error) = &calculation_error {
+                            ui.colored_label(RED, "계산을 완료하지 못했습니다").on_hover_text(error);
+                        } else if errors > 0 {
+                            ui.colored_label(RED, format!("오류 {errors}개")).on_hover_text("수식의 오류 표시에 마우스를 올리면 상세 내용을 볼 수 있습니다.");
+                        } else { ui.small(if dirty { "변경됨" } else { "준비" }); }
+                        ui.separator();
+                        ui.add(egui::Label::new(&hint).truncate()).on_hover_text(&hint);
+                    },
+                    |ui| {
+                        egui::ComboBox::from_id_salt("worksheet-zoom").width(68.)
+                            .selected_text(format!("{}%", (self.zoom * 100.).round()))
+                            .show_ui(ui, |ui| {
+                                for zoom in [0.5, 0.75, 1., 1.25, 1.5, 2.] {
+                                    ui.selectable_value(&mut self.zoom, zoom, format!("{}%", (zoom * 100.) as i32));
+                                }
+                                if ui.button("너비 맞춤").clicked() { self.fit_width(ui.ctx()); ui.close(); }
+                            });
+                        if ui.selectable_label(self.show_grid, "격자").on_hover_text("배치 격자 점 표시 / 숨기기").clicked() { self.show_grid = !self.show_grid; }
+                        ui.small(format!("{}개 영역", self.document.regions.len()));
+                    });
+            });
+        if ui.ctx().any_popup_open() {
+            self.menu_resume = self.menu_resume.or(editing_before);
+        } else if let Some(id) = self.menu_resume.take()
+            && self.selected == Some(id)
+            && self.insertion.is_none()
+            && self.focus_new.is_none()
+        {
+            self.focus_new = Some(id);
+            ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+        }
+    }
+    fn context_hint(&self) -> &'static str {
+        if self.editing_region.is_some() {
+            if self
+                .selected
+                .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+                .is_some_and(|r| matches!(r.content, CanvasContent::Text(_)))
+            {
+                "텍스트 편집 · Esc 선택으로 돌아가기"
+            } else {
+                "수식 편집 · Space 범위 선택 · Enter 다음 영역"
+            }
+        } else if self.selected.is_some() {
+            "방향키 이동 · Enter 편집 · Delete 삭제 · 우클릭 메뉴"
+        } else if self.insertion.is_some() {
+            if self.text_mode {
+                "텍스트 입력 · Ctrl+Shift+M 수식"
+            } else {
+                "수식 입력 · : 정의 · = 계산 · Ctrl+T 텍스트"
+            }
+        } else {
+            "클릭 후 입력 · Ctrl+T 텍스트 · F1 단축키"
+        }
+    }
+    fn fit_width(&mut self, ctx: &egui::Context) {
+        self.zoom =
+            ((ctx.content_rect().width() - 64.) / self.document.width as f32).clamp(0.5, 2.);
+    }
+    fn global_editing_shortcuts(&mut self, ctx: &egui::Context) {
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F1)) {
+            self.show_shortcuts = !self.show_shortcuts;
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F9)) {
+            self.recalculate();
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::T)) {
+            self.begin_region(true);
+        }
+        if ctx.input_mut(|i| {
+            i.consume_key(
+                egui::Modifiers {
+                    shift: true,
+                    ..egui::Modifiers::COMMAND
+                },
+                egui::Key::M,
+            )
+        }) {
+            self.begin_region(false);
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Num0)) {
+            self.zoom = 1.;
+        }
+        if ctx.input_mut(|i| {
+            i.consume_key(egui::Modifiers::COMMAND, egui::Key::Plus)
+                || i.consume_key(egui::Modifiers::COMMAND, egui::Key::Equals)
+        }) {
+            self.zoom = (self.zoom * 1.1).min(2.);
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Minus)) {
+            self.zoom = (self.zoom / 1.1).max(0.5);
+        }
+    }
+    fn region_keyboard(&mut self, ui: &mut egui::Ui, previous_editing: Option<u64>) {
+        if self.pending.is_some() || ui.ctx().any_popup_open() {
+            return;
+        }
+        let escape = ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+        let toggle = ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+        if escape || (toggle && self.editing_region.is_some()) {
+            // egui can release focus for Escape before this widget is visited.
+            // Preserve the region selection for the first Escape in either case.
+            if self
+                .editing_region
+                .take()
+                .or(previous_editing.filter(|id| Some(*id) == self.selected))
+                .is_none()
+            {
+                self.insertion = self
+                    .selected
+                    .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+                    .map(|r| (r.left, r.top));
+                self.selected = None;
+            }
+            self.focus_new = None;
+            ui.memory_mut(|m| {
+                if let Some(id) = m.focused() {
+                    m.surrender_focus(id);
+                }
+            });
+            return;
+        }
+        if self.editing_region.is_some() {
+            return;
+        }
+        if (toggle || ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)))
+            && self.selected.is_some()
+        {
+            self.focus_new = self.selected;
+            ui.ctx().request_repaint();
+            return;
+        }
+        let direction = ui.input_mut(|i| {
+            for (key, x, y) in [
+                (egui::Key::ArrowLeft, -1., 0.),
+                (egui::Key::ArrowRight, 1., 0.),
+                (egui::Key::ArrowUp, 0., -1.),
+                (egui::Key::ArrowDown, 0., 1.),
+            ] {
+                if i.consume_key(
+                    egui::Modifiers {
+                        shift: true,
+                        ..egui::Modifiers::NONE
+                    },
+                    key,
+                ) {
+                    return Some((x * 5., y * 5.));
+                }
+                if i.consume_key(egui::Modifiers::NONE, key) {
+                    return Some((x, y));
+                }
+            }
+            None
+        });
+        if let Some((x, y)) = direction {
+            self.nudge(x, y);
+        }
+        let tab = ui.input_mut(|i| {
+            if i.consume_key(
+                egui::Modifiers {
+                    shift: true,
+                    ..egui::Modifiers::NONE
+                },
+                egui::Key::Tab,
+            ) {
+                Some(false)
+            } else if i.consume_key(egui::Modifiers::NONE, egui::Key::Tab) {
+                Some(true)
+            } else {
+                None
+            }
+        });
+        if let Some(forward) = tab {
+            let mut regions: Vec<_> = self.document.regions.iter().collect();
+            regions.sort_by(|a, b| {
+                a.top
+                    .total_cmp(&b.top)
+                    .then(a.left.total_cmp(&b.left))
+                    .then(a.id.cmp(&b.id))
+            });
+            if !regions.is_empty() {
+                let here = regions.iter().position(|r| Some(r.id) == self.selected);
+                let next = match (here, forward) {
+                    (Some(i), true) => (i + 1) % regions.len(),
+                    (Some(i), false) => (i + regions.len() - 1) % regions.len(),
+                    (None, true) => 0,
+                    (None, false) => regions.len() - 1,
+                };
+                self.selected = Some(regions[next].id);
+                self.insertion = None;
+                self.reveal = Some((regions[next].left, regions[next].top));
+            }
+        }
+    }
+    fn nudge(&mut self, x: f64, y: f64) {
+        let step = self.document.grid;
+        if let Some(region) = self
+            .selected
+            .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+        {
+            let id = region.id;
+            let left = (region.left + x * step).clamp(0., (self.document.width - step).max(0.));
+            let top = (region.top + y * step).max(0.);
+            if region.left == left && region.top == top {
+                return;
+            }
+            let before = self.snapshot();
+            if self.document.move_region(id, left, top).is_ok() {
+                self.remember(before);
+                self.recalculate();
+                self.reveal = Some((left, top));
+            }
+        } else if let Some((left, top)) = self.insertion {
+            self.insertion = Some((
+                (left + x * step).clamp(0., (self.document.width - step).max(0.)),
+                (top + y * step).max(0.),
+            ));
+            self.reveal = self.insertion;
+        }
+    }
+    fn shortcuts_ui(&mut self, ctx: &egui::Context) {
+        if self.show_shortcuts {
+            egui::Window::new("키보드로 작성하기")
+                .open(&mut self.show_shortcuts)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    egui::Grid::new("shortcut-list")
+                        .spacing(vec2(24., 10.))
+                        .show(ui, |ui| {
+                            for (key, action) in [
+                                (": / =", "정의 / 계산"),
+                                ("/ · ^ · √", "분수 · 거듭제곱 · 제곱근"),
+                                ("Space", "부분식 선택 범위 확장"),
+                                ("Tab / Shift+Tab", "다음 / 이전 입력 칸"),
+                                ("↑ / ↓", "수식의 위 / 아래 입력 칸"),
+                                ("Shift+← / →", "문자 범위 선택"),
+                                ("Enter / Esc", "다음 수식 / 영역 선택"),
+                                ("Ctrl+T", "텍스트 영역 삽입"),
+                                ("Ctrl+Z / Ctrl+Y", "실행 취소 / 다시 실행"),
+                                ("Ctrl++ / Ctrl+− / Ctrl+0", "종이 확대 / 축소 / 100%"),
+                                ("F9", "워크시트 다시 계산"),
+                            ] {
+                                ui.label(egui::RichText::new(key).strong());
+                                ui.label(action);
+                                ui.end_row();
+                            }
+                        });
+                });
+        }
+    }
+    fn paper_size(&self) -> egui::Vec2 {
         let bottom = self
             .document
             .regions
@@ -594,28 +1135,81 @@ impl WorksheetApp {
             .map(|r| r.top as f32 + 180.)
             .fold(self.document.height as f32, f32::max);
         let pages = (bottom / self.document.height as f32).ceil().max(1.);
-        let (paper, background) = ui.allocate_exact_size(
-            vec2(
-                self.document.width as f32,
-                self.document.height as f32 * pages,
-            ),
-            Sense::click(),
-        );
+        vec2(
+            self.document.width as f32,
+            self.document.height as f32 * pages,
+        )
+    }
+    fn workspace_ui(&mut self, ui: &mut egui::Ui) {
+        if ui.rect_contains_pointer(ui.max_rect()) {
+            self.zoom = (self.zoom * ui.input(|i| i.zoom_delta())).clamp(0.5, 2.);
+        }
+        let available = ui.available_width();
+        egui::ScrollArea::both()
+            .id_salt("free-worksheet")
+            .show(ui, |ui| {
+                let size = self.paper_size();
+                let scaled = size * self.zoom;
+                let width = available.max(scaled.x + 48.);
+                let (bounds, _) =
+                    ui.allocate_exact_size(vec2(width, scaled.y + 48.), Sense::hover());
+                let origin = bounds.min + vec2(((width - scaled.x) / 2.).max(24.), 24.);
+                let paper_rect = Rect::from_min_size(origin, scaled);
+                ui.painter().rect_filled(
+                    paper_rect.translate(vec2(0., 3.)).expand(2.),
+                    2.,
+                    Color32::from_black_alpha(12),
+                );
+                let layer =
+                    egui::LayerId::new(ui.layer_id().order, egui::Id::new("worksheet-paper"));
+                let transform = egui::emath::TSTransform::from_translation(origin.to_vec2())
+                    * egui::emath::TSTransform::from_scaling(self.zoom);
+                ui.ctx().set_sublayer(ui.layer_id(), layer);
+                ui.ctx().set_transform_layer(layer, transform);
+                let mut page = ui.new_child(
+                    UiBuilder::new()
+                        .id_salt("paper-content")
+                        .layer_id(layer)
+                        .max_rect(Rect::from_min_size(egui::Pos2::ZERO, size))
+                        .layout(egui::Layout::top_down(egui::Align::Min)),
+                );
+                page.set_clip_rect(transform.inverse() * ui.clip_rect());
+                self.page_ui(&mut page);
+                if let Some((x, y)) = self.reveal.take() {
+                    let target = Rect::from_min_size(
+                        origin + vec2(x as f32, y as f32) * self.zoom,
+                        vec2(120., 80.) * self.zoom,
+                    );
+                    ui.scroll_to_rect(target, None);
+                }
+            });
+    }
+    fn page_ui(&mut self, ui: &mut egui::Ui) {
+        let before = self.snapshot();
+        let previous_editing = self.editing_region;
+        let size = self.paper_size();
+        let pages = size.y / self.document.height as f32;
+        let (paper, background) = ui.allocate_exact_size(size, Sense::click());
         ui.painter().rect_filled(paper, 0., Color32::WHITE);
+        ui.painter().rect_stroke(
+            paper,
+            0.,
+            Stroke::new(1., Color32::from_gray(215)),
+            egui::StrokeKind::Inside,
+        );
         let grid = (self.document.grid as f32).max(6.);
         let visible = paper.intersect(ui.clip_rect());
-        let line = Stroke::new(0.5, Color32::from_rgb(230, 235, 240));
-        let mut x = paper.left() + ((visible.left() - paper.left()) / grid).ceil() * grid;
-        while x < visible.right() {
-            ui.painter()
-                .line_segment([pos2(x, paper.top()), pos2(x, paper.bottom())], line);
-            x += grid;
-        }
-        let mut y = paper.top() + ((visible.top() - paper.top()) / grid).ceil() * grid;
-        while y < visible.bottom() {
-            ui.painter()
-                .line_segment([pos2(paper.left(), y), pos2(paper.right(), y)], line);
-            y += grid;
+        if self.show_grid {
+            let mut x = paper.left() + ((visible.left() - paper.left()) / grid).ceil() * grid;
+            while x < visible.right() {
+                let mut y = paper.top() + ((visible.top() - paper.top()) / grid).ceil() * grid;
+                while y < visible.bottom() {
+                    ui.painter()
+                        .circle_filled(pos2(x, y), 0.65, Color32::from_rgb(212, 221, 232));
+                    y += grid;
+                }
+                x += grid;
+            }
         }
         let first_page = ((visible.top() - paper.top()) / self.document.height as f32)
             .floor()
@@ -630,13 +1224,13 @@ impl WorksheetApp {
                 Stroke::new(2., Color32::from_gray(180)),
             );
         }
-        if self.document.regions.is_empty() {
+        if self.document.regions.is_empty() && self.insertion.is_none() {
             ui.painter().text(
                 paper.min + vec2(55., 50.),
                 egui::Align2::LEFT_TOP,
-                "Click anywhere to begin",
-                FontId::proportional(17.),
-                Color32::from_gray(145),
+                "원하는 위치를 클릭하고 수식을 쓰세요",
+                FontId::proportional(15.),
+                Color32::from_gray(160),
             );
         }
         let mut changed = false;
@@ -644,6 +1238,8 @@ impl WorksheetApp {
         let mut geometry_changed = false;
         let mut movement_started = false;
         let mut hit_region = false;
+        let mut context_selection = None;
+        let mut context_action = None;
         self.editing_region = None;
         for region in &mut self.document.regions {
             let origin = paper.min + vec2(region.left as f32, region.top as f32);
@@ -678,9 +1274,8 @@ impl WorksheetApp {
                     evaluation_requested |= outcome.evaluation_requested;
                     let response = outcome.response;
                     if response.changed() {
-                        match editor.to_portable() {
-                            Ok(value) => *tree = value,
-                            Err(e) => self.status = format!("Incomplete formula: {e:?}"),
+                        if let Ok(value) = editor.to_portable() {
+                            *tree = value;
                         }
                         changed = true;
                     }
@@ -689,21 +1284,37 @@ impl WorksheetApp {
                 CanvasContent::Text(text) => {
                     let text_id = egui::Id::new(("worksheet-text", id));
                     if self.focus_new == Some(id) {
+                        if let Some(range) = self.text_cursors.get(&id) {
+                            let mut state =
+                                egui::text_edit::TextEditState::load(child.ctx(), text_id)
+                                    .unwrap_or_default();
+                            state.cursor.set_char_range(Some(*range));
+                            state.store(child.ctx(), text_id);
+                        }
                         child.memory_mut(|m| m.request_focus(text_id));
                     }
-                    let response = child.add(
-                        egui::TextEdit::multiline(text)
-                            .id(text_id)
-                            .frame(egui::Frame::NONE)
-                            .desired_rows(1)
-                            .desired_width(340.)
-                            .char_limit(65536),
-                    );
+                    let output = egui::TextEdit::multiline(text)
+                        .id(text_id)
+                        .frame(egui::Frame::NONE)
+                        .desired_rows(1)
+                        .desired_width(340.)
+                        .hint_text("텍스트를 입력하세요")
+                        .font(FontId::proportional(16.))
+                        .char_limit(65536)
+                        .show(&mut child);
+                    if let Some(range) = output.cursor_range {
+                        self.text_cursors.insert(id, range);
+                    }
+                    let response = output.response.response;
                     changed |= response.changed();
                     response
                 }
-                CanvasContent::Opaque { kind, .. } => child.add(
-                    egui::Label::new(format!("[{kind} — not yet editable]")).sense(Sense::click()),
+                CanvasContent::Opaque { .. } => child.add(
+                    egui::Label::new(
+                        egui::RichText::new("가져온 영역 · 읽기 전용")
+                            .color(Color32::from_gray(130)),
+                    )
+                    .sense(Sense::click()),
                 ),
             };
             if self.focus_new == Some(id) {
@@ -718,16 +1329,60 @@ impl WorksheetApp {
                 self.editing_region = Some(id);
             }
             hit_region |= response.hovered();
+            if response.secondary_clicked() {
+                context_selection = Some(id);
+            }
+            response.context_menu(|ui| {
+                for (label, action) in [
+                    ("편집", RegionAction::Edit),
+                    ("영역 복사", RegionAction::Copy),
+                    ("영역 잘라내기", RegionAction::Cut),
+                    ("복제", RegionAction::Duplicate),
+                    ("삭제", RegionAction::Delete),
+                ] {
+                    if ui
+                        .add_enabled(
+                            !matches!(region.content, CanvasContent::Opaque { .. }),
+                            egui::Button::new(label),
+                        )
+                        .clicked()
+                    {
+                        context_action = Some((id, action));
+                        ui.close();
+                    }
+                }
+            });
             if self.selected == Some(id) || response.hovered() {
+                child.painter().rect_stroke(
+                    response.rect.expand(2.),
+                    2.,
+                    Stroke::new(
+                        1.,
+                        if self.selected == Some(id) {
+                            BLUE.gamma_multiply(0.55)
+                        } else {
+                            Color32::from_gray(220)
+                        },
+                    ),
+                    egui::StrokeKind::Outside,
+                );
                 let handle = Rect::from_min_size(
                     origin - vec2(14., 0.),
                     vec2(12., response.rect.height().max(20.)),
                 );
-                child
-                    .painter()
-                    .rect_filled(handle, 1., BLUE.gamma_multiply(0.25));
-                let drag =
-                    ui.interact(handle, egui::Id::new(("move", id)), Sense::click_and_drag());
+                for y in [-5., 0., 5.] {
+                    for x in [-2., 2.] {
+                        child.painter().circle_filled(
+                            handle.center() + vec2(x, y),
+                            1.,
+                            BLUE.gamma_multiply(0.65),
+                        );
+                    }
+                }
+                let drag = ui
+                    .interact(handle, egui::Id::new(("move", id)), Sense::click_and_drag())
+                    .on_hover_cursor(egui::CursorIcon::Grab)
+                    .on_hover_text("드래그하여 이동 · 클릭 후 방향키로 미세 이동");
                 hit_region |= drag.hovered();
                 if drag.clicked() {
                     self.selected = Some(id);
@@ -735,6 +1390,9 @@ impl WorksheetApp {
                     self.editing_region = None;
                 }
                 if drag.drag_started() {
+                    self.selected = Some(id);
+                    response.surrender_focus();
+                    self.editing_region = None;
                     self.dragging = Some((id, region.left, region.top));
                     movement_started = true;
                 }
@@ -763,24 +1421,57 @@ impl WorksheetApp {
                 }
             }
             if let Some(error) = row_result.and_then(|r| r.error.as_ref()) {
+                let indicator =
+                    Rect::from_min_size(response.rect.right_top() + vec2(3., 4.), vec2(18., 18.));
+                child
+                    .painter()
+                    .circle_filled(indicator.center(), 7., RED.gamma_multiply(0.12));
                 child.painter().text(
-                    response.rect.left_bottom() + vec2(12., 3.),
-                    egui::Align2::LEFT_TOP,
-                    &error.detail,
-                    FontId::proportional(12.),
+                    indicator.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "!",
+                    FontId::proportional(13.),
                     RED,
                 );
+                child
+                    .interact(
+                        response.rect.union(indicator),
+                        egui::Id::new(("error", id)),
+                        Sense::hover(),
+                    )
+                    .on_hover_text(&error.detail);
             }
         }
         if changed || movement_started {
             self.remember(before);
         }
         if changed || geometry_changed {
+            self.status.clear();
             self.dirty = true;
         }
         if changed || geometry_changed || evaluation_requested {
             self.recalculate();
             ui.ctx().request_repaint();
+        }
+        if let Some(id) = context_selection {
+            self.selected = Some(id);
+            self.editing_region = None;
+            self.insertion = None;
+            ui.memory_mut(|m| {
+                if let Some(focus) = m.focused() {
+                    m.surrender_focus(focus);
+                }
+            });
+        }
+        if let Some((id, action)) = context_action {
+            self.selected = Some(id);
+            match action {
+                RegionAction::Edit => self.focus_new = Some(id),
+                RegionAction::Copy => self.copy_region(ui.ctx(), false),
+                RegionAction::Cut => self.copy_region(ui.ctx(), true),
+                RegionAction::Duplicate => self.duplicate_selected(),
+                RegionAction::Delete => self.remove_selected(),
+            }
         }
         if let Some((x, y)) = self.insertion {
             let p = paper.min + vec2(x as f32, y as f32);
@@ -804,12 +1495,37 @@ impl WorksheetApp {
             };
             self.insertion = Some((snap(p.x as f64), snap(p.y as f64)));
             self.selected = None;
-            if self.text_mode {
-                self.insert(self.insertion.unwrap(), true);
+            self.editing_region = None;
+            ui.memory_mut(|m| {
+                if let Some(id) = m.focused() {
+                    m.surrender_focus(id);
+                }
+            });
+            background.request_focus();
+        }
+        self.region_keyboard(ui, previous_editing);
+        if self.editing_region.is_none()
+            && (self.selected.is_some() || self.insertion.is_some())
+            && !ui.ctx().any_popup_open()
+        {
+            if !background.has_focus() {
+                background.request_focus();
             }
+            ui.memory_mut(|m| {
+                m.set_focus_lock_filter(
+                    background.id,
+                    egui::EventFilter {
+                        tab: true,
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        ..Default::default()
+                    },
+                )
+            });
         }
         // Enter commits the current formula and advances to a new insertion point.
         if let Some(id) = self.selected
+            && self.editing_region == Some(id)
             && let Some(region) = self.document.regions.iter().find(|r| r.id == id)
             && matches!(region.content, CanvasContent::Math(_))
             && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
@@ -831,27 +1547,79 @@ impl WorksheetApp {
                 ((height + self.document.grid) / self.document.grid).ceil() * self.document.grid;
             self.insertion = Some((
                 region.left,
-                region.top + advance.max(self.document.grid * 4.),
+                region.top + advance.max(self.document.grid * 3.),
             ));
+            self.reveal = self.insertion;
             self.selected = None;
+            self.editing_region = None;
             ui.memory_mut(|m| {
                 if let Some(focused) = m.focused() {
                     m.surrender_focus(focused)
                 }
             });
+            background.request_focus();
         }
         if let Some(position) = self.insertion {
+            let ime_id = ui.id().with("insertion-preedit");
+            let mut preedit = ui
+                .data(|data| data.get_temp::<String>(ime_id))
+                .unwrap_or_default();
+            for event in ui.input(|i| i.events.clone()) {
+                match event {
+                    egui::Event::Ime(egui::ImeEvent::Preedit { text, .. }) => preedit = text,
+                    egui::Event::Ime(egui::ImeEvent::Commit(_)) => preedit.clear(),
+                    _ => (),
+                }
+            }
+            let cursor = paper.min + vec2(position.0 as f32 + 8., position.1 as f32 + 8.);
+            if !preedit.is_empty() {
+                ui.painter().text(
+                    cursor,
+                    egui::Align2::LEFT_TOP,
+                    &preedit,
+                    FontId::proportional(22.),
+                    Color32::from_gray(50),
+                );
+            }
+            ui.data_mut(|data| data.insert_temp(ime_id, preedit));
+            if background.has_focus() {
+                let to_global = ui
+                    .ctx()
+                    .layer_transform_to_global(ui.layer_id())
+                    .unwrap_or_default();
+                ui.output_mut(|o| {
+                    o.ime = Some(egui::output::IMEOutput {
+                        purpose: egui::IMEPurpose::Normal,
+                        rect: to_global * Rect::from_min_size(cursor, vec2(120., 30.)),
+                        cursor_rect: to_global * Rect::from_min_size(cursor, vec2(1., 30.)),
+                        should_interrupt_composition: false,
+                    })
+                });
+            }
             let text: String = ui.input(|i| {
                 i.events
                     .iter()
                     .filter_map(|e| match e {
                         egui::Event::Text(s) | egui::Event::Paste(s) => Some(s.as_str()),
+                        egui::Event::Ime(egui::ImeEvent::Commit(s)) => Some(s.as_str()),
                         _ => None,
                     })
                     .collect()
             });
             if !text.is_empty() {
-                let id = self.insert(position, false);
+                ui.data_mut(|data| data.remove::<String>(ime_id));
+                let is_text = self.text_mode;
+                let id = self.insert(position, is_text);
+                if is_text {
+                    self.document
+                        .regions
+                        .iter_mut()
+                        .find(|r| r.id == id)
+                        .unwrap()
+                        .content = CanvasContent::Text(text);
+                    ui.ctx().request_repaint();
+                    return;
+                }
                 let mut editor = Editor::new();
                 formula::input_text(&mut editor, &text);
                 if let Ok(tree) = editor.to_portable()
@@ -1173,191 +1941,109 @@ impl eframe::App for WorksheetApp {
         if self.closing {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
-        if ctx.input_mut(|i| {
-            i.consume_key(
-                egui::Modifiers {
-                    shift: true,
-                    ..egui::Modifiers::COMMAND
-                },
-                egui::Key::S,
-            )
-        }) {
-            self.save(true);
-        } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
-            self.save(false);
-        }
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::N)) {
-            self.request(Pending::New);
-        }
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::O))
-            && let Some(path) = rfd::FileDialog::new()
-                .add_filter("Worksheets", &["mathcraft", "mcdx"])
-                .pick_file()
-        {
-            self.request(Pending::Open(path));
-        }
-        // Document history owns Ctrl+Z/Y so movement, text and math are one undo stream.
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
-            self.undo();
-        }
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Y))
-            || ctx.input_mut(|i| {
+        if self.pending.is_none() {
+            if ctx.input_mut(|i| {
                 i.consume_key(
                     egui::Modifiers {
                         shift: true,
                         ..egui::Modifiers::COMMAND
                     },
-                    egui::Key::Z,
+                    egui::Key::S,
                 )
-            })
-        {
-            self.redo();
-        }
-        if self.editing_region.is_none() {
-            let copy = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::C))
-                || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Copy)));
-            let cut = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::X))
-                || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Cut)));
-            if copy || cut {
-                self.copy_region(&ctx, cut);
+            }) {
+                self.save(true);
+            } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
+                self.save(false);
             }
-            let pasted = ctx.input(|i| {
-                i.events.iter().find_map(|e| {
-                    if let egui::Event::Paste(text) = e {
-                        (text.starts_with("mathcraft-region:")
-                            || text.starts_with("mathcraft-tree:"))
-                        .then(|| text.clone())
-                    } else {
-                        None
-                    }
-                })
-            });
-            if let Some(text) = pasted
-                && self.paste_region(&text)
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::N)) {
+                self.request(Pending::New);
+            }
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::O))
+                && let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Worksheets", &["mathcraft", "mcdx"])
+                    .pick_file()
             {
-                ctx.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Paste(_))));
+                self.request(Pending::Open(path));
             }
-            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
-                self.remove_selected();
+            self.global_editing_shortcuts(&ctx);
+            // Document history owns Ctrl+Z/Y so movement, text and math are one undo stream.
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
+                self.undo();
+            }
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Y))
+                || ctx.input_mut(|i| {
+                    i.consume_key(
+                        egui::Modifiers {
+                            shift: true,
+                            ..egui::Modifiers::COMMAND
+                        },
+                        egui::Key::Z,
+                    )
+                })
+            {
+                self.redo();
+            }
+            if self.editing_region.is_none() {
+                let copy = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::C))
+                    || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Copy)));
+                let cut = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::X))
+                    || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Cut)));
+                if copy || cut {
+                    self.copy_region(&ctx, cut);
+                }
+                let pasted = ctx.input(|i| {
+                    i.events.iter().find_map(|e| {
+                        if let egui::Event::Paste(text) = e {
+                            (text.starts_with("mathcraft-region:")
+                                || text.starts_with("mathcraft-tree:"))
+                            .then(|| text.clone())
+                        } else {
+                            None
+                        }
+                    })
+                });
+                if let Some(text) = pasted
+                    && self.paste_region(&text)
+                {
+                    ctx.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Paste(_))));
+                }
+                if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
+                    self.remove_selected();
+                }
             }
         }
-        egui::Panel::top("worksheet-toolbar")
-            .min_size(48.)
-            .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(
-                        egui::RichText::new("Mathcraft")
-                            .strong()
-                            .size(19.)
-                            .color(BLUE),
-                    );
-                    ui.separator();
-                    if ui.button("New").clicked() {
-                        self.request(Pending::New);
-                    }
-                    if ui.button("Open").clicked()
-                        && let Some(path) = rfd::FileDialog::new()
-                            .add_filter("Worksheets", &["mathcraft", "mcdx"])
-                            .pick_file()
-                    {
-                        self.request(Pending::Open(path));
-                    }
-                    if ui.button("Save").clicked() {
-                        self.save(false);
-                    }
-                    if ui.button("Save as").clicked() {
-                        self.save(true);
-                    }
-                    if ui.button("Export MCDX").clicked() {
-                        self.export_mcdx();
-                    }
-                    ui.separator();
-                    ui.selectable_value(&mut self.text_mode, false, "Math");
-                    ui.selectable_value(&mut self.text_mode, true, "Text");
-                    ui.menu_button("Insert", |ui| self.insert_menu(ui));
-                    if ui.button("Recalculate").clicked() {
-                        self.recalculate();
-                    }
-                    if ui
-                        .add_enabled(self.selected.is_some(), egui::Button::new("Delete region"))
-                        .clicked()
-                    {
-                        self.remove_selected();
-                    }
-                    if ui
-                        .add_enabled(self.selected.is_some(), egui::Button::new("Duplicate"))
-                        .clicked()
-                    {
-                        self.duplicate_selected();
-                    }
-                    egui::ComboBox::from_id_salt("worksheet-zoom")
-                        .selected_text(format!("{}%", (self.zoom * 100.).round()))
-                        .width(65.)
-                        .show_ui(ui, |ui| {
-                            for zoom in [0.5, 0.75, 1., 1.25, 1.5, 2.] {
-                                if ui
-                                    .selectable_value(
-                                        &mut self.zoom,
-                                        zoom,
-                                        format!("{}%", (zoom * 100.) as i32),
-                                    )
-                                    .changed()
-                                {
-                                    ctx.set_zoom_factor(zoom);
-                                }
-                            }
-                        });
-                });
-            });
-        egui::Panel::bottom("worksheet-status")
-            .exact_size(28.)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.small(format!(
-                        "{} regions{}",
-                        self.document.regions.len(),
-                        if self.dirty { " · unsaved" } else { "" }
-                    ));
-                    ui.separator();
-                    if let Some(error) = &self.calculation_error {
-                        ui.colored_label(RED, error);
-                    } else {
-                        ui.small(&self.status);
-                    }
-                });
-            });
-        egui::CentralPanel::default().show(ui, |ui| {
-            egui::ScrollArea::both()
-                .id_salt("free-worksheet")
-                .show(ui, |ui| {
-                    ui.add_space(12.);
-                    self.page_ui(ui);
-                    ui.add_space(24.);
-                });
-        });
         if self.pending.is_some() {
-            egui::Window::new("Unsaved worksheet")
-                .collapsible(false)
-                .resizable(false)
-                .show(&ctx, |ui| {
-                    ui.label("Save this worksheet before continuing?");
-                    ui.horizontal(|ui| {
-                        if ui.button("Save").clicked()
-                            && self.save(false)
-                            && let Some(action) = self.pending.take()
-                        {
-                            self.apply(action);
-                        }
-                        if ui.button("Discard").clicked()
-                            && let Some(action) = self.pending.take()
-                        {
-                            self.apply(action);
-                        }
-                        if ui.button("Cancel").clicked() {
-                            self.pending = None;
-                        }
-                    });
+            ui.disable();
+        }
+        self.chrome_ui(ui);
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(Color32::from_rgb(232, 235, 239)))
+            .show(ui, |ui| self.workspace_ui(ui));
+        self.shortcuts_ui(&ctx);
+        if self.pending.is_some() {
+            let modal = egui::Modal::new(egui::Id::new("unsaved-worksheet")).show(&ctx, |ui| {
+                ui.heading("변경 사항을 저장할까요?");
+                ui.label("저장하지 않은 변경 사항이 있습니다.");
+                ui.horizontal(|ui| {
+                    if ui.button("저장").clicked()
+                        && self.save(false)
+                        && let Some(action) = self.pending.take()
+                    {
+                        self.apply(action);
+                    }
+                    if ui.button("저장하지 않음").clicked()
+                        && let Some(action) = self.pending.take()
+                    {
+                        self.apply(action);
+                    }
+                    if ui.button("취소").clicked() {
+                        self.pending = None;
+                    }
                 });
+            });
+            if modal.should_close() {
+                self.pending = None;
+            }
         }
         self.frames += 1;
         if let Some(path) = &self.capture {
@@ -1416,6 +2102,354 @@ mod tests {
             pressed: true,
             repeat: false,
             modifiers: egui::Modifiers::NONE,
+        }
+    }
+    fn key(key: egui::Key, modifiers: egui::Modifiers) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }
+    }
+    #[test]
+    fn undo_restores_the_editing_caret_and_typing_continues_in_the_same_region() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp {
+            insertion: Some((38.4, 38.4)),
+            ..Default::default()
+        };
+        frame(&mut app, &context, vec![egui::Event::Text("a:=12".into())]);
+        frame(&mut app, &context, vec![]);
+        let id = app.selected.unwrap();
+        let editor = app.editors.get_mut(&id).unwrap();
+        let number = editor.arena().get(editor.root()).unwrap().children()[1];
+        editor.place_text_caret(number, 1).unwrap();
+        frame(&mut app, &context, vec![egui::Event::Text("3".into())]);
+        app.undo();
+        assert_eq!(app.selected, Some(id));
+        assert_eq!(app.editors[&id].caret().value_range.unwrap().focus, 1);
+        frame(&mut app, &context, vec![egui::Event::Text("9".into())]);
+        assert_eq!(app.selected, Some(id));
+        assert_eq!(
+            app.editors[&id].arena().get(number).unwrap().kind(),
+            &NodeKind::Number("192".into())
+        );
+        assert!(app.redo.is_empty());
+    }
+    #[test]
+    fn inserting_a_fraction_from_the_menu_preserves_the_selected_operand() {
+        let mut app = WorksheetApp::default();
+        let id = app.insert((38.4, 38.4), false);
+        let mut editor = Editor::new();
+        formula::input_text(&mut editor, "1+23");
+        let root = editor.root();
+        let operand = editor.arena().get(root).unwrap().children()[1];
+        editor.select_subtree(operand).unwrap();
+        let before = editor.to_portable().unwrap();
+        app.document.regions[0].content = CanvasContent::Math(before.clone());
+        app.editors.insert(id, editor);
+        let placeholder = || PortableTree {
+            kind: NodeKind::Placeholder,
+            children: vec![],
+        };
+        app.insert_template(PortableTree {
+            kind: NodeKind::Fraction,
+            children: vec![placeholder(), placeholder()],
+        });
+        let tree = app.editors[&id].to_portable().unwrap();
+        assert_eq!(tree.children[1].kind, NodeKind::Fraction);
+        assert_eq!(
+            tree.children[1].children[0].kind,
+            NodeKind::Number("23".into())
+        );
+        assert_eq!(app.editors[&id].root(), root);
+        app.undo();
+        assert_eq!(app.editors[&id].to_portable().unwrap(), before);
+        assert_eq!(
+            app.editors[&id].selection(),
+            mathcraft_editor::Selection::Subtree(operand)
+        );
+    }
+
+    #[test]
+    fn document_undo_restores_text_selection_before_further_typing() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp::default();
+        app.begin_region(true);
+        let id = app.selected.unwrap();
+        frame(&mut app, &context, vec![]);
+        frame(&mut app, &context, vec![egui::Event::Text("abcd".into())]);
+        let text_id = egui::Id::new(("worksheet-text", id));
+        let range = egui::text::CCursorRange::one(egui::text::CCursor::new(2));
+        let mut state = egui::text_edit::TextEditState::load(&context, text_id).unwrap();
+        state.cursor.set_char_range(Some(range));
+        state.store(&context, text_id);
+        app.text_cursors.insert(id, range);
+        frame(&mut app, &context, vec![egui::Event::Text("X".into())]);
+        assert!(matches!(&app.document.regions[0].content, CanvasContent::Text(s) if s == "abXcd"));
+        app.undo();
+        frame(&mut app, &context, vec![egui::Event::Text("Y".into())]);
+        assert_eq!(app.editing_region, Some(id));
+        assert!(matches!(&app.document.regions[0].content, CanvasContent::Text(s) if s == "abYcd"));
+    }
+
+    #[test]
+    fn escape_selects_region_arrows_move_it_and_enter_resumes_editing() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp {
+            insertion: Some((38.4, 38.4)),
+            ..Default::default()
+        };
+        frame(&mut app, &context, vec![egui::Event::Text("23".into())]);
+        frame(&mut app, &context, vec![]);
+        let id = app.selected.unwrap();
+        frame(
+            &mut app,
+            &context,
+            vec![key(egui::Key::Escape, egui::Modifiers::NONE)],
+        );
+        assert_eq!(app.selected, Some(id));
+        assert!(app.editing_region.is_none());
+        frame(
+            &mut app,
+            &context,
+            vec![key(egui::Key::ArrowRight, egui::Modifiers::NONE)],
+        );
+        assert!((app.document.regions[0].left - 57.6).abs() < 1e-10);
+        app.undo();
+        assert_eq!(app.selected, Some(id));
+        assert_eq!(app.document.regions[0].left, 38.4);
+        frame(&mut app, &context, vec![enter()]);
+        assert_eq!(app.focus_new, Some(id));
+        assert_eq!(app.document.regions.len(), 1);
+        frame(&mut app, &context, vec![egui::Event::Text("4".into())]);
+        assert_eq!(app.editing_region, Some(id));
+        assert_eq!(
+            app.editors[&id].to_portable().unwrap().kind,
+            NodeKind::Number("234".into())
+        );
+    }
+    #[test]
+    fn cancelled_blank_page_composition_does_not_create_an_empty_region() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp {
+            insertion: Some((38.4, 38.4)),
+            ..Default::default()
+        };
+        frame(
+            &mut app,
+            &context,
+            vec![egui::Event::Ime(egui::ImeEvent::Preedit {
+                text: "한".into(),
+                active_range_chars: None,
+            })],
+        );
+        assert!(app.document.regions.is_empty());
+        assert!(app.undo.is_empty());
+        frame(
+            &mut app,
+            &context,
+            vec![egui::Event::Ime(egui::ImeEvent::Commit(String::new()))],
+        );
+        assert!(app.document.regions.is_empty());
+        frame(
+            &mut app,
+            &context,
+            vec![egui::Event::Ime(egui::ImeEvent::Commit("한글".into()))],
+        );
+        assert_eq!(app.document.regions.len(), 1);
+        let id = app.selected.unwrap();
+        assert_eq!(
+            app.editors[&id].to_portable().unwrap().kind,
+            NodeKind::Identifier("한글".into())
+        );
+    }
+    #[test]
+    fn text_mode_accepts_first_committed_text_without_a_math_parser() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp {
+            insertion: Some((38.4, 38.4)),
+            text_mode: true,
+            ..Default::default()
+        };
+        frame(
+            &mut app,
+            &context,
+            vec![egui::Event::Ime(egui::ImeEvent::Commit(
+                "계산 메모: 2+3=5".into(),
+            ))],
+        );
+        assert!(
+            matches!(&app.document.regions[0].content, CanvasContent::Text(text) if text == "계산 메모: 2+3=5")
+        );
+        assert!(app.editors.is_empty());
+    }
+    fn workspace_frame(
+        app: &mut WorksheetApp,
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+    ) -> egui::emath::TSTransform {
+        let mut layer = None;
+        let output = ctx.run_ui(
+            egui::RawInput {
+                events,
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1100., 900.))),
+                ..Default::default()
+            },
+            |ui| {
+                app.chrome_ui(ui);
+                egui::CentralPanel::default().show(ui, |ui| {
+                    layer = Some(egui::LayerId::new(
+                        ui.layer_id().order,
+                        egui::Id::new("worksheet-paper"),
+                    ));
+                    app.workspace_ui(ui);
+                });
+            },
+        );
+        for shape in &output.shapes {
+            if let egui::epaint::Shape::Text(text) = &shape.shape
+                && text.galley.text() == "보기"
+            {
+                ctx.data_mut(|data| {
+                    data.insert_temp(
+                        egui::Id::new("test-view-menu"),
+                        Rect::from_min_size(text.pos, text.galley.size()),
+                    )
+                });
+            }
+        }
+        output.drop_without_applying_deltas();
+        ctx.layer_transform_to_global(layer.unwrap()).unwrap()
+    }
+    #[test]
+    fn closing_a_view_menu_resumes_typing_without_a_second_escape_action() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp::default();
+        let id = app.insert((38.4, 38.4), false);
+        let mut editor = Editor::new();
+        formula::input_text(&mut editor, "12");
+        app.document.regions[0].content = CanvasContent::Math(editor.to_portable().unwrap());
+        app.editors.insert(id, editor);
+        workspace_frame(&mut app, &context, vec![]);
+        let point = context
+            .data(|data| data.get_temp::<Rect>(egui::Id::new("test-view-menu")))
+            .unwrap()
+            .center();
+        for pressed in [true, false] {
+            workspace_frame(
+                &mut app,
+                &context,
+                vec![
+                    egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {
+                        pos: point,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        assert_eq!(app.menu_resume, Some(id));
+        workspace_frame(
+            &mut app,
+            &context,
+            vec![key(egui::Key::Escape, egui::Modifiers::NONE)],
+        );
+        workspace_frame(&mut app, &context, vec![egui::Event::Text("3".into())]);
+        assert_eq!(app.editing_region, Some(id));
+        assert_eq!(
+            app.editors[&id].to_portable().unwrap().kind,
+            NodeKind::Number("123".into())
+        );
+    }
+
+    #[test]
+    fn region_keyboard_navigation_keeps_focus_on_the_page_with_toolbar_present() {
+        let context = egui::Context::default();
+        let mut app = WorksheetApp::default();
+        for (top, text) in [(38.4, "1"), (115.2, "2")] {
+            let id = app.insert((38.4, top), false);
+            let mut editor = Editor::new();
+            formula::input_text(&mut editor, text);
+            app.document
+                .regions
+                .iter_mut()
+                .find(|r| r.id == id)
+                .unwrap()
+                .content = CanvasContent::Math(editor.to_portable().unwrap());
+            app.editors.insert(id, editor);
+        }
+        let first = app.document.regions[0].id;
+        workspace_frame(&mut app, &context, vec![]);
+        workspace_frame(
+            &mut app,
+            &context,
+            vec![key(egui::Key::Escape, egui::Modifiers::NONE)],
+        );
+        workspace_frame(
+            &mut app,
+            &context,
+            vec![key(egui::Key::Tab, egui::Modifiers::NONE)],
+        );
+        assert_eq!(app.selected, Some(first));
+        assert!(app.editing_region.is_none());
+        workspace_frame(&mut app, &context, vec![enter()]);
+        workspace_frame(&mut app, &context, vec![egui::Event::Text("4".into())]);
+        assert_eq!(app.editing_region, Some(first));
+        assert_eq!(
+            app.editors[&first].to_portable().unwrap().kind,
+            NodeKind::Number("14".into())
+        );
+    }
+
+    #[test]
+    fn page_zoom_keeps_chrome_scale_and_pointer_document_coordinates() {
+        for zoom in [0.5, 1., 2.] {
+            let context = egui::Context::default();
+            crate::configure(&context);
+            let mut app = WorksheetApp {
+                zoom,
+                ..Default::default()
+            };
+            let transform = workspace_frame(&mut app, &context, vec![]);
+            assert_eq!(context.zoom_factor(), 1.);
+            assert_eq!(transform.scaling, zoom);
+            let point = transform * pos2(115.2, 134.4);
+            workspace_frame(
+                &mut app,
+                &context,
+                vec![
+                    egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {
+                        pos: point,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+            );
+            workspace_frame(
+                &mut app,
+                &context,
+                vec![egui::Event::PointerButton {
+                    pos: point,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                }],
+            );
+            let (x, y) = app
+                .insertion
+                .unwrap_or_else(|| panic!("insertion missing at zoom {zoom}"));
+            assert!(
+                (x - 115.2).abs() < 0.001 && (y - 134.4).abs() < 0.001,
+                "zoom={zoom} position={x},{y}"
+            );
+            assert!(app.document.regions.is_empty());
         }
     }
     #[test]

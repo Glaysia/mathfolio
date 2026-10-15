@@ -53,8 +53,16 @@ cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
 
 ## 최근 검증: 2026-10-15 재부팅 후
 
-- Windows: workspace fmt·Clippy(`-D warnings`)·테스트·빌드 통과. 전체 210개 통과 후 직접 MathML 문맥 라벨 거부 회귀 테스트 1개를 추가하여 해당 8개 테스트도 통과했다. 현재 테스트 합계는 211개다.
+- Windows: workspace fmt·Clippy(`-D warnings`)·테스트·빌드 통과. 전체 190개 통과 후 직접 MathML 문맥 라벨 거부 회귀 테스트 1개를 추가하여 해당 8개 테스트도 통과했다. 이 시점의 테스트 합계는 191개다. 이전 문서의 합산 오류를 정정했다.
 - peets(Kubuntu 26.04): 같은 소스 사본 `/home/peets/Projects/mathcraft-ux-20261015`에서 `scripts/check.sh` 전체 통과. 기존 소스 폴더를 덮어쓰지 않았으며 빌드 산출물 디렉터리만 재사용했다.
 - 양쪽에서 기존 원본 38개 참조가 저장 좌표·입력 격자 좌표 두 경로 모두 일치했다. peets의 `engineering.xml` 20개 영역은 오류 0개이며, 값은 별도 engineering 통합 테스트로 검사한다.
 - 설치 원본에 대한 unit facts 추출 `--check`는 212개 단위·15개 상수 사실과 일치했다. 피드백 분석은 설치 DLL 5개 및 CIL 메서드 123개의 원본 바이트 해시를 재검증했다.
 - 원본 앱, GUI, 스크린샷, COM을 새로 실행하지 않았다. 이 검증은 전체 Mathcad 호환성이나 실제 IME 사용감을 입증하지 않는다.
+
+## 작성 UI 개선 검증: 2026-10-15
+
+Windows와 peets의 `/home/peets/Projects/mathcraft-ui-20261015` 소스 사본에서 fmt, workspace Clippy(`-D warnings`), 전체 테스트 **207개**, 빌드가 통과했다. 앱 테스트는 45개, editor 테스트는 19개이며 나머지는 기존 계산·문서 회귀 검사다. Windows 실행 파일 `target/debug/mathcraft.exe`도 갱신했다.
+
+새 검사는 종이 전용 배율과 50%·100%·200% 클릭 좌표, 문자 드래그·UTF-16 선택·치환·삭제, 기하 기반 분수·행렬 수직 이동, 수식·텍스트 Undo 후 커서 위치에서 연속 입력, Esc→영역 이동→Enter, 도구막대가 있는 상태의 Tab 이동, 메뉴 열기→Esc→입력 복귀, IME 임시·확정·취소 이벤트를 포함한다. 분수 도구가 기존 선택 피연산자를 버리지 않는 동작도 검사했다.
+
+UI 구조·타이포그래피·기하 이동은 독립적인 제품 정책이며 원본 전체 외형/키 전이와 같다고 주장하지 않는다. 실제 창·화면 캡처·원본 실행은 사용하지 않았다. 실제 Windows/Linux IME 후보창, OS 클립보드, 고해상도 화면에서의 최종 사용감은 실기 검증이 남아 있다. 구현 흐름은 [작성 경험 기준](DESIGN.md)과 [사용법](PROTOTYPE.md)에 기록했다.
