@@ -1,0 +1,17 @@
+/target/
+/dist/
+/artifacts/
+/evidence/raw/
+/vendor-original/
+*.exe
+*.msi
+*.dll
+*.pdb
+*.hprof
+desktop.ini
+Thumbs.db
+.env
+.env.*
+!.env.example
+*.key
+*.pem
