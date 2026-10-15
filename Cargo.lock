@@ -1202,10 +1202,13 @@ dependencies = [
  "eframe",
  "egui_plot",
  "image",
+ "mathcraft-compat",
  "mathcraft-core",
  "mathcraft-document",
  "mathcraft-editor",
  "rfd",
+ "roxmltree",
+ "serde_json",
 ]
 
 [[package]]
@@ -1223,6 +1226,7 @@ name = "mathcraft-compat"
 version = "0.1.0"
 dependencies = [
  "mathcraft-core",
+ "mathcraft-editor",
  "num-complex",
  "roxmltree",
  "serde",
@@ -1242,6 +1246,7 @@ name = "mathcraft-document"
 version = "0.1.0"
 dependencies = [
  "mathcraft-core",
+ "mathcraft-editor",
  "num-complex",
  "roxmltree",
  "serde",
@@ -1252,6 +1257,10 @@ dependencies = [
 [[package]]
 name = "mathcraft-editor"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "memchr"

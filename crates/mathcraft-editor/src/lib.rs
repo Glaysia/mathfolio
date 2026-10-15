@@ -5,6 +5,7 @@
 //! policies awaiting recorded comparison with Prime; this crate claims no parity.
 //! See `docs/spec/mathcad12-editor-contract.json` and the editor analysis report.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// Append-only arena coordinate. Removed nodes never transfer their ID to a new node.
@@ -17,7 +18,7 @@ impl NodeId {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum BinaryOp {
     Add,
     Subtract,
@@ -27,10 +28,12 @@ pub enum BinaryOp {
     Evaluate,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum NodeKind {
     Placeholder,
     Identifier(String),
+    AnnotatedIdentifier { name: String, labels: String },
     Number(String),
     Binary(BinaryOp),
     Fraction,
@@ -42,7 +45,10 @@ impl NodeKind {
     /// Values explicitly assigned by DefaultDescriptorTable, method 0x06000bbb.
     pub fn precedence(&self) -> i32 {
         match self {
-            Self::Placeholder | Self::Identifier(_) | Self::Number(_) => i32::MAX,
+            Self::Placeholder
+            | Self::Identifier(_)
+            | Self::AnnotatedIdentifier { .. }
+            | Self::Number(_) => i32::MAX,
             Self::Binary(BinaryOp::Define) => 10,
             Self::Binary(BinaryOp::Evaluate) => 20,
             Self::Binary(BinaryOp::Add | BinaryOp::Subtract) => 100,
@@ -56,7 +62,7 @@ impl NodeKind {
     pub fn descriptor_name(&self) -> &'static str {
         match self {
             Self::Placeholder => "PLACEHOLDER",
-            Self::Identifier(_) => "IDENTIFIER",
+            Self::Identifier(_) | Self::AnnotatedIdentifier { .. } => "IDENTIFIER",
             Self::Number(_) => "NUMERIC",
             Self::Binary(BinaryOp::Add) => "ADDITION",
             Self::Binary(BinaryOp::Subtract) => "SUBTRACTION",
@@ -72,7 +78,10 @@ impl NodeKind {
 
     fn arity(&self) -> usize {
         match self {
-            Self::Placeholder | Self::Identifier(_) | Self::Number(_) => 0,
+            Self::Placeholder
+            | Self::Identifier(_)
+            | Self::AnnotatedIdentifier { .. }
+            | Self::Number(_) => 0,
             Self::Group => 1,
             Self::Binary(_) | Self::Fraction | Self::Power => 2,
         }
@@ -81,8 +90,103 @@ impl NodeKind {
     fn text(&self) -> Option<&str> {
         match self {
             Self::Identifier(text) | Self::Number(text) => Some(text),
+            Self::AnnotatedIdentifier { name, .. } => Some(name),
             _ => None,
         }
+    }
+}
+
+/// Portable semantic shape only: never includes arena IDs, caret, undo, or redo.
+/// Deserialization alone does not validate; use `validate` or Editor import APIs.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PortableTree {
+    pub kind: NodeKind,
+    pub children: Vec<PortableTree>,
+}
+
+pub const MAX_TREE_DEPTH: usize = 128;
+pub const MAX_TREE_NODES: usize = 16_384;
+pub const MAX_ATOM_BYTES: usize = 16_384;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TreeError {
+    TooDeep,
+    TooManyNodes,
+    TextTooLong,
+    InvalidNumber,
+    InvalidIdentifier,
+    InvalidLabels,
+    Arity {
+        descriptor: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+    InvalidTree(&'static str),
+}
+
+impl std::fmt::Display for TreeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for TreeError {}
+
+impl PortableTree {
+    /// Bounded, iterative validation of the independently implemented subset.
+    /// Limits and numeric grammar are project policies, not recovered Prime limits.
+    pub fn validate(&self) -> Result<(), TreeError> {
+        let mut stack = vec![(self, 1)];
+        let mut count = 0;
+        while let Some((node, depth)) = stack.pop() {
+            count += 1;
+            if count > MAX_TREE_NODES {
+                return Err(TreeError::TooManyNodes);
+            }
+            if depth > MAX_TREE_DEPTH {
+                return Err(TreeError::TooDeep);
+            }
+            let expected = node.kind.arity();
+            if node.children.len() != expected {
+                return Err(TreeError::Arity {
+                    descriptor: node.kind.descriptor_name(),
+                    expected,
+                    actual: node.children.len(),
+                });
+            }
+            if let Some(text) = node.kind.text() {
+                if text.len() > MAX_ATOM_BYTES {
+                    return Err(TreeError::TextTooLong);
+                }
+                match &node.kind {
+                    NodeKind::Number(_)
+                        if text
+                            .parse::<f64>()
+                            .ok()
+                            .is_none_or(|value| !value.is_finite()) =>
+                    {
+                        return Err(TreeError::InvalidNumber);
+                    }
+                    NodeKind::Identifier(_) | NodeKind::AnnotatedIdentifier { .. }
+                        if text.trim().is_empty() || text.chars().any(char::is_control) =>
+                    {
+                        return Err(TreeError::InvalidIdentifier);
+                    }
+                    _ => {}
+                }
+            }
+            if let NodeKind::AnnotatedIdentifier { labels, .. } = &node.kind {
+                if labels.len() > MAX_ATOM_BYTES {
+                    return Err(TreeError::TextTooLong);
+                }
+                if labels.trim().is_empty() || labels.chars().any(char::is_control) {
+                    return Err(TreeError::InvalidLabels);
+                }
+            }
+            stack.extend(node.children.iter().map(|child| (child, depth + 1)));
+        }
+        Ok(())
     }
 }
 
@@ -228,6 +332,37 @@ impl Default for Editor {
 }
 
 impl Editor {
+    pub fn from_portable(tree: &PortableTree) -> Result<Self, TreeError> {
+        tree.validate()?;
+        let mut editor = Self::new();
+        editor.arena.slots.clear();
+        editor.root = import_node(&mut editor.arena, tree);
+        editor.caret = Caret::at(first_leaf(&editor.arena, editor.root), Direction::Right);
+        Ok(editor)
+    }
+
+    pub fn to_portable(&self) -> Result<PortableTree, TreeError> {
+        self.validate().map_err(TreeError::InvalidTree)?;
+        let mut count = 0;
+        let tree = export_node(&self.arena, self.root, 1, &mut count)?;
+        tree.validate()?;
+        Ok(tree)
+    }
+
+    /// Validate before mutating. A successful import is one undoable operation.
+    pub fn load_portable(&mut self, tree: &PortableTree) -> Result<(), TreeError> {
+        tree.validate()?;
+        let mut arena = self.arena.clone();
+        arena.slots.iter_mut().for_each(|slot| *slot = None);
+        let root = import_node(&mut arena, tree);
+        self.checkpoint();
+        self.arena = arena;
+        self.root = root;
+        self.caret = Caret::at(first_leaf(&self.arena, root), Direction::Right);
+        self.selection = Selection::None;
+        Ok(())
+    }
+
     pub fn new() -> Self {
         let mut arena = Arena::default();
         let root = arena.allocate(NodeKind::Placeholder, vec![]);
@@ -507,6 +642,49 @@ impl Editor {
     }
 }
 
+fn first_leaf(arena: &Arena, mut node: NodeId) -> NodeId {
+    while let Some(child) = arena.get(node).unwrap().children.first() {
+        node = *child;
+    }
+    node
+}
+
+fn import_node(arena: &mut Arena, tree: &PortableTree) -> NodeId {
+    let children = tree
+        .children
+        .iter()
+        .map(|child| import_node(arena, child))
+        .collect();
+    arena.allocate(tree.kind.clone(), children)
+}
+
+fn export_node(
+    arena: &Arena,
+    node: NodeId,
+    depth: usize,
+    count: &mut usize,
+) -> Result<PortableTree, TreeError> {
+    *count += 1;
+    if depth > MAX_TREE_DEPTH {
+        return Err(TreeError::TooDeep);
+    }
+    if *count > MAX_TREE_NODES {
+        return Err(TreeError::TooManyNodes);
+    }
+    let node = arena
+        .get(node)
+        .ok_or(TreeError::InvalidTree("missing node"))?;
+    let children = node
+        .children
+        .iter()
+        .map(|child| export_node(arena, *child, depth + 1, count))
+        .collect::<Result<_, _>>()?;
+    Ok(PortableTree {
+        kind: node.kind.clone(),
+        children,
+    })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FractionMetrics {
     pub numerator_width: f64,
@@ -687,5 +865,124 @@ mod tests {
         assert_eq!(layout.numerator_origin, [2.0, 0.0]);
         assert_eq!(layout.denominator_origin, [12.0, 18.0]);
         assert_eq!(layout.bar_origin, [0.0, 14.0]);
+    }
+
+    fn portable(kind: NodeKind, children: Vec<PortableTree>) -> PortableTree {
+        PortableTree { kind, children }
+    }
+
+    #[test]
+    fn portable_roundtrip_preserves_labels_and_excludes_runtime_state() {
+        let tree = portable(
+            NodeKind::Fraction,
+            vec![
+                portable(
+                    NodeKind::AnnotatedIdentifier {
+                        name: "length".into(),
+                        labels: "VARIABLE".into(),
+                    },
+                    vec![],
+                ),
+                portable(NodeKind::Number("2.5e-3".into()), vec![]),
+            ],
+        );
+        let mut editor = Editor::from_portable(&tree).unwrap();
+        assert!(!editor.undo());
+        editor.expand_scope();
+        let exported = editor.to_portable().unwrap();
+        assert_eq!(exported, tree);
+        let json = serde_json::to_value(&exported).unwrap();
+        assert_eq!(json.as_object().unwrap().len(), 2);
+        assert!(json.get("arena").is_none());
+        assert!(json.get("undo").is_none());
+        assert!(json.get("caret").is_none());
+        let decoded: PortableTree = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            Editor::from_portable(&decoded)
+                .unwrap()
+                .to_portable()
+                .unwrap(),
+            tree
+        );
+    }
+
+    #[test]
+    fn rejected_portable_load_is_atomic_and_does_not_push_undo() {
+        let mut editor = Editor::new();
+        let old = number(&mut editor, "7");
+        let before = editor.to_portable().unwrap();
+        let malformed = portable(
+            NodeKind::Fraction,
+            vec![portable(NodeKind::Number("2".into()), vec![])],
+        );
+        assert!(matches!(
+            editor.load_portable(&malformed),
+            Err(TreeError::Arity { .. })
+        ));
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(editor.root(), old);
+        assert!(editor.undo());
+        assert_eq!(
+            editor.arena().get(old).unwrap().kind(),
+            &NodeKind::Placeholder
+        );
+        assert!(!editor.undo());
+    }
+
+    #[test]
+    fn portable_validation_rejects_invalid_literals_depth_and_metadata() {
+        for text in ["", "NaN", "inf", "1..2", "1e999", " 1"] {
+            assert_eq!(
+                portable(NodeKind::Number(text.into()), vec![]).validate(),
+                Err(TreeError::InvalidNumber)
+            );
+        }
+        assert_eq!(
+            portable(NodeKind::Identifier("\n".into()), vec![]).validate(),
+            Err(TreeError::InvalidIdentifier)
+        );
+        assert_eq!(
+            portable(
+                NodeKind::AnnotatedIdentifier {
+                    name: "x".into(),
+                    labels: "".into()
+                },
+                vec![]
+            )
+            .validate(),
+            Err(TreeError::InvalidLabels)
+        );
+        let mut deep = portable(NodeKind::Placeholder, vec![]);
+        for _ in 0..MAX_TREE_DEPTH {
+            deep = portable(NodeKind::Group, vec![deep]);
+        }
+        assert_eq!(deep.validate(), Err(TreeError::TooDeep));
+        assert_eq!(
+            portable(NodeKind::Identifier("x".repeat(MAX_ATOM_BYTES + 1)), vec![]).validate(),
+            Err(TreeError::TextTooLong)
+        );
+        assert!(
+            serde_json::from_str::<PortableTree>(
+                r#"{"kind":"Placeholder","children":[],"undo":[]}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn imported_tree_keeps_old_ids_tombstoned_and_is_undoable() {
+        let mut editor = Editor::new();
+        let old = number(&mut editor, "7");
+        let imported = portable(NodeKind::Identifier("x".into()), vec![]);
+        editor.load_portable(&imported).unwrap();
+        let new = editor.root();
+        assert!(new.index() > old.index());
+        assert!(editor.arena().get(old).is_none());
+        assert!(editor.undo());
+        assert_eq!(editor.root(), old);
+        assert!(editor.arena().get(new).is_none());
+        assert!(editor.redo());
+        assert_eq!(editor.to_portable().unwrap(), imported);
+        assert_eq!(editor.validate(), Ok(()));
     }
 }

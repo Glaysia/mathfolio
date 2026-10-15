@@ -1,15 +1,23 @@
 [package]
 name = "mathcraft-app"
+default-run = "mathcraft"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "mathcraft"
+path = "src/main.rs"
+
 [dependencies]
 eframe.workspace = true
 mathcraft-core.workspace = true
 mathcraft-document.workspace = true
+mathcraft-compat.workspace = true
 mathcraft-editor = { path = "../mathcraft-editor" }
 rfd.workspace = true
 egui_plot.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
+serde_json.workspace = true
+roxmltree.workspace = true

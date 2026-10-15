@@ -182,3 +182,15 @@ K `WorksheetPageLayout.SetupDefaultPageSizeInformation` (`0x0600087e`)은 **종�
 | K `0x0600087e` | `6a9214639edd4b6db96a34b0c15981074f0738e0cfceab539d993d8f32a147bc` |
 | W `0x060005e5` | `f634000b5de35e7e12cc2ef45ef53bbf62f8c6901ce2ddaa25191e04872c1a38` |
 | W `0x06000d1f` | `a9e31d8f146bf8acc58ad3c5916824ee0464583c6f8a8061e8e420027c74fc93` |
+
+## 후속 구현: 자유 배치 캔버스의 저장 계약
+
+`crates/mathcraft-document/src/canvas.rs`는 `.mathcraft` version 2의 독립 제품 문서 모델이다. 기본값은 빈 워크시트, 816×1056 문서 좌표, grid 19.2이며 영역별 ID/좌표와 `Math(PortableTree)`, `Text`, `Opaque{xml,kind}`를 저장한다. 기본 종이/grid는 이 버전의 제품 정책이며 모든 Mathcad 문서의 기본값이라는 주장이 아니다. `source_region`은 원본 영역의 출처를 연결한다.
+
+현재 편집 모델은 **flat canvas**만 지원한다. Mathcad의 중첩 영역·머리글/바닥글·별도 part를 완전히 재구성하는 편집 모델은 아직 아니다. 가져온 원본 MCDX ZIP 전체를 `native_archive: Option<Vec<u8>>`에 16 MiB까지 바이트 그대로 저장해 unknown part가 사라지는 것을 방지한다. 이 보존은 원본 파일에 편집 내용을 반영해 왕복 저장했다는 뜻이 아니다.
+
+수식은 PortableTree의 semantic shape만 저장하고 caret, arena ID, undo/redo history는 포함하지 않는다. 저장은 모든 데이터를 검증한 다음 같은 디렉터리에 새 임시 파일을 만들고 동기화 후 원자적 rename한다. 검증·쓰기·rename 실패 시 기존 출력 파일을 유지하며 소유한 임시 파일만 정리한다. `.mcdx` 경로에는 이 형식을 쓰지 않는다.
+
+제품의 자원 제한: 영역 4,096개, 단일 텍스트 1 MiB, 전체 텍스트 8 MiB, 전체 수식 노드 65,536개, 캔버스 수식 깊이 48. 깊이 제한은 serde_json의 bounded parser로 저장 후 다시 읽기가 가능하게 하려는 정책이며 원본 제품의 한계가 아니다. 유효한 PortableTree 구조, 유한 좌표·양의 문서 크기/grid, 중복되지 않는 ID와 next_id도 검증한다.
+
+synthetic 테스트 6개를 추가해 수식·label·배치·opaque XML·원본 archive bytes의 저장/열기, 교체 저장, 중간값 snap, 실패한 이동의 원자성, invalid 저장과 rename 실패 시 이전 파일 보존/임시 파일 정리, 잘못된 버전/ID/트리/예산 거부, 지원 최대 깊이의 저장 왕복을 확인했다. `cargo test -p mathcraft-document --offline` 전체 19개 및 `cargo clippy -p mathcraft-document --all-targets --locked -- -D warnings` 통과. 원본 앱 실행·GUI·COM은 사용하지 않았다.

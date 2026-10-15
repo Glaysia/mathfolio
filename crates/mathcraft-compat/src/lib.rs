@@ -10,6 +10,7 @@ use roxmltree::Node;
 use serde::Serialize;
 use std::{collections::HashMap, sync::Arc};
 
+pub mod editor_bridge;
 pub mod reference;
 
 const ML: &str = "http://schemas.mathsoft.com/math50";

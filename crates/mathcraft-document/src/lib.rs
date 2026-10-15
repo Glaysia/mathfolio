@@ -5,6 +5,7 @@ use std::{
     path::Path,
 };
 
+pub mod canvas;
 mod mcdx;
 pub mod native;
 pub use mcdx::import_mcdx;

@@ -5,7 +5,7 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: 원본 동작 분석과 호환성 기반 구현. 기존 행 기반 계산기 GUI는 실험용이며 목표 제품으로 인정하지 않는다.
+- 현재 단계: 자유 배치 워크시트에서 구조 수식을 작성·편집·계산·저장하는 초기 통합. 원본 전체 호환은 미완료다.
 
 [개발 계획](docs/PLAN.md) · [환경 조사](docs/ENVIRONMENT.md) · [분석 기록 양식](docs/OBSERVATION_TEMPLATE.md)
 
@@ -32,7 +32,7 @@ cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
 
 ## 다음 작업
 
-1. 구조 수식 편집기를 자유 배치 워크시트에 통합하고 원본 키 조작과 대조.
+1. 워크시트 안의 구조 수식 편집·단위·커서·선택을 원본 키 조작과 대조하고 확장.
 2. MathML 직접 실행의 범위·행렬·풀이 블록·상징 연산과 의존성 갱신 확장.
 3. MCDX 보존 계층에 편집·캐시 무효화·왕복 저장을 추가하고 원본 재열기 검증.
 

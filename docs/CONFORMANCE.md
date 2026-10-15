@@ -39,10 +39,12 @@ cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
 
 `mathcraft-editor`는 안정 ID의 AST arena, 캐럿·부분식 선택, 분수·지수·괄호·이항 연산 삽입, scope 확장, 괄호 나가기, undo/redo와 분수 배치식을 구현한다. 근거는 `docs/spec/mathcad12-editor-contract.json`과 분석 0002다. 원본에서 아직 대조하지 않은 키 전이·선택 wrapping·지수 배치는 독립 구현 정책이며 호환성 검증이 남아 있다.
 
-앱의 `2D formula` 버튼으로 AST 직접 렌더링 위젯을 열 수 있다. 분수·지수·괄호, 노드 클릭과 커서, 문자 입력, `/ ^ ()`, Space/Tab, undo/redo를 지원한다. 현재 워크시트와 분리된 미저장 편집 시험이며 전체 앱이 구조 편집 방식으로 전환된 것은 아니다. 실제 창을 띄우지 않고 egui context의 레이아웃·tessellation·포커스·입력 테스트로 검증했다.
+앱 본체는 빈 종이 위에 수식·텍스트를 배치하는 워크시트로 바뀌었다. 수식 입력→구조 편집→정의/평가→동일 영역의 결과 표시→위치 이동에 따른 재계산→저장/재열기가 연결된다. `:`·`=`와 숫자 뒤 단위 입력은 현재 제한된 독립 정책이며 원본 전체 키 문맥을 재현한 것은 아니다. 실제 창을 띄우지 않고 egui context의 레이아웃·tessellation·포커스·연속 문자 입력 및 문서 수명 주기를 검증했다. 새 실행 파일은 `target/debug/mathcraft.exe`다.
 
-2026-10-15 최종 검증: Windows 및 peets(Kubuntu 26.04)에서 fmt, 전체 workspace Clippy(`-D warnings`), 테스트 39개, 전체 빌드와 원본 38개 참조 비교가 통과했다. 원본 GUI 재검증과 한글 IME 검증은 이 검사에 포함되지 않는다.
+`mathcraft-document::canvas` v2는 수식의 PortableTree와 좌표·텍스트·opaque 영역을 저장한다. 내부 arena/caret/undo는 저장하지 않는다. MCDX를 가져오면 원본 ZIP 바이트도 보존한다. 편집 불가/계산 미지원 영역은 raw로 남기고, 계산 의미가 있는 미지원 math wrapper 속성을 제거하여 실행하지 않는다. 현재 편집 저장은 자체 `.mathcraft` v2이며 MCDX로 편집 내용을 내보내기는 미완료다.
+
+2026-10-15 최종 검증: Windows 및 peets(Kubuntu 26.04)에서 fmt, 전체 workspace Clippy(`-D warnings`), 테스트 67개, 전체 빌드와 원본 38개 참조 비교가 통과했다. 원본 GUI 재검증과 한글 IME 검증은 이 검사에 포함되지 않는다.
 
 ## 다음 완료 조건
 
-구조 수식 위젯을 자유 배치·텍스트 영역·한글 IME·클립보드와 통합하고, 계산 결과와 오류 위치를 AST에 연결해야 한다. MCDX의 편집·캐시 무효화·관계 보존을 검증하고 원본에서 다시 열어야 한다. ranges·일반 행렬·프로그래밍·풀이/CAS·유리수/affine 단위를 확장해야 한다. 현재 제한된 기준 사례나 단위 테스트를 이유로 제품이 완성됐다고 판단하지 않는다.
+구조 편집의 전체 원본 키 전이, IME·클립보드, 선택·이동·계산 오류의 AST 위치 표시를 확장해야 한다. MCDX의 편집·캐시 무효화·관계 보존을 검증하고 원본에서 다시 열어야 한다. ranges·일반 행렬·프로그래밍·풀이/CAS·유리수/affine 단위를 확장해야 한다. 현재 제한된 기준 사례나 단위 테스트를 이유로 제품이 완성됐다고 판단하지 않는다.

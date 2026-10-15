@@ -26,6 +26,7 @@ struct FormulaBox {
     primitives: Vec<Primitive>,
     children: Vec<(Vec2, FormulaBox)>,
     atom: Option<Arc<Galley>>,
+    hit_bounds: Option<Rect>,
 }
 
 enum Primitive {
@@ -44,12 +45,42 @@ struct HitNode {
 /// scope when rendering multiple editors (`ui.push_id(worksheet_region_id, …)`).
 ///
 /// Supported: atomic text, / ^ ( ), + - *, Space, Tab, left/right, Backspace,
-/// Delete, Ctrl/Cmd+Z and redo. '=' is deliberately not bound: its contextual
-/// Prime behavior is not implemented by a generic evaluation-node insertion.
+/// Delete, Ctrl/Cmd+Z and redo. ':' and '=' wrap the whole current root using
+/// the bounded project policy below, not Prime's complete contextual dispatcher.
+/// Enter/Escape events are left for the surrounding worksheet to handle.
+#[allow(
+    dead_code,
+    reason = "Compatibility wrapper; worksheet uses the result-aware variant."
+)]
 pub fn formula_ui(ui: &mut Ui, editor: &mut Editor) -> Response {
-    let initial = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+    formula_ui_with_result(ui, editor, None)
+}
+
+/// Display a cached evaluation result without mutating the expression tree.
+/// `result` excludes any editable RHS unit identifier. Unit hit/caret behavior
+/// and result composition are independent policies, not recovered Prime geometry.
+pub fn formula_ui_with_result(ui: &mut Ui, editor: &mut Editor, result: Option<&str>) -> Response {
+    formula_ui_with_focus(ui, editor, result, false)
+}
+
+pub(crate) fn formula_ui_with_focus(
+    ui: &mut Ui,
+    editor: &mut Editor,
+    result: Option<&str>,
+    focus: bool,
+) -> Response {
+    let initial = measure_with_result(
+        ui.painter(),
+        editor.arena(),
+        editor.root(),
+        FONT_SIZE,
+        result,
+    );
     let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(76.0, 58.0));
     let (rect, mut response) = ui.allocate_exact_size(desired, Sense::click());
+    if focus {
+        response.request_focus();
+    }
     let origin = rect.min + vec2(PADDING, PADDING);
     let mut hits = vec![];
     collect_hits(&initial, origin, &mut hits);
@@ -98,10 +129,12 @@ pub fn formula_ui(ui: &mut Ui, editor: &mut Editor) -> Response {
         let events = ui.input_mut(|input| {
             let mut ours = Vec::new();
             input.events.retain(|event| {
-                if matches!(
-                    event,
-                    egui::Event::Text(_) | egui::Event::Paste(_) | egui::Event::Key { .. }
-                ) {
+                let owned = match event {
+                    egui::Event::Text(_) | egui::Event::Paste(_) => true,
+                    egui::Event::Key { key, .. } => !matches!(key, Key::Enter | Key::Escape),
+                    _ => false,
+                };
+                if owned {
                     ours.push(event.clone());
                     false
                 } else {
@@ -122,9 +155,7 @@ pub fn formula_ui(ui: &mut Ui, editor: &mut Editor) -> Response {
                     modifiers,
                     ..
                 } => {
-                    if key == Key::Escape {
-                        response.surrender_focus();
-                    } else if modifiers.command && key == Key::Z {
+                    if modifiers.command && key == Key::Z {
                         changed |= if modifiers.shift {
                             editor.redo()
                         } else {
@@ -154,7 +185,13 @@ pub fn formula_ui(ui: &mut Ui, editor: &mut Editor) -> Response {
         }
     }
 
-    let layout = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+    let layout = measure_with_result(
+        ui.painter(),
+        editor.arena(),
+        editor.root(),
+        FONT_SIZE,
+        result,
+    );
     let mut hits = vec![];
     collect_hits(&layout, origin, &mut hits);
     let paint = ui.painter();
@@ -193,6 +230,16 @@ fn text_baseline(galley: &Galley) -> f32 {
 }
 
 fn measure(painter: &Painter, arena: &Arena, id: NodeId, size: f32) -> FormulaBox {
+    measure_with_result(painter, arena, id, size, None)
+}
+
+fn measure_with_result(
+    painter: &Painter,
+    arena: &Arena,
+    id: NodeId,
+    size: f32,
+    result_text: Option<&str>,
+) -> FormulaBox {
     let node = arena.get(id).expect("validated editor tree");
     let mut result = FormulaBox {
         node: id,
@@ -201,9 +248,12 @@ fn measure(painter: &Painter, arena: &Arena, id: NodeId, size: f32) -> FormulaBo
         primitives: vec![],
         children: vec![],
         atom: None,
+        hit_bounds: None,
     };
     match node.kind() {
-        NodeKind::Identifier(text) | NodeKind::Number(text) => {
+        NodeKind::Identifier(text)
+        | NodeKind::Number(text)
+        | NodeKind::AnnotatedIdentifier { name: text, .. } => {
             let galley = text_galley(painter, if text.is_empty() { " " } else { text }, size);
             result.size = galley.size().max(vec2(4.0, size));
             result.baseline = text_baseline(&galley);
@@ -295,7 +345,51 @@ fn measure(painter: &Painter, arena: &Arena, id: NodeId, size: f32) -> FormulaBo
         }
         NodeKind::Binary(op) => {
             let left = measure(painter, arena, node.children()[0], size);
-            let right = measure(painter, arena, node.children()[1], size);
+            let mut right = measure(painter, arena, node.children()[1], size);
+            if *op == BinaryOp::Evaluate
+                && let Some(value) = result_text
+            {
+                let value = text_galley(painter, value, size);
+                match arena.get(node.children()[1]).unwrap().kind() {
+                    NodeKind::Placeholder => {
+                        right.size = value.size();
+                        right.baseline = text_baseline(&value);
+                        right.primitives = vec![Primitive::Text(Vec2::ZERO, value)];
+                    }
+                    _ => {
+                        let unit_size = right.size;
+                        let prefix = value.size().x + size * 0.18;
+                        let baseline = right.baseline.max(text_baseline(&value));
+                        let value_y = baseline - text_baseline(&value);
+                        let unit_y = baseline - right.baseline;
+                        for primitive in &mut right.primitives {
+                            match primitive {
+                                Primitive::Text(offset, _) => *offset += vec2(prefix, unit_y),
+                                Primitive::Line(a, b) => {
+                                    *a += vec2(prefix, unit_y);
+                                    *b += vec2(prefix, unit_y);
+                                }
+                                Primitive::Placeholder(rect) => {
+                                    *rect = rect.translate(vec2(prefix, unit_y))
+                                }
+                            }
+                        }
+                        for (offset, _) in &mut right.children {
+                            *offset += vec2(prefix, unit_y);
+                        }
+                        right
+                            .primitives
+                            .push(Primitive::Text(vec2(0.0, value_y), value.clone()));
+                        right.hit_bounds =
+                            Some(Rect::from_min_size(pos2(prefix, unit_y), unit_size));
+                        right.size = vec2(
+                            prefix + unit_size.x,
+                            (unit_y + unit_size.y).max(value_y + value.size().y),
+                        );
+                        right.baseline = baseline;
+                    }
+                }
+            }
             let symbol = match op {
                 BinaryOp::Add => "+",
                 BinaryOp::Subtract => "−",
@@ -333,7 +427,10 @@ fn measure(painter: &Painter, arena: &Arena, id: NodeId, size: f32) -> FormulaBo
 fn collect_hits(layout: &FormulaBox, origin: Pos2, hits: &mut Vec<HitNode>) {
     hits.push(HitNode {
         node: layout.node,
-        rect: Rect::from_min_size(origin, layout.size),
+        rect: layout.hit_bounds.map_or_else(
+            || Rect::from_min_size(origin, layout.size),
+            |bounds| bounds.translate(origin.to_vec2()),
+        ),
         atom: layout.atom.clone(),
     });
     for (offset, child) in &layout.children {
@@ -404,7 +501,7 @@ fn paint_caret(painter: &Painter, hit: &HitNode, editor: &Editor) {
     );
 }
 
-fn input_text(editor: &mut Editor, text: &str) -> bool {
+pub(crate) fn input_text(editor: &mut Editor, text: &str) -> bool {
     let mut changed = false;
     for ch in text.chars() {
         match ch {
@@ -438,18 +535,49 @@ fn input_text(editor: &mut Editor, text: &str) -> bool {
                 editor.insert_binary(BinaryOp::Multiply);
                 changed = true;
             }
+            ':' => changed |= insert_root_command(editor, BinaryOp::Define),
+            '=' => changed |= insert_root_command(editor, BinaryOp::Evaluate),
             // These need dedicated structural/context rules; do not disguise them as text.
-            '=' | ':' | '[' | ']' | '\r' | '\n' | '\t' => {}
-            ch if !ch.is_control() => changed |= insert_character(editor, ch),
+            '[' | ']' | '\r' | '\n' | '\t' => {}
+            ch if !ch.is_control() => {
+                // A unit/name typed after a numeric atom becomes multiplication,
+                // preserving two editable operands instead of the name "2m".
+                // Full Prime implicit-operator/caret behavior still needs probes.
+                if ch.is_alphabetic()
+                    && matches!(
+                        editor.arena().get(editor.caret().node).map(|n| n.kind()),
+                        Some(NodeKind::Number(_))
+                    )
+                {
+                    editor.insert_binary(BinaryOp::Multiply);
+                }
+                changed |= insert_character(editor, ch);
+            }
             _ => {}
         }
     }
     changed
 }
 
+/// Independent bounded policy. REA shows that Prime's '=' first attempts a
+/// local range definition and has evaluation/undo branches; this is not that
+/// complete dispatcher. Definitions keep their own RHS and do not acquire a
+/// second evaluation node. In particular ':' followed by '=' inserts only ':='.
+fn insert_root_command(editor: &mut Editor, operation: BinaryOp) -> bool {
+    match editor.arena().get(editor.root()).unwrap().kind() {
+        NodeKind::Binary(BinaryOp::Define | BinaryOp::Evaluate) => false,
+        _ => {
+            let _ = editor.select_subtree(editor.root());
+            editor.insert_binary(operation);
+            true
+        }
+    }
+}
+
 fn atomic_text(editor: &Editor, node: NodeId) -> Option<String> {
     match editor.arena().get(node)?.kind() {
         NodeKind::Number(text) | NodeKind::Identifier(text) => Some(text.clone()),
+        NodeKind::AnnotatedIdentifier { name, .. } => Some(name.clone()),
         NodeKind::Placeholder => Some(String::new()),
         _ => None,
     }
@@ -462,6 +590,19 @@ fn text_kind(text: String) -> NodeKind {
         NodeKind::Number(text)
     } else {
         NodeKind::Identifier(text)
+    }
+}
+
+fn edited_text_kind(editor: &Editor, target: NodeId, text: String) -> NodeKind {
+    if let Some(NodeKind::AnnotatedIdentifier { labels, .. }) =
+        editor.arena().get(target).map(|node| node.kind())
+    {
+        NodeKind::AnnotatedIdentifier {
+            name: text,
+            labels: labels.clone(),
+        }
+    } else {
+        text_kind(text)
     }
 }
 
@@ -506,7 +647,8 @@ fn insert_character(editor: &mut Editor, ch: char) -> bool {
         return false;
     };
     text.insert(byte, ch);
-    if editor.set_atom(target, text_kind(text)).is_err() {
+    let kind = edited_text_kind(editor, target, text);
+    if editor.set_atom(target, kind).is_err() {
         return false;
     }
     let _ = editor.place_text_caret(target, offset + ch.len_utf16());
@@ -522,7 +664,8 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
         return false;
     };
     if editor.selection() == Selection::Subtree(target) {
-        return editor.set_atom(target, NodeKind::Placeholder).is_ok();
+        let kind = edited_text_kind(editor, target, String::new());
+        return editor.set_atom(target, kind).is_ok();
     }
     let offset = editor.caret().value_range.map_or_else(
         || {
@@ -550,7 +693,8 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
     };
     let next_offset = text[..start].encode_utf16().count();
     text.replace_range(start..end, "");
-    if editor.set_atom(target, text_kind(text)).is_err() {
+    let kind = edited_text_kind(editor, target, text);
+    if editor.set_atom(target, kind).is_err() {
         return false;
     }
     let _ = editor.place_text_caret(target, next_offset);
@@ -733,5 +877,184 @@ mod tests {
         });
         third_frame.drop_without_applying_deltas();
         assert_eq!(atomic_text(&editor, editor.caret().node).unwrap(), "4");
+    }
+
+    #[test]
+    fn root_definition_and_evaluation_keys_do_not_duplicate_operators() {
+        let mut definition = Editor::new();
+        input_text(&mut definition, "x:=2");
+        let root = definition.root();
+        let node = definition.arena().get(root).unwrap();
+        assert_eq!(node.kind(), &NodeKind::Binary(BinaryOp::Define));
+        assert_eq!(atomic_text(&definition, node.children()[0]).unwrap(), "x");
+        assert_eq!(atomic_text(&definition, node.children()[1]).unwrap(), "2");
+        assert!(!input_text(&mut definition, "="));
+        assert_eq!(definition.root(), root);
+        let mut evaluation = Editor::new();
+        input_text(&mut evaluation, "1+2=");
+        let root = evaluation.root();
+        let node = evaluation.arena().get(root).unwrap();
+        assert_eq!(node.kind(), &NodeKind::Binary(BinaryOp::Evaluate));
+        assert_eq!(
+            evaluation.arena().get(node.children()[0]).unwrap().kind(),
+            &NodeKind::Binary(BinaryOp::Add)
+        );
+        assert!(!input_text(&mut evaluation, "="));
+        assert_eq!(evaluation.root(), root);
+    }
+
+    #[test]
+    fn annotated_identifier_edit_preserves_labels() {
+        let mut editor = Editor::new();
+        let id = editor.root();
+        editor
+            .set_atom(
+                id,
+                NodeKind::AnnotatedIdentifier {
+                    name: "mass".into(),
+                    labels: "VARIABLE".into(),
+                },
+            )
+            .unwrap();
+        input_text(&mut editor, "2");
+        assert_eq!(
+            editor.arena().get(id).unwrap().kind(),
+            &NodeKind::AnnotatedIdentifier {
+                name: "mass2".into(),
+                labels: "VARIABLE".into()
+            }
+        );
+    }
+
+    #[test]
+    fn cached_result_composition_does_not_mutate_tree_and_unit_remains_hittable() {
+        let context = egui::Context::default();
+        let mut editor = Editor::new();
+        input_text(&mut editor, "2+3=");
+        let before = editor.to_portable().unwrap();
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_result(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some("5"),
+            );
+            let right = &layout.children[1].1;
+            assert!(right.primitives.iter().any(
+                |primitive| matches!(primitive, Primitive::Text(_, text) if text.text() == "5")
+            ));
+            assert!(
+                !right
+                    .primitives
+                    .iter()
+                    .any(|primitive| matches!(primitive, Primitive::Placeholder(_)))
+            );
+            formula_ui_with_result(ui, &mut editor, Some("5"));
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+        let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
+        editor
+            .set_atom(
+                rhs,
+                NodeKind::AnnotatedIdentifier {
+                    name: "m".into(),
+                    labels: "UNIT".into(),
+                },
+            )
+            .unwrap();
+        let before = editor.to_portable().unwrap();
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_result(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some("5"),
+            );
+            let right = &layout.children[1].1;
+            let bounds = right.hit_bounds.unwrap();
+            assert!(bounds.min.x > 0.0);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            let point = layout.children[1].0.to_pos2() + bounds.center().to_vec2();
+            assert_eq!(hit_node(&hits, point).unwrap().node, rhs);
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+    #[test]
+    fn compound_unit_keeps_numeric_result_and_unit_children() {
+        let context = egui::Context::default();
+        let mut editor = Editor::new();
+        input_text(&mut editor, "1=m/s");
+        let before = editor.to_portable().unwrap();
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_result(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some("123.456"),
+            );
+            let right = &layout.children[1].1;
+            assert!(
+                right
+                    .primitives
+                    .iter()
+                    .any(|p| matches!(p,Primitive::Text(_,g) if g.text()=="123.456"))
+            );
+            assert_eq!(right.children.len(), 2);
+            assert!(right.children.iter().all(|(offset, _)| offset.x > 0.));
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+
+    #[test]
+    fn enter_and_escape_events_remain_available_to_worksheet() {
+        let context = egui::Context::default();
+        let mut editor = Editor::new();
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            formula_ui(ui, &mut editor).request_focus();
+        });
+        frame.drop_without_applying_deltas();
+        let events = [Key::Enter, Key::Escape]
+            .into_iter()
+            .map(|key| egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::default(),
+            })
+            .collect();
+        let frame = context.run_ui(
+            egui::RawInput {
+                events,
+                ..Default::default()
+            },
+            |ui| {
+                formula_ui(ui, &mut editor);
+                let remaining = ui.input(|input| {
+                    input
+                        .events
+                        .iter()
+                        .filter(|event| {
+                            matches!(
+                                event,
+                                egui::Event::Key {
+                                    key: Key::Enter | Key::Escape,
+                                    ..
+                                }
+                            )
+                        })
+                        .count()
+                });
+                assert_eq!(remaining, 2);
+            },
+        );
+        frame.drop_without_applying_deltas();
     }
 }

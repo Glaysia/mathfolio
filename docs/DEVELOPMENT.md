@@ -61,7 +61,7 @@ cargo run -p mathcraft-app --locked
 | CLI 실행 | 통과 | 통과 |
 | GUI 화면 / IME / 클립보드 | 화면·한글 메모 표시 확인, IME·클립보드 미검증 | 미검증: KDE 사용자 GUI 세션 없음 |
 
-자동 테스트는 현재 39개다. Windows와 peets에서 구조 수식 편집·headless egui 위젯, MathML 직접 실행·미지원 오류 전파, 표시 단위와 물리량 분리, 원본 ZIP parts 보존과 기존 코어/문서 검사를 통과했다. 별도로 새 Mathcad 실행 결과 38개에 대한 제한된 참조 비교도 두 OS에서 통과했다. 측정 범위와 미완료 부분은 [호환성 검증](CONFORMANCE.md)을 참고한다. 데스크톱 창이나 원본 앱은 이 후속 검사에서 실행하지 않았다.
+자동 테스트는 현재 67개다. Windows와 peets에서 자유 배치 워크시트의 클릭·연속 입력·정의/평가·위치 이동·undo·저장/재열기, PortableTree 보존, 구조 수식 headless 위젯, MathML 직접 실행·오류 전파, 표시 단위와 물리량 분리, 원본 ZIP parts 보존을 확인했다. 별도로 새 Mathcad 실행 결과 38개에 대한 제한된 참조 비교도 두 OS에서 통과했다. 측정 범위와 미완료 부분은 [호환성 검증](CONFORMANCE.md)을 참고한다. 데스크톱 창이나 원본 앱은 이 후속 검사에서 실행하지 않았다.
 
 CI는 Windows 및 Ubuntu 24.04의 검사 구성을 추가했다. 아직 원격에 push하지 않아 CI 실행 결과는 없다. Kubuntu 26.04 실기 검증은 CI와 별도로 유지한다.
 

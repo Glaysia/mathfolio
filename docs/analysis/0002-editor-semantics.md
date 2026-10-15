@@ -178,3 +178,9 @@ text_baseline = numerator.height + vertical_pad - font.baseline_adjustment
 추가로 `mathcraft-app/src/formula.rs`에 AST를 직접 측정하고 그리는 egui 위젯을 구현했다. stacked fraction, 올라간 지수, 크기를 조절한 괄호, 공통 baseline, 노드 hit test와 구조 caret/선택을 표시한다. `/`, `^`, `(`, `)`, Space와 원자 문자 편집을 연결했다. 이것은 기존 문자열 입력란에 수식 문자열을 그대로 출력하는 렌더러가 아니다. 분수 배치식은 관찰한 식을 사용하지만 실제 font/pad/overhang 수치, 지수 크기와 위치, 괄호 비율은 **독립 시각 정책**이다. 제품의 실제 pixel geometry가 복구되었다고 주장하지 않는다.
 
 원본과 사용자 GUI를 실행하지 않고 egui `Context::run_ui`만 사용한 테스트 3개로 중첩 분수·지수의 서로 겹치지 않는 operand geometry, 노드 hit, tessellation 결과, focus를 가진 프레임의 입력과 Tab 유지, UTF-16 문자 삭제를 확인했다. 아직 원본 IME, 다중 선택, matrix, context `=`, 모든 수평/수직 navigation과 원본의 키 입력 이력은 구현하지 않았다.
+
+후속 구현에서는 워크시트에 내장할 수 있도록 `PortableTree` 저장 경계를 추가했다. 내부 arena/캐럿/undo는 저장하지 않는다. arity·최대 깊이/노드 수·텍스트 크기·수치 literal을 검사한 후 import하며 실패 시 editor와 undo가 변하지 않는다. 명시적 identifier label은 `AnnotatedIdentifier { name, labels }`로 보존한다. 이 타입이 contextual label 등 원본의 다른 metadata까지 보존한다는 뜻은 아니다. importer는 표현할 수 없는 fragment를 오류로 돌려 원본 XML 보존 경로에 남겨야 한다.
+
+위젯의 `:`/`=`에는 별도의 제한 정책을 추가했다. 현재 root 전체를 Definition/Evaluation으로 감싸며 이미 그러한 root이면 중복 삽입하지 않는다. `:=` 연속 입력으로 이중 wrapper가 생기지 않는다. 원본의 `ProcessEqualsKey`에 확인된 local range 시도·undo 변화·기존 evaluation 분기를 전부 재현한 것은 아니다. Enter/Escape 이벤트는 워크시트에 전달한다.
+
+계산 결과 표시 API는 tree를 변경하지 않고 Evaluation의 RHS placeholder에 캐시 문자열을 그리며, RHS가 단위 identifier일 때 값 뒤에 편집 가능한 단위를 배치한다. 세부 배치와 단위 커서 정책은 독립 구현이다. 현재 editor 테스트 11개와 위젯 headless 테스트 7개는 안전한 roundtrip/원자적 실패/이력 비직렬화, 명시 label 보존, 키 이벤트 전달, root 명령 중복 방지, 캐시 표시 후 tree 불변성과 unit hit를 포함한다.
