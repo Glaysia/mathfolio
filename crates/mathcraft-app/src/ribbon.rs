@@ -1,0 +1,1032 @@
+//! Independent rendering of the ribbon hierarchy recovered from Prime's BAML.
+//! See docs/analysis/0019-prime-ribbon.md for source facts and approximations.
+use eframe::egui::{
+    self, Align, Color32, FontId, Layout, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
+};
+
+const INK: Color32 = Color32::from_rgb(39, 49, 58);
+const MUTED: Color32 = Color32::from_rgb(143, 148, 153);
+const EDGE: Color32 = Color32::from_rgb(174, 184, 192);
+const BLUE: Color32 = Color32::from_rgb(51, 105, 143);
+const PANEL: Color32 = Color32::from_rgb(240, 244, 247);
+const GROUP_HEIGHT: f32 = 85.;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum RibbonTab {
+    #[default]
+    Math,
+    InputOutput,
+    Functions,
+    Matrices,
+    Plots,
+    MathFormatting,
+    TextFormatting,
+    Calculation,
+    Document,
+    Resources,
+}
+
+impl RibbonTab {
+    const ALL: [Self; 10] = [
+        Self::Math,
+        Self::InputOutput,
+        Self::Functions,
+        Self::Matrices,
+        Self::Plots,
+        Self::MathFormatting,
+        Self::TextFormatting,
+        Self::Calculation,
+        Self::Document,
+        Self::Resources,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Math => "수학",
+            Self::InputOutput => "입력/출력",
+            Self::Functions => "함수",
+            Self::Matrices => "행렬/표",
+            Self::Plots => "도표",
+            Self::MathFormatting => "계산 서식 지정",
+            Self::TextFormatting => "텍스트 서식 지정",
+            Self::Calculation => "계산",
+            Self::Document => "문서",
+            Self::Resources => "리소스",
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct RibbonState {
+    pub tab: RibbonTab,
+}
+
+pub(crate) struct RibbonContext<'a> {
+    pub document_name: &'a str,
+    pub can_undo: bool,
+    pub can_redo: bool,
+    pub has_selection: bool,
+    pub zoom: f32,
+    pub grid: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum RibbonAction {
+    New,
+    Open,
+    Save,
+    SaveAs,
+    ExportMcdx,
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    Delete,
+    InsertMath,
+    InsertText,
+    Fraction,
+    Power,
+    Root,
+    Absolute,
+    Matrix,
+    Index,
+    Range,
+    Function,
+    Define,
+    Evaluate,
+    InsertSymbol(&'static str),
+    InsertIdentifier {
+        name: &'static str,
+        label: &'static str,
+    },
+    InsertFunction(&'static str),
+    Recalculate,
+    Zoom(f32),
+    ToggleGrid,
+}
+
+#[derive(Clone, Copy)]
+enum Icon {
+    New,
+    Open,
+    Save,
+    Undo,
+    Redo,
+    Math,
+    Text,
+    Plot,
+    Operators,
+    Symbols,
+    Program,
+    Constants,
+    Symbolics,
+    Label,
+    Subscript,
+    Units,
+    Clipboard,
+    Cut,
+    Copy,
+    Delete,
+    Matrix,
+    Rows,
+    Recalculate,
+    Page,
+    Zoom,
+    Function,
+    Align,
+    Link,
+    Help,
+}
+
+/// Renders only chrome; actions are dispatched by the worksheet after painting.
+pub(crate) fn show(
+    parent_ui: &mut Ui,
+    state: &mut RibbonState,
+    current: &RibbonContext<'_>,
+) -> Vec<RibbonAction> {
+    let mut actions = Vec::new();
+    egui::Panel::top("prime_ribbon")
+        .frame(egui::Frame::NONE.fill(PANEL))
+        .show(parent_ui, |ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(2., 0.);
+            ui.spacing_mut().button_padding = egui::vec2(5., 2.);
+            ui.horizontal(|ui| {
+                ui.set_height(27.);
+                ui.add_space(7.);
+                for (icon, title, action, enabled) in [
+                    (Icon::New, "새로 만들기  Ctrl+N", RibbonAction::New, true),
+                    (Icon::Open, "열기  Ctrl+O", RibbonAction::Open, true),
+                    (Icon::Save, "저장  Ctrl+S", RibbonAction::Save, true),
+                    (
+                        Icon::Undo,
+                        "실행 취소  Ctrl+Z",
+                        RibbonAction::Undo,
+                        current.can_undo,
+                    ),
+                    (
+                        Icon::Redo,
+                        "다시 실행  Ctrl+Y",
+                        RibbonAction::Redo,
+                        current.can_redo,
+                    ),
+                ] {
+                    if icon_button(ui, icon, "", title, enabled, false, false).clicked() {
+                        actions.push(action);
+                    }
+                }
+                ui.add_space(12.);
+                ui.label(
+                    egui::RichText::new(format!("{} — Mathcraft", current.document_name))
+                        .size(12.)
+                        .color(INK),
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.set_height(29.);
+                ui.add_space(5.);
+                let file = tab_button(ui, "파일", false, true);
+                egui::Popup::menu(&file).show(|ui| {
+                    ui.set_min_width(210.);
+                    for (label, action) in [
+                        ("새로 만들기\tCtrl+N", RibbonAction::New),
+                        ("열기…\tCtrl+O", RibbonAction::Open),
+                        ("저장\tCtrl+S", RibbonAction::Save),
+                        ("다른 이름으로 저장…", RibbonAction::SaveAs),
+                        ("Mathcad 워크시트로 내보내기…", RibbonAction::ExportMcdx),
+                    ] {
+                        if ui.button(label).clicked() {
+                            actions.push(action);
+                            ui.close();
+                        }
+                    }
+                });
+                egui::ScrollArea::horizontal()
+                    .id_salt("ribbon_tabs")
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            for tab in RibbonTab::ALL {
+                                if tab_button(ui, tab.label(), state.tab == tab, false).clicked() {
+                                    state.tab = tab;
+                                }
+                            }
+                        });
+                    });
+            });
+            let top = ui.cursor().min.y;
+            ui.painter()
+                .hline(ui.max_rect().x_range(), top, Stroke::new(1., EDGE));
+            egui::ScrollArea::horizontal()
+                .id_salt("ribbon_groups")
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                .show(ui, |ui| {
+                    ui.set_height(GROUP_HEIGHT);
+                    ui.horizontal(|ui| {
+                        ui.set_height(GROUP_HEIGHT);
+                        ui.add_space(4.);
+                        match state.tab {
+                            RibbonTab::Math => math_tab(ui, current, &mut actions),
+                            RibbonTab::InputOutput => io_tab(ui, &mut actions),
+                            RibbonTab::Functions => functions_tab(ui, &mut actions),
+                            RibbonTab::Matrices => matrices_tab(ui, current, &mut actions),
+                            RibbonTab::Plots => plots_tab(ui),
+                            RibbonTab::MathFormatting => math_format_tab(ui),
+                            RibbonTab::TextFormatting => text_format_tab(ui),
+                            RibbonTab::Calculation => calculation_tab(ui, &mut actions),
+                            RibbonTab::Document => document_tab(ui, current, &mut actions),
+                            RibbonTab::Resources => resources_tab(ui),
+                        }
+                        ui.add_space(4.);
+                    });
+                });
+        });
+    actions
+}
+
+fn tab_button(ui: &mut Ui, label: &str, selected: bool, file: bool) -> Response {
+    let text = egui::RichText::new(label)
+        .size(12.)
+        .color(if file { Color32::WHITE } else { INK });
+    ui.add(
+        egui::Button::new(text)
+            .min_size(egui::vec2(if file { 49. } else { 0. }, 28.))
+            .fill(if file {
+                BLUE
+            } else if selected {
+                Color32::WHITE
+            } else {
+                Color32::TRANSPARENT
+            })
+            .stroke(if selected {
+                Stroke::new(1., EDGE)
+            } else {
+                Stroke::NONE
+            })
+            .corner_radius(egui::CornerRadius::ZERO),
+    )
+}
+
+fn group(ui: &mut Ui, title: &str, width: f32, content: impl FnOnce(&mut Ui)) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(width, GROUP_HEIGHT), Sense::hover());
+    let body = Rect::from_min_max(
+        rect.min + egui::vec2(2., 3.),
+        rect.max - egui::vec2(3., 19.),
+    );
+    let mut child = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(body)
+            .layout(Layout::left_to_right(Align::Min)),
+    );
+    child.spacing_mut().item_spacing = egui::vec2(1., 0.);
+    content(&mut child);
+    ui.painter().text(
+        egui::pos2(rect.center().x, rect.max.y - 9.),
+        egui::Align2::CENTER_CENTER,
+        title,
+        FontId::proportional(11.),
+        Color32::from_rgb(92, 103, 113),
+    );
+    ui.painter().vline(
+        rect.max.x,
+        rect.min.y + 4. ..=rect.max.y - 4.,
+        Stroke::new(1., Color32::from_rgb(207, 214, 219)),
+    );
+}
+
+fn icon_button(
+    ui: &mut Ui,
+    icon: Icon,
+    label: &str,
+    tooltip: &str,
+    enabled: bool,
+    large: bool,
+    dropdown: bool,
+) -> Response {
+    let width = if large {
+        if label.chars().count() > 5 { 76. } else { 58. }
+    } else if label.is_empty() {
+        25.
+    } else {
+        101.
+    };
+    let size = egui::vec2(width, if large { 61. } else { 21. });
+    let response = ui
+        .add_enabled_ui(enabled, |ui| ui.allocate_response(size, Sense::click()))
+        .inner;
+    let p = ui.painter();
+    if response.hovered() && enabled {
+        p.rect_filled(response.rect, 2., Color32::from_rgb(222, 237, 248));
+        p.rect_stroke(
+            response.rect,
+            2.,
+            Stroke::new(1., Color32::from_rgb(154, 191, 216)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let color = if enabled { INK } else { MUTED };
+    let icon_rect = if large {
+        Rect::from_center_size(
+            response.rect.center_top() + egui::vec2(0., 21.),
+            Vec2::splat(32.),
+        )
+    } else {
+        Rect::from_center_size(
+            response.rect.left_center() + egui::vec2(11., 0.),
+            Vec2::splat(16.),
+        )
+    };
+    paint_icon(p, icon_rect, icon, if enabled { BLUE } else { MUTED });
+    if !label.is_empty() {
+        p.text(
+            if large {
+                response.rect.center_bottom() - egui::vec2(0., 12.)
+            } else {
+                response.rect.left_center() + egui::vec2(25., 0.)
+            },
+            if large {
+                egui::Align2::CENTER_CENTER
+            } else {
+                egui::Align2::LEFT_CENTER
+            },
+            label,
+            FontId::proportional(11.),
+            color,
+        );
+    }
+    if dropdown {
+        let c = if large {
+            response.rect.center_bottom() - egui::vec2(0., 2.)
+        } else {
+            response.rect.right_center() - egui::vec2(7., 0.)
+        };
+        p.add(egui::Shape::convex_polygon(
+            vec![
+                c + egui::vec2(-2.5, -2.),
+                c + egui::vec2(2.5, -2.),
+                c + egui::vec2(0., 1.),
+            ],
+            color,
+            Stroke::NONE,
+        ));
+    }
+    response.on_hover_text(if enabled {
+        tooltip.to_owned()
+    } else {
+        format!("{tooltip}\n아직 지원하지 않는 명령입니다.")
+    })
+}
+
+fn command(
+    ui: &mut Ui,
+    icon: Icon,
+    label: &str,
+    action: RibbonAction,
+    enabled: bool,
+    large: bool,
+    actions: &mut Vec<RibbonAction>,
+) {
+    if icon_button(ui, icon, label, label, enabled, large, false).clicked() {
+        actions.push(action);
+    }
+}
+
+fn unavailable(ui: &mut Ui, icon: Icon, label: &str, large: bool) {
+    icon_button(ui, icon, label, label, false, large, false);
+}
+
+fn menu(ui: &mut Ui, icon: Icon, label: &str, large: bool, content: impl FnOnce(&mut Ui)) {
+    let response = icon_button(ui, icon, label, label, true, large, true);
+    egui::Popup::menu(&response).show(|ui| {
+        ui.set_min_width(180.);
+        content(ui);
+    });
+}
+
+fn menu_action(ui: &mut Ui, label: &str, action: RibbonAction, actions: &mut Vec<RibbonAction>) {
+    if ui.button(label).clicked() {
+        actions.push(action);
+        ui.close();
+    }
+}
+
+fn clipboard(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAction>) {
+    group(ui, "클립보드", 109., |ui| {
+        ui.vertical(|ui| {
+            command(
+                ui,
+                Icon::Cut,
+                "잘라내기",
+                RibbonAction::Cut,
+                current.has_selection,
+                false,
+                actions,
+            );
+            command(
+                ui,
+                Icon::Copy,
+                "복사",
+                RibbonAction::Copy,
+                current.has_selection,
+                false,
+                actions,
+            );
+            command(
+                ui,
+                Icon::Clipboard,
+                "붙여넣기",
+                RibbonAction::Paste,
+                true,
+                false,
+                actions,
+            );
+        });
+    });
+}
+
+fn math_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAction>) {
+    group(ui, "영역", 305., |ui| {
+        command(
+            ui,
+            Icon::Math,
+            "수학",
+            RibbonAction::InsertMath,
+            true,
+            true,
+            actions,
+        );
+        unavailable(ui, Icon::Math, "풀이 구간", true);
+        unavailable(ui, Icon::Plot, "차트 컴포넌트", true);
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Text, "텍스트 블록", false);
+            command(
+                ui,
+                Icon::Text,
+                "텍스트 상자",
+                RibbonAction::InsertText,
+                true,
+                false,
+                actions,
+            );
+            unavailable(ui, Icon::Page, "이미지", false);
+        });
+    });
+    group(ui, "연산자 및 기호", 303., |ui| {
+        menu(ui, Icon::Operators, "연산자", true, |ui| {
+            egui::Grid::new("operators_gallery")
+                .num_columns(3)
+                .spacing(egui::vec2(4., 4.))
+                .show(ui, |ui| {
+                    let ops = [
+                        ("분수", RibbonAction::Fraction),
+                        ("거듭제곱", RibbonAction::Power),
+                        ("근호", RibbonAction::Root),
+                        ("절댓값", RibbonAction::Absolute),
+                        ("정의 :=", RibbonAction::Define),
+                        ("계산 =", RibbonAction::Evaluate),
+                        ("범위", RibbonAction::Range),
+                        ("인덱스", RibbonAction::Index),
+                        ("함수", RibbonAction::Function),
+                    ];
+                    for (i, (label, action)) in ops.into_iter().enumerate() {
+                        menu_action(ui, label, action, actions);
+                        if i % 3 == 2 {
+                            ui.end_row();
+                        }
+                    }
+                });
+        });
+        menu(ui, Icon::Symbols, "기호", true, |ui| {
+            egui::Grid::new("symbols_gallery")
+                .num_columns(6)
+                .show(ui, |ui| {
+                    for (i, s) in ["α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "π", "ρ", "σ", "ω"]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        menu_action(ui, s, RibbonAction::InsertSymbol(s), actions);
+                        if i % 6 == 5 {
+                            ui.end_row();
+                        }
+                    }
+                });
+        });
+        unavailable(ui, Icon::Program, "프로그래밍", true);
+        menu(ui, Icon::Constants, "상수", true, |ui| {
+            for (label, s) in [
+                ("π — 원주율", "π"),
+                ("e — 자연상수", "e"),
+                ("i — 허수 단위", "i"),
+                ("g — 표준 중력", "g"),
+                ("c — 빛의 속력", "c"),
+            ] {
+                menu_action(
+                    ui,
+                    label,
+                    RibbonAction::InsertIdentifier {
+                        name: s,
+                        label: if s == "g" { "UNIT" } else { "CONSTANT" },
+                    },
+                    actions,
+                );
+            }
+        });
+        unavailable(ui, Icon::Symbolics, "기호 연산", true);
+    });
+    group(ui, "스타일", 111., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Label, "레이블", false);
+            unavailable(ui, Icon::Subscript, "아래 첨자", false);
+            unavailable(ui, Icon::Math, "방정식 행 분할", false);
+        });
+    });
+    group(ui, "단위", 127., |ui| {
+        menu(ui, Icon::Units, "단위", true, |ui| {
+            for (label, s) in [
+                ("길이  m", "m"),
+                ("질량  kg", "kg"),
+                ("시간  s", "s"),
+                ("전류  A", "A"),
+                ("온도  K", "K"),
+                ("힘  N", "N"),
+                ("압력  Pa", "Pa"),
+                ("에너지  J", "J"),
+                ("전력  W", "W"),
+                ("주파수  Hz", "Hz"),
+            ] {
+                menu_action(ui, label, RibbonAction::InsertSymbol(s), actions);
+            }
+        });
+        unavailable(ui, Icon::Units, "단위계", true);
+    });
+    clipboard(ui, current, actions);
+}
+
+fn io_tab(ui: &mut Ui, actions: &mut Vec<RibbonAction>) {
+    group(ui, "워크시트", 150., |ui| {
+        command(
+            ui,
+            Icon::Open,
+            "열기",
+            RibbonAction::Open,
+            true,
+            true,
+            actions,
+        );
+        unavailable(ui, Icon::Link, "포함", true);
+    });
+    group(ui, "파일 액세스", 200., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Open, "데이터 읽기", false);
+            unavailable(ui, Icon::Save, "데이터 쓰기", false);
+            unavailable(ui, Icon::Matrix, "Excel", false);
+        });
+    });
+    group(ui, "개체", 130., |ui| {
+        unavailable(ui, Icon::Page, "개체 삽입", true);
+    });
+    group(ui, "입력 컨트롤", 200., |ui| {
+        unavailable(ui, Icon::Page, "입력 컨트롤", true);
+    });
+}
+
+fn functions_tab(ui: &mut Ui, actions: &mut Vec<RibbonAction>) {
+    group(ui, "함수", 650., |ui| {
+        menu(ui, Icon::Function, "모든 함수", true, |ui| {
+            for name in [
+                "sin", "cos", "tan", "exp", "ln", "log", "sqrt", "abs", "mean", "min", "max",
+                "det", "inverse", "rows", "cols",
+            ] {
+                menu_action(ui, name, RibbonAction::InsertFunction(name), actions);
+            }
+        });
+        ui.vertical(|ui| {
+            menu(ui, Icon::Function, "삼각 함수", false, |ui| {
+                for s in ["sin", "cos", "tan", "asin", "acos", "atan", "atan2"] {
+                    menu_action(ui, s, RibbonAction::InsertFunction(s), actions);
+                }
+            });
+            menu(ui, Icon::Function, "통계", false, |ui| {
+                for s in ["mean", "median", "stdev", "var", "min", "max"] {
+                    menu_action(ui, s, RibbonAction::InsertFunction(s), actions);
+                }
+            });
+            menu(ui, Icon::Function, "벡터 및 행렬", false, |ui| {
+                for s in ["det", "inverse", "rows", "cols", "length", "transpose"] {
+                    menu_action(ui, s, RibbonAction::InsertFunction(s), actions);
+                }
+            });
+        });
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Function, "곡선 적합", false);
+            unavailable(ui, Icon::Function, "데이터 분석", false);
+            unavailable(ui, Icon::Function, "미분 방정식", false);
+        });
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Function, "신호 처리", false);
+            unavailable(ui, Icon::Function, "확률 분포", false);
+            unavailable(ui, Icon::Function, "이미지 처리", false);
+        });
+    });
+}
+
+fn matrices_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAction>) {
+    group(ui, "행렬 및 표", 195., |ui| {
+        command(
+            ui,
+            Icon::Matrix,
+            "행렬 삽입",
+            RibbonAction::Matrix,
+            true,
+            true,
+            actions,
+        );
+        unavailable(ui, Icon::Matrix, "표 삽입", true);
+        command(
+            ui,
+            Icon::Subscript,
+            "인덱스",
+            RibbonAction::Index,
+            true,
+            true,
+            actions,
+        );
+    });
+    group(ui, "행 및 열", 180., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Rows, "행 삽입", false);
+            unavailable(ui, Icon::Rows, "열 삽입", false);
+            unavailable(ui, Icon::Delete, "행 / 열 삭제", false);
+        });
+    });
+    group(ui, "서식", 140., |ui| {
+        unavailable(ui, Icon::Matrix, "행렬 서식", true);
+    });
+    clipboard(ui, current, actions);
+}
+
+fn plots_tab(ui: &mut Ui) {
+    group(ui, "도표", 255., |ui| {
+        unavailable(ui, Icon::Plot, "XY 도표", true);
+        unavailable(ui, Icon::Plot, "극좌표 도표", true);
+        unavailable(ui, Icon::Plot, "3D 도표", true);
+    });
+    for (title, label) in [
+        ("레이블", "축 레이블"),
+        ("그래프선", "그래프선 서식"),
+        ("축", "축 설정"),
+        ("도표 값 서식", "표시 형식"),
+    ] {
+        group(ui, title, 125., |ui| {
+            unavailable(ui, Icon::Plot, label, true)
+        });
+    }
+}
+
+fn math_format_tab(ui: &mut Ui) {
+    group(ui, "결과", 225., |ui| {
+        ui.vertical(|ui| {
+            ui.add_enabled(
+                false,
+                egui::Button::new("일반        ▾").min_size(egui::vec2(130., 21.)),
+            );
+            unavailable(ui, Icon::Math, "소수 자릿수", false);
+            unavailable(ui, Icon::Math, "후행 0 표시", false);
+        });
+    });
+    group(ui, "계산 서식", 180., |ui| {
+        unavailable(ui, Icon::Label, "레이블 스타일", true);
+        unavailable(ui, Icon::Math, "서식 지우기", true);
+    });
+}
+
+fn text_format_tab(ui: &mut Ui) {
+    group(ui, "글꼴", 220., |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.add_enabled(false, egui::Button::new("Tahoma           ▾"));
+                ui.add_enabled(false, egui::Button::new("11 ▾"));
+            });
+            ui.horizontal(|ui| {
+                for s in ["B", "I", "U", "글꼴 색"] {
+                    ui.add_enabled(false, egui::Button::new(s));
+                }
+            });
+        });
+    });
+    group(ui, "텍스트 및 영역", 180., |ui| {
+        unavailable(ui, Icon::Align, "맞춤", true);
+        unavailable(ui, Icon::Text, "텍스트 서식", true);
+    });
+    group(ui, "스타일", 120., |ui| {
+        unavailable(ui, Icon::Text, "일반", true)
+    });
+    group(ui, "링크", 110., |ui| {
+        unavailable(ui, Icon::Link, "링크", true)
+    });
+    group(ui, "맞춤법", 110., |ui| {
+        unavailable(ui, Icon::Text, "맞춤법 검사", true)
+    });
+}
+
+fn calculation_tab(ui: &mut Ui, actions: &mut Vec<RibbonAction>) {
+    group(ui, "컨트롤", 355., |ui| {
+        ui.vertical(|ui| {
+            ui.add_enabled(false, egui::Checkbox::new(&mut true, "자동 계산"));
+            unavailable(ui, Icon::Delete, "모든 계산 중지", false);
+            unavailable(ui, Icon::Math, "영역 비활성화", false);
+        });
+        command(
+            ui,
+            Icon::Recalculate,
+            "워크시트 계산",
+            RibbonAction::Recalculate,
+            true,
+            true,
+            actions,
+        );
+        command(
+            ui,
+            Icon::Recalculate,
+            "지금 계산",
+            RibbonAction::Recalculate,
+            true,
+            true,
+            actions,
+        );
+    });
+    group(ui, "오류 추적", 170., |ui| {
+        unavailable(ui, Icon::Undo, "이전 오류", true);
+        unavailable(ui, Icon::Redo, "다음 오류", true);
+    });
+    group(ui, "경고", 110., |ui| {
+        unavailable(ui, Icon::Math, "경고 표시", true)
+    });
+    group(ui, "옵션", 175., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Math, "수렴 허용 오차", false);
+            unavailable(ui, Icon::Math, "배열 원점", false);
+            unavailable(ui, Icon::Math, "계산 옵션", false);
+        });
+    });
+}
+
+fn document_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAction>) {
+    group(ui, "영역", 160., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Math, "모두 선택", false);
+            command(
+                ui,
+                Icon::Delete,
+                "영역 삭제",
+                RibbonAction::Delete,
+                current.has_selection,
+                false,
+                actions,
+            );
+            unavailable(ui, Icon::Align, "영역 맞춤", false);
+        });
+    });
+    group(ui, "삽입", 170., |ui| {
+        ui.vertical(|ui| {
+            unavailable(ui, Icon::Page, "페이지 나누기", false);
+            unavailable(ui, Icon::Rows, "공백 삽입", false);
+            unavailable(ui, Icon::Delete, "공백 삭제", false);
+        });
+    });
+    group(ui, "페이지", 170., |ui| {
+        unavailable(ui, Icon::Page, "크기", true);
+        unavailable(ui, Icon::Page, "여백", true);
+    });
+    group(ui, "보기", 260., |ui| {
+        menu(ui, Icon::Zoom, "확대/축소", true, |ui| {
+            for pct in [50, 75, 100, 125, 150, 200] {
+                menu_action(
+                    ui,
+                    &format!("{pct}%"),
+                    RibbonAction::Zoom(pct as f32 / 100.),
+                    actions,
+                );
+            }
+        });
+        ui.vertical(|ui| {
+            if ui.selectable_label(current.grid, "눈금선 표시").clicked() {
+                actions.push(RibbonAction::ToggleGrid);
+            }
+            if ui.button("100%").clicked() {
+                actions.push(RibbonAction::Zoom(1.));
+            }
+            ui.label(egui::RichText::new(format!("현재 {:.0}%", current.zoom * 100.)).size(11.));
+        });
+    });
+    group(ui, "머리글 및 바닥글", 135., |ui| {
+        unavailable(ui, Icon::Page, "머리글 / 바닥글", true)
+    });
+    clipboard(ui, current, actions);
+}
+
+fn resources_tab(ui: &mut Ui) {
+    for (title, label) in [
+        ("도움말", "도움말"),
+        ("커뮤니티", "커뮤니티"),
+        ("기술 지원", "기술 지원"),
+        ("학습", "자습서"),
+    ] {
+        group(ui, title, 130., |ui| {
+            unavailable(ui, Icon::Help, label, true)
+        });
+    }
+}
+
+fn paint_icon(p: &egui::Painter, rect: Rect, icon: Icon, color: Color32) {
+    let unit = rect.width() / 32.;
+    let q = |x: f32, y: f32| Pos2::new(rect.min.x + x * unit, rect.min.y + y * unit);
+    let stroke = Stroke::new(1.25 * unit, color);
+    let line = |a: (f32, f32), b: (f32, f32)| {
+        p.line_segment([q(a.0, a.1), q(b.0, b.1)], stroke);
+    };
+    let text = |s: &str, size: f32| {
+        p.text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            s,
+            FontId::proportional(size * unit),
+            color,
+        );
+    };
+    match icon {
+        Icon::New | Icon::Page | Icon::Text | Icon::Math => {
+            p.add(egui::Shape::convex_polygon(
+                vec![q(6., 2.), q(22., 2.), q(27., 7.), q(27., 30.), q(6., 30.)],
+                Color32::WHITE,
+                stroke,
+            ));
+            line((22., 2.), (22., 7.));
+            line((22., 7.), (27., 7.));
+            match icon {
+                Icon::Math => text("x", 23.),
+                Icon::Text => {
+                    for y in [12., 17., 22.] {
+                        line((10., y), (23., y));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Icon::Open => {
+            p.add(egui::Shape::convex_polygon(
+                vec![
+                    q(2., 8.),
+                    q(12., 8.),
+                    q(15., 11.),
+                    q(29., 11.),
+                    q(27., 28.),
+                    q(2., 28.),
+                ],
+                Color32::from_rgb(250, 218, 137),
+                stroke,
+            ));
+            line((5., 16.), (30., 16.));
+            line((5., 16.), (2., 28.));
+        }
+        Icon::Save => {
+            p.rect_filled(Rect::from_min_max(q(3., 3.), q(29., 29.)), 1., color);
+            p.rect_filled(
+                Rect::from_min_max(q(8., 4.), q(23., 13.)),
+                0.,
+                Color32::from_rgb(235, 241, 245),
+            );
+            p.rect_filled(
+                Rect::from_min_max(q(8., 18.), q(24., 28.)),
+                0.,
+                Color32::WHITE,
+            );
+            line((21., 6.), (21., 11.));
+        }
+        Icon::Undo | Icon::Redo => {
+            let flip = matches!(icon, Icon::Redo);
+            let qq = |x: f32, y: f32| q(if flip { 32. - x } else { x }, y);
+            p.add(egui::Shape::line(
+                vec![
+                    qq(5., 11.),
+                    qq(18., 8.),
+                    qq(26., 13.),
+                    qq(26., 21.),
+                    qq(20., 26.),
+                ],
+                stroke,
+            ));
+            p.add(egui::Shape::line(
+                vec![qq(7., 3.), qq(4., 12.), qq(13., 15.)],
+                stroke,
+            ));
+        }
+        Icon::Plot => {
+            line((4., 3.), (4., 27.));
+            line((4., 27.), (30., 27.));
+            p.add(egui::Shape::line(
+                vec![q(6., 23.), q(11., 11.), q(16., 18.), q(21., 8.), q(28., 5.)],
+                Stroke::new(2. * unit, color),
+            ));
+        }
+        Icon::Operators => {
+            text("±", 29.);
+            line((3., 28.), (29., 28.));
+        }
+        Icon::Symbols => text("α", 30.),
+        Icon::Constants => text("π", 29.),
+        Icon::Symbolics => text("→", 30.),
+        Icon::Program => {
+            line((9., 3.), (5., 3.));
+            line((5., 3.), (5., 29.));
+            line((5., 29.), (9., 29.));
+            for y in [8., 16., 24.] {
+                line((11., y), (28., y));
+            }
+        }
+        Icon::Label => text("Aa", 22.),
+        Icon::Subscript => text("xₙ", 25.),
+        Icon::Units => text("m", 29.),
+        Icon::Clipboard => {
+            p.rect_stroke(
+                Rect::from_min_max(q(5., 5.), q(27., 30.)),
+                1.,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+            p.rect_filled(Rect::from_min_max(q(11., 2.), q(22., 8.)), 1., color);
+            for y in [14., 20., 25.] {
+                line((10., y), (23., y));
+            }
+        }
+        Icon::Copy => {
+            p.rect_stroke(
+                Rect::from_min_max(q(3., 3.), q(23., 25.)),
+                0.,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+            p.rect_filled(
+                Rect::from_min_max(q(10., 9.), q(29., 30.)),
+                0.,
+                Color32::WHITE,
+            );
+            p.rect_stroke(
+                Rect::from_min_max(q(10., 9.), q(29., 30.)),
+                0.,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+        }
+        Icon::Cut => {
+            p.circle_stroke(q(8., 24.), 5. * unit, stroke);
+            p.circle_stroke(q(23., 24.), 5. * unit, stroke);
+            line((10., 20.), (24., 3.));
+            line((21., 20.), (7., 3.));
+        }
+        Icon::Delete => {
+            line((7., 7.), (25., 25.));
+            line((25., 7.), (7., 25.));
+        }
+        Icon::Matrix | Icon::Rows => {
+            p.rect_stroke(
+                Rect::from_min_max(q(3., 4.), q(29., 28.)),
+                0.,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+            for x in [12., 21.] {
+                line((x, 4.), (x, 28.));
+            }
+            for y in [12., 20.] {
+                line((3., y), (29., y));
+            }
+        }
+        Icon::Recalculate => {
+            p.circle_stroke(q(16., 16.), 11. * unit, stroke);
+            p.rect_filled(Rect::from_min_max(q(17., 1.), q(31., 13.)), 0., PANEL);
+            line((25., 5.), (27., 14.));
+            line((27., 14.), (18., 12.));
+        }
+        Icon::Zoom => {
+            p.circle_stroke(q(13., 13.), 9. * unit, stroke);
+            line((19., 20.), (29., 30.));
+            line((8., 13.), (18., 13.));
+            line((13., 8.), (13., 18.));
+        }
+        Icon::Function => text("f(x)", 21.),
+        Icon::Align => {
+            for (y, w) in [(6., 24.), (13., 18.), (20., 24.), (27., 18.)] {
+                line((4., y), (w, y));
+            }
+        }
+        Icon::Link => {
+            p.circle_stroke(q(12., 13.), 7. * unit, stroke);
+            p.circle_stroke(q(21., 21.), 7. * unit, stroke);
+        }
+        Icon::Help => {
+            p.circle_stroke(q(16., 16.), 13. * unit, stroke);
+            text("?", 24.);
+        }
+    }
+}

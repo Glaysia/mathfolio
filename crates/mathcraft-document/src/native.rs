@@ -266,6 +266,11 @@ impl NativePackage {
             .map(|p| p.bytes.as_slice())
     }
 
+    /// Decode an original XML part for read-only inspection, preserving its bytes.
+    pub fn original_xml_part(&self, name: &str) -> NativeResult<Option<String>> {
+        self.original_part(name).map(xml_text).transpose()
+    }
+
     pub fn worksheet_part_name(&self) -> &str {
         &self.parts[self.worksheet_part].name
     }
@@ -934,6 +939,11 @@ mod tests {
         fixture(&source, &bytes, &[]);
         let package = NativePackage::open(&source).unwrap();
         assert_eq!(package.worksheet_xml().unwrap(), text);
+        assert_eq!(
+            package.original_xml_part("mathcad/worksheet.xml").unwrap(),
+            Some(text.clone())
+        );
+        assert_eq!(package.original_xml_part("missing.xml").unwrap(), None);
         assert_eq!(package.regions().unwrap().len(), 3);
         package.write_new(&copy).unwrap();
         assert_eq!(

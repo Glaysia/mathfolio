@@ -60,9 +60,9 @@ impl Default for CanvasDocument {
         Self {
             version: CANVAS_VERSION,
             title: "Untitled worksheet".into(),
-            width: 816.0,
-            height: 1056.0,
-            grid: 19.2,
+            width: 21. * 96. / 2.54,
+            height: 29.7 * 96. / 2.54,
+            grid: 0.5 * 96. / 2.54,
             next_id: 1,
             regions: Vec::new(),
             native_archive: None,

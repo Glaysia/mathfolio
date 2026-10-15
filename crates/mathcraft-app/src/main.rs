@@ -1,5 +1,8 @@
 use eframe::egui;
 mod formula;
+mod page;
+mod ribbon;
+mod typography;
 use mathcraft_compat::editor_bridge as worksheet_math;
 mod worksheet_ui;
 
@@ -43,15 +46,16 @@ fn configure(ctx: &egui::Context) {
     visuals.selection.stroke.color = egui::Color32::from_rgb(36, 97, 173);
     ctx.set_visuals(visuals);
     ctx.global_style_mut(|style| {
-        style.spacing.item_spacing = egui::vec2(8., 6.);
-        style.spacing.button_padding = egui::vec2(10., 5.);
-        style.spacing.interact_size.y = 28.;
+        style.spacing.item_spacing = egui::vec2(4., 3.);
+        style.spacing.button_padding = egui::vec2(5., 2.);
+        style.spacing.interact_size.y = 22.;
         style
             .text_styles
-            .insert(egui::TextStyle::Body, egui::FontId::proportional(14.));
-        style
-            .text_styles
-            .insert(egui::TextStyle::Button, egui::FontId::proportional(14.));
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(13.333333));
+        style.text_styles.insert(
+            egui::TextStyle::Button,
+            egui::FontId::proportional(13.333333),
+        );
         style
             .text_styles
             .insert(egui::TextStyle::Small, egui::FontId::proportional(12.));
@@ -74,5 +78,22 @@ fn configure(ctx: &egui::Context) {
             break;
         }
     }
+    for path in [
+        "C:/Windows/Fonts/segoeui.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    ] {
+        if let Ok(bytes) = std::fs::read(path) {
+            fonts
+                .font_data
+                .insert("ui".into(), egui::FontData::from_owned(bytes).into());
+            fonts
+                .families
+                .entry(egui::FontFamily::Proportional)
+                .or_default()
+                .insert(0, "ui".into());
+            break;
+        }
+    }
+    typography::install(&mut fonts);
     ctx.set_fonts(fonts);
 }

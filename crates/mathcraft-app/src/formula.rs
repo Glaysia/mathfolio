@@ -1,12 +1,12 @@
 //! Direct AST renderer and a bounded structural editing surface.
 //!
-//! Fraction formulas follow the recovered contract. Font/padding choices, script
-//! scaling, keyboard wrapping, and navigation are independent policies awaiting
-//! original-app comparison. This is not a complete Prime editor or text parser.
+//! Prime font sizes, label styles and fraction padding follow static evidence.
+//! Glyph outlines use licensed STIX faces; fences/root paths and some positioning
+//! remain independent approximations. This is not a complete Prime editor.
 
 use eframe::egui::{
-    self, Color32, FontId, Galley, Key, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind,
-    Ui, Vec2, pos2, vec2,
+    self, Color32, Galley, Key, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2,
+    pos2, vec2,
 };
 use mathcraft_editor::{
     Arena, BinaryOp, Direction, Editor, FractionMetrics, NodeId, NodeKind, PortableTree, Selection,
@@ -14,10 +14,11 @@ use mathcraft_editor::{
 };
 use std::sync::Arc;
 
-const INK: Color32 = Color32::from_rgb(32, 38, 48);
-const CARET: Color32 = Color32::from_rgb(28, 102, 206);
-const PADDING: f32 = 8.0;
-const FONT_SIZE: f32 = 22.0;
+use crate::typography::{self, INK, MathStyle};
+use std::collections::HashMap;
+const CARET: Color32 = Color32::from_rgb(0, 128, 255);
+const PADDING: f32 = 2.0;
+const FONT_SIZE: f32 = typography::MATH_SIZE;
 
 #[derive(Clone, Copy, Debug)]
 pub enum FormulaResult<'a> {
@@ -115,7 +116,7 @@ pub fn measured_size(ui: &Ui, editor: &Editor, result: Option<FormulaResult<'_>>
         FONT_SIZE,
         result,
     );
-    (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(64., 44.))
+    (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(12., 22.))
 }
 
 pub fn formula_ui_with_display(
@@ -133,14 +134,24 @@ pub(crate) fn formula_ui_with_actions(
     result: Option<FormulaResult<'_>>,
     focus: bool,
 ) -> FormulaResponse {
-    let initial = measure_with_display(
-        ui.painter(),
-        editor.arena(),
-        editor.root(),
-        FONT_SIZE,
-        result,
-    );
-    let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(64.0, 44.0));
+    formula_ui_with_labels(ui, editor, result, focus, None)
+}
+
+pub(crate) fn formula_ui_with_labels(
+    ui: &mut Ui,
+    editor: &mut Editor,
+    result: Option<FormulaResult<'_>>,
+    focus: bool,
+    labelled: Option<&PortableTree>,
+) -> FormulaResponse {
+    let labels = resolved_labels(editor.arena(), editor.root(), labelled);
+    let initial = Typesetter {
+        painter: ui.painter(),
+        arena: editor.arena(),
+        labels: &labels,
+    }
+    .layout(editor.root(), FONT_SIZE, result);
+    let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(12., 22.));
     let (rect, mut response) = ui.allocate_exact_size(desired, Sense::click_and_drag());
     if focus {
         response.request_focus();
@@ -382,13 +393,13 @@ pub(crate) fn formula_ui_with_actions(
         preedit.clear();
     }
 
-    let layout = measure_with_display(
-        ui.painter(),
-        editor.arena(),
-        editor.root(),
-        FONT_SIZE,
-        result,
-    );
+    let labels = resolved_labels(editor.arena(), editor.root(), labelled);
+    let layout = Typesetter {
+        painter: ui.painter(),
+        arena: editor.arena(),
+        labels: &labels,
+    }
+    .layout(editor.root(), FONT_SIZE, result);
     let mut hits = vec![];
     collect_hits(&layout, origin, &mut hits);
     let paint = ui.painter();
@@ -396,12 +407,10 @@ pub(crate) fn formula_ui_with_actions(
         && let Selection::Subtree(node) = editor.selection()
         && let Some(hit) = hits.iter().find(|hit| hit.node == node)
     {
-        paint.rect_filled(hit.rect.expand(3.0), 2.0, CARET.gamma_multiply(0.12));
-        paint.rect_stroke(
-            hit.rect.expand(3.0),
-            2.0,
-            Stroke::new(1.0, CARET),
-            StrokeKind::Outside,
+        paint.rect_filled(
+            hit.rect.expand(1.0),
+            0.,
+            Color32::from_gray(169).gamma_multiply(0.25),
         );
     }
     paint_box(paint, &layout, origin);
@@ -453,7 +462,7 @@ pub(crate) fn formula_ui_with_actions(
 }
 
 fn text_galley(painter: &Painter, text: &str, size: f32) -> Arc<Galley> {
-    painter.layout_no_wrap(text.into(), FontId::proportional(size), INK)
+    painter.layout_no_wrap(text.into(), MathStyle::Operator.font(size), INK)
 }
 
 fn text_baseline(galley: &Galley) -> f32 {
@@ -464,10 +473,12 @@ fn text_baseline(galley: &Galley) -> f32 {
         .unwrap_or(galley.size().y * 0.8)
 }
 
+#[cfg(test)]
 fn measure(painter: &Painter, arena: &Arena, id: NodeId, size: f32) -> FormulaBox {
     measure_with_result(painter, arena, id, size, None)
 }
 
+#[cfg(test)]
 fn measure_with_result(
     painter: &Painter,
     arena: &Arena,
@@ -491,399 +502,513 @@ fn measure_with_display(
     size: f32,
     result_text: Option<FormulaResult<'_>>,
 ) -> FormulaBox {
-    let node = arena.get(id).expect("validated editor tree");
-    let mut result = FormulaBox {
-        node: id,
-        size: Vec2::ZERO,
-        baseline: 0.0,
-        primitives: vec![],
-        children: vec![],
-        atom: None,
-        hit_bounds: None,
-        text_offset: Vec2::ZERO,
-    };
-    match node.kind() {
-        NodeKind::Identifier(text)
-        | NodeKind::Number(text)
-        | NodeKind::AnnotatedIdentifier { name: text, .. }
-        | NodeKind::NativeIdentifier { name: text, .. }
-        | NodeKind::Imaginary(text)
-        | NodeKind::ImaginarySymbol { value: text, .. } => {
-            let galley = text_galley(painter, if text.is_empty() { " " } else { text }, size);
-            result.size = galley.size().max(vec2(4.0, size));
-            result.baseline = text_baseline(&galley);
-            result
-                .primitives
-                .push(Primitive::Text(Vec2::ZERO, galley.clone()));
-            result.atom = Some(galley);
-            let suffix = match node.kind() {
-                NodeKind::NativeIdentifier {
-                    subscript: Some(text),
-                    ..
-                } => Some((text.as_str(), size * 0.68, size * 0.42)),
-                NodeKind::Imaginary(_) => Some(("i", size, 0.0)),
-                NodeKind::ImaginarySymbol { symbol, .. } => Some((symbol.as_str(), size, 0.0)),
-                _ => None,
-            };
-            if let Some((suffix, font_size, y)) = suffix {
-                let suffix = text_galley(painter, suffix, font_size);
-                let original = result.size;
-                result
-                    .primitives
-                    .push(Primitive::Text(vec2(original.x, y), suffix.clone()));
-                result.size = vec2(
-                    original.x + suffix.size().x,
-                    original.y.max(y + suffix.size().y),
-                );
-                result.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, original));
-            }
+    Typesetter {
+        painter,
+        arena,
+        labels: &HashMap::new(),
+    }
+    .layout(id, size, result_text)
+}
+
+fn resolved_labels(
+    arena: &Arena,
+    id: NodeId,
+    labelled: Option<&PortableTree>,
+) -> HashMap<NodeId, String> {
+    fn visit(arena: &Arena, id: NodeId, tree: &PortableTree, out: &mut HashMap<NodeId, String>) {
+        let node = arena.get(id).unwrap();
+        if node.children().len() != tree.children.len() {
+            return;
         }
-        NodeKind::Placeholder => {
-            result.size = vec2(size * 0.46, size * 0.80);
-            result.baseline = size * 0.64;
-            result
-                .primitives
-                .push(Primitive::Placeholder(Rect::from_min_size(
-                    pos2(1.0, size * 0.12),
-                    vec2(size * 0.34, size * 0.55),
-                )));
-        }
-        NodeKind::UnaryNeg => {
-            let mut child = measure(painter, arena, node.children()[0], size);
-            if arena.get(node.children()[0]).unwrap().kind().precedence() < node.kind().precedence()
+        let source_name = match node.kind() {
+            NodeKind::Identifier(n)
+            | NodeKind::AnnotatedIdentifier { name: n, .. }
+            | NodeKind::NativeIdentifier { name: n, .. } => Some(n),
+            _ => None,
+        };
+        if let Some(source) = source_name {
+            if let NodeKind::AnnotatedIdentifier { name, labels }
+            | NodeKind::NativeIdentifier { name, labels, .. } = &tree.kind
+                && name == source
             {
-                child = visual_parentheses(painter, child, size);
+                out.insert(id, labels.clone());
             }
-            result = row_layout(
-                id,
-                vec![
-                    RowPiece::Text(text_galley(painter, "−", size)),
-                    RowPiece::Child(child),
-                ],
-            );
+            return;
         }
-        NodeKind::Absolute => {
-            let child = measure(painter, arena, node.children()[0], size);
-            let height = child.size.y;
-            result.size = child.size + vec2(10.0, 0.0);
-            result.baseline = child.baseline;
-            result
-                .primitives
-                .push(Primitive::Line(vec2(2.0, 0.0), vec2(2.0, height)));
-            result.primitives.push(Primitive::Line(
-                vec2(result.size.x - 2.0, 0.0),
-                vec2(result.size.x - 2.0, height),
-            ));
-            result.children.push((vec2(5.0, 0.0), child));
+        // A stale cached tree must never style a structurally different expression.
+        if std::mem::discriminant(node.kind()) != std::mem::discriminant(&tree.kind) {
+            return;
         }
-        NodeKind::Root => {
-            let degree = measure(painter, arena, node.children()[0], size * 0.58);
-            let radicand = measure(painter, arena, node.children()[1], size);
-            let radical = text_galley(painter, "√", size.max(radicand.size.y * 0.95));
-            let x = degree.size.x + radical.size().x;
-            let y = 3.0_f32.max(degree.size.y * 0.35);
-            result.size = vec2(
-                x + radicand.size.x + 3.0,
-                (radicand.size.y + y).max(radical.size().y),
-            );
-            result.baseline = radicand.baseline + y;
-            result
-                .primitives
-                .push(Primitive::Text(vec2(degree.size.x, 0.0), radical));
-            result.primitives.push(Primitive::Line(
-                vec2(x - 2.0, 1.0),
-                vec2(result.size.x, 1.0),
-            ));
-            result.children.push((Vec2::ZERO, degree));
-            result.children.push((vec2(x, y), radicand));
-        }
-        NodeKind::Call { .. } | NodeKind::Function { .. } => {
-            let mut pieces = vec![
-                RowPiece::Child(measure(painter, arena, node.children()[0], size)),
-                RowPiece::Text(text_galley(painter, "(", size)),
-            ];
-            for (index, child) in node.children()[1..].iter().enumerate() {
-                if index > 0 {
-                    pieces.push(RowPiece::Text(text_galley(painter, ", ", size)));
-                }
-                pieces.push(RowPiece::Child(measure(painter, arena, *child, size)));
-            }
-            pieces.push(RowPiece::Text(text_galley(painter, ")", size)));
-            result = row_layout(id, pieces);
-        }
-        NodeKind::Range { has_step } => {
-            let mut pieces = vec![];
-            for (index, child) in node.children().iter().enumerate() {
-                if index > 0 {
-                    pieces.push(RowPiece::Text(text_galley(
-                        painter,
-                        if *has_step && index == 1 {
-                            ", "
-                        } else {
-                            " .. "
-                        },
-                        size,
-                    )));
-                }
-                pieces.push(RowPiece::Child(measure(painter, arena, *child, size)));
-            }
-            result = row_layout(id, pieces);
-        }
-        NodeKind::Index { .. } => {
-            let base = measure(painter, arena, node.children()[0], size);
-            let mut pieces = vec![];
-            for (index, child) in node.children()[1..].iter().enumerate() {
-                if index > 0 {
-                    pieces.push(RowPiece::Text(text_galley(painter, ",", size * 0.72)));
-                }
-                pieces.push(RowPiece::Child(measure(
-                    painter,
-                    arena,
-                    *child,
-                    size * 0.72,
-                )));
-            }
-            let index = row_layout(id, pieces);
-            let baseline = base.baseline;
-            let offset = vec2(base.size.x + 1.0, baseline * 0.63);
-            result.size = vec2(
-                offset.x + index.size.x,
-                base.size.y.max(offset.y + index.size.y),
-            );
-            result.baseline = baseline;
-            result.children.push((Vec2::ZERO, base));
-            result
-                .primitives
-                .extend(index.primitives.into_iter().map(|p| match p {
-                    Primitive::Text(x, g) => Primitive::Text(x + offset, g),
-                    other => other,
-                }));
-            result
-                .children
-                .extend(index.children.into_iter().map(|(x, b)| (x + offset, b)));
-        }
-        NodeKind::Matrix { rows, cols } => {
-            let cells: Vec<_> = node
-                .children()
-                .iter()
-                .map(|child| measure(painter, arena, *child, size))
-                .collect();
-            let mut widths = vec![0.0_f32; *cols];
-            let mut ascents = vec![0.0_f32; *rows];
-            let mut descents = vec![0.0_f32; *rows];
-            for (i, cell) in cells.iter().enumerate() {
-                widths[i % cols] = widths[i % cols].max(cell.size.x);
-                ascents[i / cols] = ascents[i / cols].max(cell.baseline);
-                descents[i / cols] = descents[i / cols].max(cell.size.y - cell.baseline);
-            }
-            let gap = size * 0.4;
-            let width = widths.iter().sum::<f32>() + gap * (*cols as f32 - 1.0) + 14.0;
-            let height = ascents.iter().sum::<f32>()
-                + descents.iter().sum::<f32>()
-                + gap * (*rows as f32 - 1.0);
-            result.size = vec2(width, height);
-            result.baseline = height / 2.0 + size * 0.2;
-            let mut y = 0.0;
-            let mut cells = cells.into_iter();
-            for row in 0..*rows {
-                let mut x = 7.0;
-                for width in &widths {
-                    let cell = cells.next().unwrap();
-                    let offset = vec2(
-                        x + (width - cell.size.x) / 2.0,
-                        y + ascents[row] - cell.baseline,
-                    );
-                    result.children.push((offset, cell));
-                    x += width + gap;
-                }
-                y += ascents[row] + descents[row] + gap;
-            }
-            for x in [1.0, width - 1.0] {
-                let direction = if x < width / 2.0 { 1.0 } else { -1.0 };
-                result
-                    .primitives
-                    .push(Primitive::Line(vec2(x, 0.0), vec2(x, height)));
-                result.primitives.push(Primitive::Line(
-                    vec2(x, 0.0),
-                    vec2(x + 4.0 * direction, 0.0),
-                ));
-                result.primitives.push(Primitive::Line(
-                    vec2(x, height),
-                    vec2(x + 4.0 * direction, height),
-                ));
-            }
-        }
-        NodeKind::Fraction => {
-            let numerator = measure(painter, arena, node.children()[0], size);
-            let denominator = measure(painter, arena, node.children()[1], size);
-            // Independent visual style values; these are not recovered PTC defaults.
-            let metrics = layout_fraction(FractionMetrics {
-                numerator_width: f64::from(numerator.size.x),
-                numerator_height: f64::from(numerator.size.y),
-                denominator_width: f64::from(denominator.size.x),
-                denominator_height: f64::from(denominator.size.y),
-                overhang: f64::from(size * 0.12),
-                vertical_pad: f64::from(size * 0.14),
-                font_baseline_adjustment: f64::from(-size * 0.20),
-                bar_height: 1.25,
-            });
-            result.size = vec2(metrics.width as f32, metrics.height as f32);
-            result.baseline = metrics.text_baseline as f32;
-            let line_y = metrics.bar_origin[1] as f32 + 0.625;
-            result.primitives.push(Primitive::Line(
-                vec2(0.0, line_y),
-                vec2(result.size.x, line_y),
-            ));
-            result.children.push((
-                vec2(
-                    metrics.numerator_origin[0] as f32,
-                    metrics.numerator_origin[1] as f32,
-                ),
-                numerator,
-            ));
-            result.children.push((
-                vec2(
-                    metrics.denominator_origin[0] as f32,
-                    metrics.denominator_origin[1] as f32,
-                ),
-                denominator,
-            ));
-        }
-        NodeKind::Power => {
-            let mut base = measure(painter, arena, node.children()[0], size);
-            if arena.get(node.children()[0]).unwrap().kind().precedence()
-                <= node.kind().precedence()
-            {
-                base = visual_parentheses(painter, base, size);
-            }
-            let exponent = measure(painter, arena, node.children()[1], size * 0.72);
-            // Raised script geometry is a project policy; exact Prime metrics unknown.
-            let base_y = exponent.size.y * 0.62;
-            result.size = vec2(
-                base.size.x + exponent.size.x + 1.0,
-                (base_y + base.size.y).max(exponent.size.y),
-            );
-            result.baseline = base_y + base.baseline;
-            let exponent_x = base.size.x + 1.0;
-            result.children.push((vec2(0.0, base_y), base));
-            result.children.push((vec2(exponent_x, 0.0), exponent));
-        }
-        NodeKind::Group => {
-            let child = measure(painter, arena, node.children()[0], size);
-            let paren_size = size.max(child.size.y * 0.93);
-            let left = text_galley(painter, "(", paren_size);
-            let right = text_galley(painter, ")", paren_size);
-            let height = child.size.y.max(left.size().y);
-            let child_y = (height - child.size.y) / 2.0;
-            let paren_y = (height - left.size().y) / 2.0;
-            result.size = vec2(left.size().x + child.size.x + right.size().x + 4.0, height);
-            result.baseline = child_y + child.baseline;
-            result
-                .primitives
-                .push(Primitive::Text(vec2(0.0, paren_y), left.clone()));
-            result.primitives.push(Primitive::Text(
-                vec2(left.size().x + child.size.x + 4.0, paren_y),
-                right,
-            ));
-            result
-                .children
-                .push((vec2(left.size().x + 2.0, child_y), child));
-        }
-        NodeKind::Binary(op) => {
-            let mut left = measure(painter, arena, node.children()[0], size);
-            let mut right = if *op == BinaryOp::Define {
-                measure_with_display(painter, arena, node.children()[1], size, result_text)
-            } else {
-                measure(painter, arena, node.children()[1], size)
-            };
-            let precedence = node.kind().precedence();
-            if arena.get(node.children()[0]).unwrap().kind().precedence() < precedence {
-                left = visual_parentheses(painter, left, size);
-            }
-            let right_precedence = arena.get(node.children()[1]).unwrap().kind().precedence();
-            if right_precedence < precedence
-                || (right_precedence == precedence
-                    && matches!(op, BinaryOp::Subtract | BinaryOp::InlineDivide))
-            {
-                right = visual_parentheses(painter, right, size);
-            }
-            if *op == BinaryOp::Evaluate
-                && let Some(value) = result_text
-            {
-                let value = measure_result(painter, node.children()[1], value, size);
-                match arena.get(node.children()[1]).unwrap().kind() {
-                    NodeKind::Placeholder => {
-                        right = value;
-                    }
-                    _ => {
-                        let unit_size = right.size;
-                        let prefix = value.size.x + size * 0.18;
-                        let baseline = right.baseline.max(value.baseline);
-                        let value_y = baseline - value.baseline;
-                        let unit_y = baseline - right.baseline;
-                        for primitive in &mut right.primitives {
-                            match primitive {
-                                Primitive::Text(offset, _) => *offset += vec2(prefix, unit_y),
-                                Primitive::Line(a, b) => {
-                                    *a += vec2(prefix, unit_y);
-                                    *b += vec2(prefix, unit_y);
-                                }
-                                Primitive::Placeholder(rect) => {
-                                    *rect = rect.translate(vec2(prefix, unit_y))
-                                }
-                            }
-                        }
-                        for (offset, _) in &mut right.children {
-                            *offset += vec2(prefix, unit_y);
-                        }
-                        right.text_offset += vec2(prefix, unit_y);
-                        for primitive in value.primitives {
-                            right
-                                .primitives
-                                .push(translate_primitive(primitive, vec2(0.0, value_y)));
-                        }
-                        right.size = vec2(
-                            prefix + unit_size.x,
-                            (unit_y + unit_size.y).max(value_y + value.size.y),
-                        );
-                        right.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, right.size));
-                        right.baseline = baseline;
-                    }
-                }
-            }
-            let symbol = match op {
-                BinaryOp::Add => "+",
-                BinaryOp::Subtract => "−",
-                BinaryOp::Multiply => "·",
-                BinaryOp::Scale => " ",
-                BinaryOp::InlineDivide => "÷",
-                BinaryOp::Define => ":=",
-                BinaryOp::Evaluate => "=",
-            };
-            let operator = text_galley(painter, symbol, size);
-            let operator_baseline = text_baseline(&operator);
-            let baseline = left.baseline.max(right.baseline).max(operator_baseline);
-            let descent = (left.size.y - left.baseline)
-                .max(right.size.y - right.baseline)
-                .max(operator.size().y - operator_baseline);
-            let gap = size * 0.18;
-            let operator_x = left.size.x + gap;
-            let right_x = operator_x + operator.size().x + gap;
-            result.size = vec2(right_x + right.size.x, baseline + descent);
-            result.baseline = baseline;
-            result.primitives.push(Primitive::Text(
-                vec2(operator_x, baseline - operator_baseline),
-                operator,
-            ));
-            result
-                .children
-                .push((vec2(0.0, baseline - left.baseline), left));
-            result
-                .children
-                .push((vec2(right_x, baseline - right.baseline), right));
+        for (child, labelled) in node.children().iter().zip(&tree.children) {
+            visit(arena, *child, labelled, out);
         }
     }
-    result
+    let mut out = HashMap::new();
+    if let Some(tree) = labelled {
+        visit(arena, id, tree, &mut out);
+    }
+    out
+}
+
+struct Typesetter<'a> {
+    painter: &'a Painter,
+    arena: &'a Arena,
+    labels: &'a HashMap<NodeId, String>,
+}
+impl Typesetter<'_> {
+    fn measure(&self, id: NodeId, size: f32) -> FormulaBox {
+        self.layout(id, size, None)
+    }
+    fn identifier_style(&self, id: NodeId) -> MathStyle {
+        let node = self.arena.get(id).unwrap();
+        if let Some(label) = self.labels.get(&id) {
+            return MathStyle::from_label(label);
+        }
+        match node.kind() {
+            NodeKind::AnnotatedIdentifier { labels, .. }
+            | NodeKind::NativeIdentifier { labels, .. } => MathStyle::from_label(labels),
+            NodeKind::Identifier(_) => {
+                if node
+                    .parent()
+                    .and_then(|p| self.arena.get(p))
+                    .is_some_and(|p| {
+                        matches!(p.kind(), NodeKind::Call { .. } | NodeKind::Function { .. })
+                            && p.children()[0] == id
+                    })
+                {
+                    MathStyle::Function
+                } else {
+                    MathStyle::Variable
+                }
+            }
+            _ => MathStyle::Operator,
+        }
+    }
+    fn layout(&self, id: NodeId, size: f32, result_text: Option<FormulaResult<'_>>) -> FormulaBox {
+        let painter = self.painter;
+        let arena = self.arena;
+        let node = arena.get(id).expect("validated editor tree");
+        let mut result = FormulaBox {
+            node: id,
+            size: Vec2::ZERO,
+            baseline: 0.0,
+            primitives: vec![],
+            children: vec![],
+            atom: None,
+            hit_bounds: None,
+            text_offset: Vec2::ZERO,
+        };
+        match node.kind() {
+            NodeKind::Identifier(text)
+            | NodeKind::Number(text)
+            | NodeKind::AnnotatedIdentifier { name: text, .. }
+            | NodeKind::NativeIdentifier { name: text, .. }
+            | NodeKind::Imaginary(text)
+            | NodeKind::ImaginarySymbol { value: text, .. } => {
+                let style = self.identifier_style(id);
+                let galley = painter.layout_no_wrap(
+                    if text.is_empty() { " " } else { text }.into(),
+                    style.font(size),
+                    style.color(),
+                );
+                result.size = galley.size().max(vec2(4.0, size));
+                result.baseline = text_baseline(&galley);
+                result
+                    .primitives
+                    .push(Primitive::Text(Vec2::ZERO, galley.clone()));
+                result.atom = Some(galley);
+                let suffix = match node.kind() {
+                    NodeKind::NativeIdentifier {
+                        subscript: Some(text),
+                        ..
+                    } => Some((
+                        text.as_str(),
+                        typography::script_size(size, 0.7),
+                        size * 0.42,
+                    )),
+                    NodeKind::Imaginary(_) => Some(("i", size, 0.0)),
+                    NodeKind::ImaginarySymbol { symbol, .. } => Some((symbol.as_str(), size, 0.0)),
+                    _ => None,
+                };
+                if let Some((suffix, font_size, y)) = suffix {
+                    let suffix =
+                        painter.layout_no_wrap(suffix.into(), style.font(font_size), style.color());
+                    let original = result.size;
+                    result
+                        .primitives
+                        .push(Primitive::Text(vec2(original.x, y), suffix.clone()));
+                    result.size = vec2(
+                        original.x + suffix.size().x,
+                        original.y.max(y + suffix.size().y),
+                    );
+                    result.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, original));
+                }
+            }
+            NodeKind::Placeholder => {
+                result.size = vec2(size * 0.46, size * 0.80);
+                result.baseline = size * 0.64;
+                result
+                    .primitives
+                    .push(Primitive::Placeholder(Rect::from_min_size(
+                        pos2(1.0, size * 0.12),
+                        vec2(size * 0.34, size * 0.55),
+                    )));
+            }
+            NodeKind::UnaryNeg => {
+                let mut child = self.measure(node.children()[0], size);
+                if arena.get(node.children()[0]).unwrap().kind().precedence()
+                    < node.kind().precedence()
+                {
+                    child = visual_parentheses(painter, child, size);
+                }
+                result = row_layout(
+                    id,
+                    vec![
+                        RowPiece::Text(text_galley(painter, "−", size)),
+                        RowPiece::Child(child),
+                    ],
+                );
+            }
+            NodeKind::Absolute => {
+                let child = self.measure(node.children()[0], size);
+                let height = child.size.y;
+                result.size = child.size + vec2(10.0, 0.0);
+                result.baseline = child.baseline;
+                result
+                    .primitives
+                    .push(Primitive::Line(vec2(2.0, 0.0), vec2(2.0, height)));
+                result.primitives.push(Primitive::Line(
+                    vec2(result.size.x - 2.0, 0.0),
+                    vec2(result.size.x - 2.0, height),
+                ));
+                result.children.push((vec2(5.0, 0.0), child));
+            }
+            NodeKind::Root => {
+                let square = matches!(arena.get(node.children()[0]).unwrap().kind(), NodeKind::Number(n) if n == "2");
+                let mut degree =
+                    self.measure(node.children()[0], typography::script_size(size, 7. / 11.));
+                if square {
+                    degree.size = Vec2::ZERO;
+                    degree.primitives.clear();
+                    degree.atom = None;
+                    degree.baseline = 0.;
+                }
+                let radicand = self.measure(node.children()[1], size);
+                let top = 2.;
+                let hook = size * 0.65;
+                let lead = if square {
+                    0.
+                } else {
+                    degree.size.x.max(hook * 0.45)
+                };
+                let x = lead + hook;
+                let height = radicand.size.y + top;
+                result.size = vec2(x + radicand.size.x + 1., height);
+                result.baseline = radicand.baseline + top;
+                let points = [
+                    vec2(lead, height * 0.58),
+                    vec2(lead + hook * 0.22, height * 0.52),
+                    vec2(lead + hook * 0.43, height - 1.),
+                    vec2(x - 1., 0.8),
+                    vec2(result.size.x, 0.8),
+                ];
+                for pair in points.windows(2) {
+                    result.primitives.push(Primitive::Line(pair[0], pair[1]));
+                }
+                result.children.push((vec2(0., 0.), degree));
+                result.children.push((vec2(x, top), radicand));
+            }
+            NodeKind::Call { .. } | NodeKind::Function { .. } => {
+                let name = self.measure(node.children()[0], size);
+                let mut arguments = vec![];
+                for (index, child) in node.children()[1..].iter().enumerate() {
+                    if index > 0 {
+                        arguments.push(RowPiece::Text(text_galley(painter, ", ", size)));
+                    }
+                    arguments.push(RowPiece::Child(self.measure(*child, size)));
+                }
+                let arguments = visual_parentheses(painter, row_layout(id, arguments), size);
+                result = row_layout(id, vec![RowPiece::Child(name), RowPiece::Child(arguments)]);
+                let (offset, arguments) = result.children.pop().unwrap();
+                result.primitives.extend(
+                    arguments
+                        .primitives
+                        .into_iter()
+                        .map(|p| translate_primitive(p, offset)),
+                );
+                result
+                    .children
+                    .extend(arguments.children.into_iter().map(|(p, b)| (p + offset, b)));
+            }
+            NodeKind::Range { has_step } => {
+                let mut pieces = vec![];
+                for (index, child) in node.children().iter().enumerate() {
+                    if index > 0 {
+                        pieces.push(RowPiece::Text(text_galley(
+                            painter,
+                            if *has_step && index == 1 {
+                                ", "
+                            } else {
+                                " .. "
+                            },
+                            size,
+                        )));
+                    }
+                    pieces.push(RowPiece::Child(self.measure(*child, size)));
+                }
+                result = row_layout(id, pieces);
+            }
+            NodeKind::Index { .. } => {
+                let base = self.measure(node.children()[0], size);
+                let mut pieces = vec![];
+                for (index, child) in node.children()[1..].iter().enumerate() {
+                    if index > 0 {
+                        pieces.push(RowPiece::Text(text_galley(
+                            painter,
+                            ",",
+                            typography::script_size(size, 7. / 11.),
+                        )));
+                    }
+                    pieces.push(RowPiece::Child(
+                        self.measure(*child, typography::script_size(size, 7. / 11.)),
+                    ));
+                }
+                let index = row_layout(id, pieces);
+                let baseline = base.baseline;
+                let offset = vec2(base.size.x + 1.0, baseline * 0.63);
+                result.size = vec2(
+                    offset.x + index.size.x,
+                    base.size.y.max(offset.y + index.size.y),
+                );
+                result.baseline = baseline;
+                result.children.push((Vec2::ZERO, base));
+                result
+                    .primitives
+                    .extend(index.primitives.into_iter().map(|p| match p {
+                        Primitive::Text(x, g) => Primitive::Text(x + offset, g),
+                        other => other,
+                    }));
+                result
+                    .children
+                    .extend(index.children.into_iter().map(|(x, b)| (x + offset, b)));
+            }
+            NodeKind::Matrix { rows, cols } => {
+                let cells: Vec<_> = node
+                    .children()
+                    .iter()
+                    .map(|child| self.measure(*child, size))
+                    .collect();
+                let mut widths = vec![0.0_f32; *cols];
+                let mut ascents = vec![0.0_f32; *rows];
+                let mut descents = vec![0.0_f32; *rows];
+                for (i, cell) in cells.iter().enumerate() {
+                    widths[i % cols] = widths[i % cols].max(cell.size.x);
+                    ascents[i / cols] = ascents[i / cols].max(cell.baseline);
+                    descents[i / cols] = descents[i / cols].max(cell.size.y - cell.baseline);
+                }
+                let gap = size * 0.4;
+                let width = widths.iter().sum::<f32>() + gap * (*cols as f32 - 1.0) + 14.0;
+                let height = ascents.iter().sum::<f32>()
+                    + descents.iter().sum::<f32>()
+                    + gap * (*rows as f32 - 1.0);
+                result.size = vec2(width, height);
+                result.baseline = height / 2.0 + size * 0.2;
+                let mut y = 0.0;
+                let mut cells = cells.into_iter();
+                for row in 0..*rows {
+                    let mut x = 7.0;
+                    for width in &widths {
+                        let cell = cells.next().unwrap();
+                        let offset = vec2(
+                            x + (width - cell.size.x) / 2.0,
+                            y + ascents[row] - cell.baseline,
+                        );
+                        result.children.push((offset, cell));
+                        x += width + gap;
+                    }
+                    y += ascents[row] + descents[row] + gap;
+                }
+                for x in [1.0, width - 1.0] {
+                    let direction = if x < width / 2.0 { 1.0 } else { -1.0 };
+                    result
+                        .primitives
+                        .push(Primitive::Line(vec2(x, 0.0), vec2(x, height)));
+                    result.primitives.push(Primitive::Line(
+                        vec2(x, 0.0),
+                        vec2(x + 4.0 * direction, 0.0),
+                    ));
+                    result.primitives.push(Primitive::Line(
+                        vec2(x, height),
+                        vec2(x + 4.0 * direction, height),
+                    ));
+                }
+            }
+            NodeKind::Fraction => {
+                let numerator = self.measure(node.children()[0], size);
+                let denominator = self.measure(node.children()[1], size);
+                // REA: 2.4 DIP overhang, settings-bound 2 DIP vertical margin.
+                // Baseline follows the hyphen ink bottom in the substitute font.
+                let metrics = layout_fraction(FractionMetrics {
+                    numerator_width: f64::from(numerator.size.x),
+                    numerator_height: f64::from(numerator.size.y),
+                    denominator_width: f64::from(denominator.size.x),
+                    denominator_height: f64::from(denominator.size.y),
+                    overhang: 2.4,
+                    vertical_pad: 2.,
+                    font_baseline_adjustment: {
+                        let hyphen = text_galley(painter, "-", size);
+                        f64::from(hyphen.mesh_bounds.bottom() - text_baseline(&hyphen))
+                    },
+                    bar_height: 0.8,
+                });
+                result.size = vec2(metrics.width as f32, metrics.height as f32);
+                result.baseline = metrics.text_baseline as f32;
+                let line_y = metrics.bar_origin[1] as f32 + 0.4;
+                result.primitives.push(Primitive::Line(
+                    vec2(0.0, line_y),
+                    vec2(result.size.x, line_y),
+                ));
+                result.children.push((
+                    vec2(
+                        metrics.numerator_origin[0] as f32,
+                        metrics.numerator_origin[1] as f32,
+                    ),
+                    numerator,
+                ));
+                result.children.push((
+                    vec2(
+                        metrics.denominator_origin[0] as f32,
+                        metrics.denominator_origin[1] as f32,
+                    ),
+                    denominator,
+                ));
+            }
+            NodeKind::Power => {
+                let mut base = self.measure(node.children()[0], size);
+                if arena.get(node.children()[0]).unwrap().kind().precedence()
+                    <= node.kind().precedence()
+                {
+                    base = visual_parentheses(painter, base, size);
+                }
+                let exponent =
+                    self.measure(node.children()[1], typography::script_size(size, 7. / 11.));
+                // Raised script geometry is a project policy; exact Prime metrics unknown.
+                let base_y = exponent.size.y * 0.62;
+                result.size = vec2(
+                    base.size.x + exponent.size.x + 1.0,
+                    (base_y + base.size.y).max(exponent.size.y),
+                );
+                result.baseline = base_y + base.baseline;
+                let exponent_x = base.size.x + 1.0;
+                result.children.push((vec2(0.0, base_y), base));
+                result.children.push((vec2(exponent_x, 0.0), exponent));
+            }
+            NodeKind::Group => {
+                let child = self.measure(node.children()[0], size);
+                let width = fence_width(size);
+                let height = child.size.y.max(size);
+                let offset = vec2(width + 1., (height - child.size.y) / 2.);
+                result.size = vec2(child.size.x + 2. * (width + 1.), height);
+                result.baseline = child.baseline + offset.y;
+                result.primitives = parentheses(result.size.x, height, width);
+                result.children.push((offset, child));
+            }
+            NodeKind::Binary(op) => {
+                let mut left = self.measure(node.children()[0], size);
+                let mut right = if *op == BinaryOp::Define {
+                    self.layout(node.children()[1], size, result_text)
+                } else {
+                    self.measure(node.children()[1], size)
+                };
+                let precedence = node.kind().precedence();
+                if arena.get(node.children()[0]).unwrap().kind().precedence() < precedence {
+                    left = visual_parentheses(painter, left, size);
+                }
+                let right_precedence = arena.get(node.children()[1]).unwrap().kind().precedence();
+                if right_precedence < precedence
+                    || (right_precedence == precedence
+                        && matches!(op, BinaryOp::Subtract | BinaryOp::InlineDivide))
+                {
+                    right = visual_parentheses(painter, right, size);
+                }
+                if *op == BinaryOp::Evaluate
+                    && let Some(value) = result_text
+                {
+                    let value = measure_result(painter, node.children()[1], value, size);
+                    match arena.get(node.children()[1]).unwrap().kind() {
+                        NodeKind::Placeholder => {
+                            right = value;
+                        }
+                        _ => {
+                            let unit_size = right.size;
+                            let prefix = value.size.x + size * 0.18;
+                            let baseline = right.baseline.max(value.baseline);
+                            let value_y = baseline - value.baseline;
+                            let unit_y = baseline - right.baseline;
+                            for primitive in &mut right.primitives {
+                                match primitive {
+                                    Primitive::Text(offset, _) => *offset += vec2(prefix, unit_y),
+                                    Primitive::Line(a, b) => {
+                                        *a += vec2(prefix, unit_y);
+                                        *b += vec2(prefix, unit_y);
+                                    }
+                                    Primitive::Placeholder(rect) => {
+                                        *rect = rect.translate(vec2(prefix, unit_y))
+                                    }
+                                }
+                            }
+                            for (offset, _) in &mut right.children {
+                                *offset += vec2(prefix, unit_y);
+                            }
+                            right.text_offset += vec2(prefix, unit_y);
+                            for primitive in value.primitives {
+                                right
+                                    .primitives
+                                    .push(translate_primitive(primitive, vec2(0.0, value_y)));
+                            }
+                            right.size = vec2(
+                                prefix + unit_size.x,
+                                (unit_y + unit_size.y).max(value_y + value.size.y),
+                            );
+                            right.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, right.size));
+                            right.baseline = baseline;
+                        }
+                    }
+                }
+                let symbol = match op {
+                    BinaryOp::Add => "+",
+                    BinaryOp::Subtract => "−",
+                    BinaryOp::Multiply => "·",
+                    BinaryOp::Scale => " ",
+                    BinaryOp::InlineDivide => "÷",
+                    BinaryOp::Define => ":=",
+                    BinaryOp::Evaluate => "=",
+                };
+                let operator = text_galley(painter, symbol, size);
+                let operator_baseline = text_baseline(&operator);
+                let baseline = left.baseline.max(right.baseline).max(operator_baseline);
+                let descent = (left.size.y - left.baseline)
+                    .max(right.size.y - right.baseline)
+                    .max(operator.size().y - operator_baseline);
+                let gap = size * 0.18;
+                let operator_x = left.size.x + gap;
+                let right_x = operator_x + operator.size().x + gap;
+                result.size = vec2(right_x + right.size.x, baseline + descent);
+                result.baseline = baseline;
+                result.primitives.push(Primitive::Text(
+                    vec2(operator_x, baseline - operator_baseline),
+                    operator,
+                ));
+                result
+                    .children
+                    .push((vec2(0.0, baseline - left.baseline), left));
+                result
+                    .children
+                    .push((vec2(right_x, baseline - right.baseline), right));
+            }
+        }
+        result
+    }
 }
 
 enum RowPiece {
@@ -997,37 +1122,45 @@ fn measure_result(
 
 /// Preserve the AST's meaning when a selected subtree was wrapped by a tighter
 /// operator. These are visual parentheses, not an unobserved tree mutation.
-fn visual_parentheses(painter: &Painter, mut child: FormulaBox, size: f32) -> FormulaBox {
-    let paren_size = size.max(child.size.y * 0.93);
-    let left = text_galley(painter, "(", paren_size);
-    let right = text_galley(painter, ")", paren_size);
-    let height = child.size.y.max(left.size().y);
-    let offset = vec2(left.size().x + 2.0, (height - child.size.y) / 2.0);
-    for primitive in &mut child.primitives {
-        match primitive {
-            Primitive::Text(p, _) => *p += offset,
-            Primitive::Line(a, b) => {
-                *a += offset;
-                *b += offset;
-            }
-            Primitive::Placeholder(rect) => *rect = rect.translate(offset),
+fn fence_width(size: f32) -> f32 {
+    size * 0.30
+}
+
+/// Fixed-width curves stretch vertically, preserving a light stroke for tall math.
+/// This is an independent STIX fallback construction, not copied Prime outlines.
+fn parentheses(width: f32, height: f32, fence: f32) -> Vec<Primitive> {
+    let mut out = Vec::new();
+    for right in [false, true] {
+        let point = |i: usize| {
+            let t = i as f32 / 24.;
+            let x = fence * (2. * t - 1.).powi(2);
+            vec2(if right { width - x } else { x }, t * height)
+        };
+        for i in 0..24 {
+            out.push(Primitive::Line(point(i), point(i + 1)));
         }
     }
+    out
+}
+
+fn visual_parentheses(_painter: &Painter, mut child: FormulaBox, size: f32) -> FormulaBox {
+    let fence = fence_width(size);
+    let height = child.size.y.max(size);
+    let offset = vec2(fence + 1., (height - child.size.y) / 2.);
+    child.primitives = child
+        .primitives
+        .into_iter()
+        .map(|p| translate_primitive(p, offset))
+        .collect();
     for (p, _) in &mut child.children {
         *p += offset;
     }
     child.text_offset += offset;
-    let right_x = offset.x + child.size.x + 2.0;
-    child.size = vec2(right_x + right.size().x, height);
+    child.size = vec2(child.size.x + 2. * (fence + 1.), height);
     child.baseline += offset.y;
-    child.primitives.push(Primitive::Text(
-        vec2(0.0, (height - left.size().y) / 2.0),
-        left,
-    ));
-    child.primitives.push(Primitive::Text(
-        vec2(right_x, (height - right.size().y) / 2.0),
-        right,
-    ));
+    child
+        .primitives
+        .extend(parentheses(child.size.x, height, fence));
     child
 }
 
@@ -1255,7 +1388,7 @@ fn paint_box(painter: &Painter, layout: &FormulaBox, origin: Pos2) {
                 painter.galley(origin + *offset, galley.clone(), INK);
             }
             Primitive::Line(start, end) => {
-                painter.line_segment([origin + *start, origin + *end], Stroke::new(1.25, INK));
+                painter.line_segment([origin + *start, origin + *end], Stroke::new(0.8, INK));
             }
             Primitive::Placeholder(rect) => {
                 painter.rect_stroke(
@@ -2018,6 +2151,7 @@ mod tests {
     #[test]
     fn pointer_drag_selects_text_without_editing_the_expression() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = typed_one_character_at_a_time("hello");
         let before = editor.to_portable().unwrap();
         let mut points = [Pos2::ZERO; 2];
@@ -2072,6 +2206,7 @@ mod tests {
     #[test]
     fn vertical_navigation_follows_fraction_and_matrix_geometry() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut fraction = typed_one_character_at_a_time("12/34");
         let root = fraction.root();
         let children = fraction.arena().get(root).unwrap().children().to_vec();
@@ -2117,6 +2252,7 @@ mod tests {
     #[test]
     fn ime_preedit_is_transient_and_commit_is_one_undo_command() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = typed_one_character_at_a_time("x");
         let before = editor.to_portable().unwrap();
         let output = context.run_ui(egui::RawInput::default(), |ui| {
@@ -2190,6 +2326,7 @@ mod tests {
     #[test]
     fn headless_geometry_separates_fraction_operands_and_raises_exponent() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = Editor::new();
         input_text(&mut editor, "1/2^3");
         let output = context.run_ui(egui::RawInput::default(), |ctx| {
@@ -2217,6 +2354,7 @@ mod tests {
     #[test]
     fn focused_widget_handles_text_in_a_headless_frame() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = Editor::new();
         let first_frame = context.run_ui(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -2394,6 +2532,7 @@ mod tests {
     #[test]
     fn cached_result_composition_does_not_mutate_tree_and_unit_remains_hittable() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = Editor::new();
         input_text(&mut editor, "2+3=");
         let before = editor.to_portable().unwrap();
@@ -2452,6 +2591,7 @@ mod tests {
     #[test]
     fn compound_unit_keeps_numeric_result_and_unit_children() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = Editor::new();
         input_text(&mut editor, "1=m/s");
         let before = editor.to_portable().unwrap();
@@ -2480,6 +2620,7 @@ mod tests {
     #[test]
     fn enter_and_escape_events_remain_available_to_worksheet() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = Editor::new();
         let frame = context.run_ui(egui::RawInput::default(), |ui| {
             formula_ui(ui, &mut editor).request_focus();
@@ -2836,6 +2977,7 @@ mod tests {
     #[test]
     fn readonly_matrix_and_range_columns_keep_original_tree_and_hit_ids() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut editor = typed_one_character_at_a_time("1=");
         let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
         let before = editor.to_portable().unwrap();
@@ -2936,6 +3078,7 @@ mod tests {
     #[test]
     fn readonly_matrix_prefix_keeps_unit_caret_at_its_actual_text_origin() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let editor = typed_one_character_at_a_time("1=m");
         let before = editor.to_portable().unwrap();
         let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
@@ -2978,6 +3121,7 @@ mod tests {
     #[test]
     fn nested_definition_evaluation_receives_matrix_result_at_its_own_unit_slot() {
         let context = egui::Context::default();
+        crate::configure(&context);
         let mut tree = typed_one_character_at_a_time("x:=2").to_portable().unwrap();
         let value = tree.children.pop().unwrap();
         tree.children.push(PortableTree {
@@ -3033,6 +3177,92 @@ mod tests {
             assert!(hits.iter().all(|hit| ids.insert(hit.node)));
         });
         frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+    #[test]
+    fn tall_function_fences_stay_narrow_and_every_hit_is_a_source_node() {
+        let context = egui::Context::default();
+        crate::configure(&context);
+        let mut editor = Editor::new();
+        input_text(&mut editor, "sin(1/2)");
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            let mut ids = std::collections::HashSet::new();
+            assert!(hits.iter().all(|hit| ids.insert(hit.node)));
+            assert!(
+                hits.iter()
+                    .all(|hit| editor.arena().get(hit.node).is_some())
+            );
+            let mut child = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+            child.size.y *= 5.;
+            let width = child.size.x;
+            let tall = visual_parentheses(ui.painter(), child, FONT_SIZE);
+            assert!((tall.size.x - width - 2. * (fence_width(FONT_SIZE) + 1.)).abs() < 0.001);
+        });
+        output.drop_without_applying_deltas();
+    }
+
+    #[test]
+    fn square_root_hides_default_degree_without_changing_source_tree() {
+        let context = egui::Context::default();
+        crate::configure(&context);
+        let mut editor = Editor::new();
+        input_text(&mut editor, "√9");
+        let before = editor.to_portable().unwrap();
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure(ui.painter(), editor.arena(), editor.root(), FONT_SIZE);
+            assert_eq!(layout.children[0].1.size, Vec2::ZERO);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            assert!(
+                hits.iter()
+                    .any(|h| h.node == editor.arena().get(editor.root()).unwrap().children()[0])
+            );
+        });
+        output.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+
+    #[test]
+    fn same_name_variable_and_unit_get_occurrence_styles_without_mutating_metadata() {
+        let context = egui::Context::default();
+        crate::configure(&context);
+        let mut editor = Editor::new();
+        input_text(&mut editor, "m:=2m");
+        let before = editor.to_portable().unwrap();
+        let source = crate::worksheet_math::tree_to_mathml(&before).unwrap();
+        let worksheet = crate::worksheet_math::worksheet_xml(&[(1, 0., 0., source)]).unwrap();
+        let xml = roxmltree::Document::parse(&worksheet).unwrap();
+        let math = xml
+            .descendants()
+            .find(|n| n.has_tag_name(("http://schemas.mathsoft.com/worksheet50", "math")))
+            .unwrap();
+        let labelled = crate::worksheet_math::tree_from_mathml(&worksheet[math.range()]).unwrap();
+        let labels = resolved_labels(editor.arena(), editor.root(), Some(&labelled));
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let typesetter = Typesetter {
+                painter: ui.painter(),
+                arena: editor.arena(),
+                labels: &labels,
+            };
+            let layout = typesetter.layout(editor.root(), FONT_SIZE, None);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            let styles: Vec<_> = hits
+                .iter()
+                .filter_map(|h| h.atom.as_ref())
+                .filter(|g| g.text() == "m")
+                .map(|g| &g.job.sections[0].format)
+                .collect();
+            assert_eq!(styles.len(), 2);
+            assert_eq!(styles[0].font_id, MathStyle::Variable.font(FONT_SIZE));
+            assert_eq!(styles[0].color, Color32::BLACK);
+            assert_eq!(styles[1].font_id, MathStyle::Unit.font(FONT_SIZE));
+            assert_eq!(styles[1].color, Color32::from_rgb(0, 0, 139));
+        });
+        output.drop_without_applying_deltas();
         assert_eq!(editor.to_portable().unwrap(), before);
     }
 }

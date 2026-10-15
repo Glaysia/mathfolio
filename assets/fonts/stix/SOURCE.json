@@ -1,0 +1,42 @@
+{
+  "project": "STIX Fonts",
+  "release": "v2.13b171",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "file": "STIXTwoMath-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/stipub/stixfonts/v2.13b171/fonts/static_ttf/STIXTwoMath-Regular.ttf",
+      "git_blob_sha1": "a4705fc7273cefa3f07108285e68755c81fd442c",
+      "sha256": "49b22767985171bce579307b21d98f4d35012fa39e316acc4ffcab8644dfb69b",
+      "bytes": 1518116
+    },
+    {
+      "file": "STIXTwoText-Italic.ttf",
+      "source": "https://raw.githubusercontent.com/stipub/stixfonts/v2.13b171/fonts/static_ttf/STIXTwoText-Italic.ttf",
+      "git_blob_sha1": "b8b5e8442c875b02a51c5e551a461a8d05c39b9c",
+      "sha256": "5a0ed1c0c1d3d4f83f2d00bcd4a0a991a7b0755beacee0a57b26762327a84c22",
+      "bytes": 424488
+    },
+    {
+      "file": "STIXTwoText-BoldItalic.ttf",
+      "source": "https://raw.githubusercontent.com/stipub/stixfonts/v2.13b171/fonts/static_ttf/STIXTwoText-BoldItalic.ttf",
+      "git_blob_sha1": "93524e4f5b7233bedeee0e337ed3db974cfc4a9c",
+      "sha256": "f11eced04bcd8919ad92ccc0251878be9a46fa45fa76c514e3abfbf605a3160f",
+      "bytes": 420164
+    },
+    {
+      "file": "STIXTwoText-Bold.ttf",
+      "source": "https://raw.githubusercontent.com/stipub/stixfonts/v2.13b171/fonts/static_ttf/STIXTwoText-Bold.ttf",
+      "git_blob_sha1": "5f138f73bda2f57aa8e407a41d228dceab6a53b8",
+      "sha256": "89adbb9907c40465e061f084598dbebd5a802e30c6e2d38612205b9c87281cae",
+      "bytes": 395644
+    },
+    {
+      "file": "OFL.txt",
+      "source": "https://raw.githubusercontent.com/stipub/stixfonts/v2.13b171/OFL.txt",
+      "git_blob_sha1": "11b7b8e8892a6ec8fbe709cc10fa7a12d53a4501",
+      "sha256": "0c8825913b60d858aacdb33c4ca6660a7d64b0d6464702efbb19313f5765861a",
+      "bytes": 4519
+    }
+  ]
+}
