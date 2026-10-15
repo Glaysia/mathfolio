@@ -36,3 +36,9 @@ Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 �
 검증은 창·스크린샷 없이 egui context의 이벤트·텍스트 스타일·기하·트리 상태를 검사한다. 50%·100%·200% 클릭 역변환, 리본 메뉴를 닫은 뒤 연속 입력, Undo 후 입력, 동명 변수/단위 스타일과 갤러리 의미, 큰 괄호의 폭, 근호의 숨긴 기본 차수, source node hit 일관성, 페이지 간 본문 좌표를 포함한다. 실제 Windows/Linux IME·마우스 사용감과 최종 화면의 동일성은 아직 실기 검증하지 않았다.
 
 이번 변경은 Windows와 peets(Kubuntu 26.04)에서 각각 전체 215개 테스트, rustfmt, Clippy 경고 금지, workspace build를 통과했다. peets 검증 소스는 `/home/peets/Projects/mathcraft-prime-20261015`, 공유 빌드 결과는 `/home/peets/Projects/mathcraft/target/debug/mathcraft`다. Windows 실행 파일은 `target/debug/mathcraft.exe`다. 검증 과정에서 GUI·스크린샷·원본 실행은 사용하지 않았다.
+
+## 기본 계산서 작성의 연결
+
+이번 단계는 리본의 서식 명령, 행렬 축 편집, 구조 결과 조판과 XY 도표를 실제 작성→수정→저장→재열기 흐름에 연결했다. 결과는 source arena에 가짜 결과 노드를 추가하지 않고 표시 전용 구조로 그린다. 큰 결과 괄호·단위 분수·숫자 지수도 source RHS의 편집 자리와 구분한다. 숫자 표시 기본값과 임계값은 [0022](analysis/0022-math-formatting.md), 행렬 편집은 [0021](analysis/0021-matrix-authoring.md), 도표의 근거와 차이는 [0023](analysis/0023-xy-plots.md)에 연결했다.
+
+검토용 예제의 F 결과는 19.6133 N, determinant는 5, f(x)=2x²의 x=2 끝점은 8이다. 작성 통합 검사에서는 정의 a를 3으로 수정하면 도표 끝점이 12로 바뀌고 Undo 후 8로 돌아오는 것을 확인한다. 실제 GUI·스크린샷·원본 실행 없이 검증한다.

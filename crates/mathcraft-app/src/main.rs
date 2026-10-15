@@ -1,6 +1,8 @@
 use eframe::egui;
 mod formula;
 mod page;
+mod plots;
+mod result_display;
 mod ribbon;
 mod typography;
 use mathcraft_compat::editor_bridge as worksheet_math;

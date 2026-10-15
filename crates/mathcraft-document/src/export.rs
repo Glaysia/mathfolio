@@ -344,7 +344,94 @@ fn edit_region(
                 .find(|n| n.is_element() && n.tag_name().namespace() == Some(ML))
                 .ok_or("Source math has no expression")?;
             let (original_expr, _) = context(expr, &wrapped[expr.range()]);
-            if tree_from_mathml(&original_expr).as_ref().ok() != Some(tree) {
+            let expression_changed = tree_from_mathml(&original_expr).as_ref().ok() != Some(tree);
+
+            if region.format.explicit {
+                let original_format = crate::formatting::read_math_format(math);
+                let mut addition = String::new();
+                if region.format.font_points != original_format.font_points {
+                    if let Some(format) = math
+                        .children()
+                        .find(|n| n.has_tag_name((WS, "formattingOverride")))
+                    {
+                        patches.extend(attrs(
+                            format,
+                            &wrapped,
+                            &[("FontSize", Some(region.format.font_points.to_string()))],
+                        )?);
+                    } else {
+                        addition.push_str(&format!(
+                            "<formattingOverride FontSize=\"{}\"/>",
+                            region.format.font_points
+                        ));
+                    }
+                }
+                if region.format.precision != original_format.precision
+                    || region.format.result_format != original_format.result_format
+                {
+                    if let Some(format) = math
+                        .children()
+                        .find(|n| n.has_tag_name((WS, "resultFormat")))
+                    {
+                        let old_number = format.children().find(|n| {
+                            n.tag_name().namespace() == Some(WS)
+                                && matches!(
+                                    n.tag_name().name(),
+                                    "general" | "decimal" | "scientific" | "engineering"
+                                )
+                        });
+                        if let Some(number) = old_number {
+                            if number.tag_name().name()
+                                == crate::formatting::style_name(region.format.result_format)
+                            {
+                                patches.extend(attrs(
+                                    number,
+                                    &wrapped,
+                                    &[("precision", Some(region.format.precision.to_string()))],
+                                )?);
+                            } else {
+                                patches.push((
+                                    number.range(),
+                                    crate::formatting::number_xml(&region.format),
+                                ));
+                            }
+                        } else {
+                            patches.push((
+                                format.range(),
+                                insert_child(
+                                    &wrapped[format.range()],
+                                    &crate::formatting::number_xml(&region.format),
+                                )?,
+                            ));
+                        }
+                    } else {
+                        addition.push_str(&format!(
+                            "<resultFormat>{}</resultFormat>",
+                            crate::formatting::number_xml(&region.format)
+                        ));
+                    }
+                }
+                if !addition.is_empty() {
+                    let at = wrapped[math.range()]
+                        .rfind("</")
+                        .ok_or("Math closing element missing")?
+                        + math.range().start;
+                    patches.push((at..at, addition));
+                }
+            }
+            let original_format = crate::formatting::read_math_format(math);
+            let format_changed = region.format.explicit
+                && (region.format.font_points != original_format.font_points
+                    || region.format.precision != original_format.precision
+                    || region.format.result_format != original_format.result_format);
+            if format_changed && !expression_changed {
+                patches.extend(attrs(
+                    node,
+                    &wrapped,
+                    &[("actualWidth", None), ("actualHeight", None)],
+                )?);
+            }
+            if expression_changed {
                 let serialized = tree_to_mathml(tree)?;
                 patches.push((expr.range(), bind_math(&serialized)?));
                 patches.extend(attrs(
@@ -382,6 +469,11 @@ fn edit_region(
                 )?);
             }
         }
+        CanvasContent::Plot(_) => {
+            return Err(
+                "XY plot MCDX export is not implemented; save this worksheet as .mathcraft".into(),
+            );
+        }
         CanvasContent::Opaque { .. } => {}
     }
     let out = apply(wrapped, patches)?;
@@ -409,14 +501,20 @@ fn new_region(
 ) -> Result<String, String> {
     let payload = match &region.content {
         CanvasContent::Math(tree) => format!(
-            "<math resultRef=\"{}\">{}</math>",
+            "<math resultRef=\"{}\">{}{}</math>",
             result_ids.allocate()?,
-            bind_math(&tree_to_mathml(tree)?)?
+            bind_math(&tree_to_mathml(tree)?)?,
+            crate::formatting::local_xml(&region.format)
         ),
         CanvasContent::Text(text) => format!(
             "<text item-idref=\"{}\"/>",
             add_text_part(package, worksheet, id, text)?
         ),
+        CanvasContent::Plot(_) => {
+            return Err(
+                "XY plot MCDX export is not implemented; save this worksheet as .mathcraft".into(),
+            );
+        }
         CanvasContent::Opaque { .. } => {
             return Err(
                 "Adding opaque regions without original source context is unsupported".into(),
@@ -881,6 +979,7 @@ mod tests {
                     top: 76.8,
                     content: real("5"),
                     source_region: Some("1".into()),
+                    format: Default::default(),
                 },
                 CanvasRegion {
                     id: 2,
@@ -888,6 +987,7 @@ mod tests {
                     top: 100.0,
                     content: CanvasContent::Text("new 한글 & text".into()),
                     source_region: Some("2".into()),
+                    format: Default::default(),
                 },
                 CanvasRegion {
                     id: 3,
@@ -898,6 +998,7 @@ mod tests {
                         kind: "Area".into(),
                     },
                     source_region: Some("3".into()),
+                    format: Default::default(),
                 },
                 CanvasRegion {
                     id: 4,
@@ -905,6 +1006,7 @@ mod tests {
                     top: 200.0,
                     content: real("11"),
                     source_region: None,
+                    format: Default::default(),
                 },
             ],
             ..Default::default()
@@ -1038,5 +1140,68 @@ mod tests {
         );
         assert_eq!(result.caches().unwrap().len(), 2);
         capture(&out, "edited-valid.mcdx");
+    }
+    #[test]
+    fn number_format_and_font_overrides_export_and_edit_without_losing_other_properties() {
+        let dir = Dir::new();
+        let first = dir.path("formatted.mcdx");
+        let source_path = dir.path("formatted-source.mcdx");
+        let edited = dir.path("formatted-edited.mcdx");
+        let mut doc = CanvasDocument::default();
+        doc.add_math(20., 20.);
+        doc.regions[0].content = real("2");
+        doc.regions[0].format = crate::canvas::MathFormat {
+            font_points: 18.,
+            result_format: crate::canvas::ResultFormat::Scientific,
+            precision: 6,
+            explicit: true,
+        };
+        export_mcdx(&doc, &first).unwrap();
+        let mut source = NativePackage::open(&first).unwrap();
+        let xml = source.worksheet_xml().unwrap();
+        let parsed = parse(&xml).unwrap();
+        let math = parsed
+            .descendants()
+            .find(|n| n.has_tag_name((WS, "math")))
+            .unwrap();
+        assert_eq!(
+            crate::formatting::read_math_format(math),
+            doc.regions[0].format
+        );
+        let xml = xml
+            .replace("zero-threshold=\"15\"", "zero-threshold=\"12\"")
+            .replace("FontSize=\"18\"", "FontSize=\"18\" Bold=\"true\"")
+            .replace("left=\"", "actualWidth=\"100\" actualHeight=\"30\" left=\"");
+        source
+            .set_part("mathcad/worksheet.xml", xml.into_bytes())
+            .unwrap();
+        source.write_new(&source_path).unwrap();
+        doc.native_archive = Some(std::fs::read(&source_path).unwrap());
+        doc.regions[0].source_region = Some("1".into());
+        doc.regions[0].format.precision = 8;
+        doc.regions[0].format.font_points = 24.;
+        doc.regions[0].content = real("3");
+        export_mcdx(&doc, &edited).unwrap();
+        let output = NativePackage::open(&edited)
+            .unwrap()
+            .worksheet_xml()
+            .unwrap();
+        assert!(output.contains("precision=\"8\""));
+        assert!(output.contains("FontSize=\"24\""));
+        assert!(output.contains("Bold=\"true\""));
+        assert!(output.contains("zero-threshold=\"12\""));
+        assert!(!output.contains("actualWidth"));
+        assert!(output.contains(">3</ml:real>"));
+        capture(&edited, "formatted-edited.mcdx");
+    }
+    #[test]
+    fn plot_export_failure_does_not_create_a_partial_native_document() {
+        let dir = Dir::new();
+        let path = dir.path("plot.mcdx");
+        let mut doc = CanvasDocument::default();
+        doc.add_math(0., 0.);
+        doc.add_plot(0., 100.);
+        assert!(export_mcdx(&doc, &path).unwrap_err().contains("XY plot"));
+        assert!(!path.exists());
     }
 }

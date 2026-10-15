@@ -45,6 +45,74 @@ pub struct CanvasRegion {
     pub top: f64,
     pub content: CanvasContent,
     pub source_region: Option<String>,
+    #[serde(default)]
+    pub format: MathFormat,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MathFormat {
+    #[serde(default)]
+    pub explicit: bool,
+    pub font_points: f32,
+    pub result_format: ResultFormat,
+    pub precision: u8,
+}
+
+impl Default for MathFormat {
+    fn default() -> Self {
+        Self {
+            explicit: false,
+            font_points: 11.,
+            result_format: ResultFormat::General,
+            precision: 3,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ResultFormat {
+    #[default]
+    General,
+    Decimal,
+    Scientific,
+    Engineering,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlotSpec {
+    pub x_expression: String,
+    pub y_expression: String,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Default for PlotSpec {
+    fn default() -> Self {
+        Self {
+            x_expression: "x".into(),
+            y_expression: "sin(x)".into(),
+            width: 420.,
+            height: 260.,
+        }
+    }
+}
+
+impl PlotSpec {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.x_expression.len() > 4096 || self.y_expression.len() > 4096 {
+            return Err("Plot expression exceeds 4096 bytes".into());
+        }
+        if !self.width.is_finite()
+            || !self.height.is_finite()
+            || !(120. ..=2000.).contains(&self.width)
+            || !(100. ..=2000.).contains(&self.height)
+        {
+            return Err("Plot size must be finite and within 120–2000 by 100–2000".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -52,6 +120,7 @@ pub struct CanvasRegion {
 pub enum CanvasContent {
     Math(PortableTree),
     Text(String),
+    Plot(PlotSpec),
     Opaque { xml: String, kind: String },
 }
 
@@ -88,6 +157,10 @@ impl CanvasDocument {
         self.add_region(left, top, CanvasContent::Text(text.into()))
     }
 
+    pub fn add_plot(&mut self, left: f64, top: f64) -> u64 {
+        self.add_region(left, top, CanvasContent::Plot(PlotSpec::default()))
+    }
+
     fn add_region(&mut self, left: f64, top: f64, content: CanvasContent) -> u64 {
         let id = self.next_id;
         self.next_id = self.next_id.saturating_add(1);
@@ -97,6 +170,7 @@ impl CanvasDocument {
             top: snap_coordinate(top, self.grid).unwrap_or(top),
             content,
             source_region: None,
+            format: MathFormat::default(),
         });
         id
     }
@@ -221,6 +295,12 @@ impl CanvasDocument {
             }
             check_coordinate(region.left)?;
             check_coordinate(region.top)?;
+            if !region.format.font_points.is_finite()
+                || !(1. ..=200.).contains(&region.format.font_points)
+                || region.format.precision > 15
+            {
+                return Err("Region font must be 1–200 points and precision at most 15".into());
+            }
             if let Some(source) = &region.source_region {
                 if source.len() > 1024 {
                     return Err("Source region reference exceeds byte limit".into());
@@ -266,6 +346,12 @@ impl CanvasDocument {
                         return Err("Canvas text region exceeds 1 MiB".into());
                     }
                     text_bytes = text_bytes.saturating_add(text.len());
+                }
+                CanvasContent::Plot(spec) => {
+                    spec.validate()?;
+                    text_bytes = text_bytes
+                        .saturating_add(spec.x_expression.len())
+                        .saturating_add(spec.y_expression.len());
                 }
                 CanvasContent::Opaque { xml, kind } => {
                     if kind.is_empty() || kind.len() > 128 || xml.len() > MAX_TEXT_BYTES {
@@ -391,6 +477,7 @@ mod tests {
                 kind: "plot3d".into(),
             },
             source_region: Some("native:88".into()),
+            format: MathFormat::default(),
         });
         doc.next_id += 1;
         doc.native_archive = Some(vec![b'P', b'K', 3, 4, 0, 255, 17, 0]);
@@ -497,5 +584,58 @@ mod tests {
         json["undo"] = serde_json::json!([]);
         std::fs::write(&path, serde_json::to_vec(&json).unwrap()).unwrap();
         assert!(CanvasDocument::load(&path).is_err());
+    }
+
+    #[test]
+    fn plot_and_region_format_persist_and_old_v2_regions_get_defaults() {
+        let mut doc = CanvasDocument::default();
+        doc.add_plot(10., 20.);
+        doc.regions[0].format = MathFormat {
+            explicit: true,
+            font_points: 18.,
+            result_format: ResultFormat::Engineering,
+            precision: 7,
+        };
+        let mut value = serde_json::to_value(&doc).unwrap();
+        let restored: CanvasDocument = serde_json::from_value(value.clone()).unwrap();
+        restored.validate().unwrap();
+        assert_eq!(restored, doc);
+        value["regions"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("format");
+        let old: CanvasDocument = serde_json::from_value(value).unwrap();
+        assert_eq!(old.regions[0].format, MathFormat::default());
+        old.validate().unwrap();
+        let dir = TestDir::new();
+        let path = dir.path("plot.mathcraft");
+        doc.save(&path).unwrap();
+        assert_eq!(CanvasDocument::load(&path).unwrap(), doc);
+    }
+
+    #[test]
+    fn plot_and_format_limits_are_checked_before_saving() {
+        let mut doc = CanvasDocument::default();
+        doc.add_plot(0., 0.);
+        for points in [0., 201., f32::NAN] {
+            doc.regions[0].format.font_points = points;
+            assert!(doc.validate().is_err());
+        }
+        doc.regions[0].format = MathFormat::default();
+        doc.regions[0].format.precision = 16;
+        assert!(doc.validate().is_err());
+        doc.regions[0].format.precision = 15;
+        doc.validate().unwrap();
+        let CanvasContent::Plot(spec) = &mut doc.regions[0].content else {
+            unreachable!()
+        };
+        spec.width = 119.;
+        assert!(doc.validate().is_err());
+        let CanvasContent::Plot(spec) = &mut doc.regions[0].content else {
+            unreachable!()
+        };
+        spec.width = 420.;
+        spec.y_expression = "x".repeat(4097);
+        assert!(doc.validate().is_err());
     }
 }

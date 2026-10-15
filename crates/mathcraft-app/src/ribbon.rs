@@ -68,6 +68,12 @@ pub(crate) struct RibbonContext<'a> {
     pub has_selection: bool,
     pub zoom: f32,
     pub grid: bool,
+    pub font_points: f32,
+    pub precision: u8,
+    pub result_format: u8,
+    pub has_math: bool,
+    pub in_matrix: bool,
+    pub can_label: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -85,6 +91,7 @@ pub(crate) enum RibbonAction {
     Delete,
     InsertMath,
     InsertText,
+    InsertPlot,
     Fraction,
     Power,
     Root,
@@ -96,6 +103,7 @@ pub(crate) enum RibbonAction {
     Define,
     Evaluate,
     InsertSymbol(&'static str),
+    InsertImaginary,
     InsertIdentifier {
         name: &'static str,
         label: &'static str,
@@ -104,6 +112,14 @@ pub(crate) enum RibbonAction {
     Recalculate,
     Zoom(f32),
     ToggleGrid,
+    SetFontSize(f32),
+    SetPrecision(u8),
+    SetResultFormat(u8),
+    SetLabel(&'static str),
+    InsertMatrixRow,
+    InsertMatrixColumn,
+    DeleteMatrixRow,
+    DeleteMatrixColumn,
 }
 
 #[derive(Clone, Copy)]
@@ -230,8 +246,8 @@ pub(crate) fn show(
                             RibbonTab::InputOutput => io_tab(ui, &mut actions),
                             RibbonTab::Functions => functions_tab(ui, &mut actions),
                             RibbonTab::Matrices => matrices_tab(ui, current, &mut actions),
-                            RibbonTab::Plots => plots_tab(ui),
-                            RibbonTab::MathFormatting => math_format_tab(ui),
+                            RibbonTab::Plots => plots_tab(ui, &mut actions),
+                            RibbonTab::MathFormatting => math_format_tab(ui, current, &mut actions),
                             RibbonTab::TextFormatting => text_format_tab(ui),
                             RibbonTab::Calculation => calculation_tab(ui, &mut actions),
                             RibbonTab::Document => document_tab(ui, current, &mut actions),
@@ -370,11 +386,7 @@ fn icon_button(
             Stroke::NONE,
         ));
     }
-    response.on_hover_text(if enabled {
-        tooltip.to_owned()
-    } else {
-        format!("{tooltip}\n아직 지원하지 않는 명령입니다.")
-    })
+    response.on_hover_text(tooltip)
 }
 
 fn command(
@@ -392,11 +404,30 @@ fn command(
 }
 
 fn unavailable(ui: &mut Ui, icon: Icon, label: &str, large: bool) {
-    icon_button(ui, icon, label, label, false, large, false);
+    icon_button(
+        ui,
+        icon,
+        label,
+        &format!("{label}\n아직 지원하지 않는 명령입니다."),
+        false,
+        large,
+        false,
+    );
 }
 
 fn menu(ui: &mut Ui, icon: Icon, label: &str, large: bool, content: impl FnOnce(&mut Ui)) {
-    let response = icon_button(ui, icon, label, label, true, large, true);
+    menu_enabled(ui, icon, label, true, large, content);
+}
+
+fn menu_enabled(
+    ui: &mut Ui,
+    icon: Icon,
+    label: &str,
+    enabled: bool,
+    large: bool,
+    content: impl FnOnce(&mut Ui),
+) {
+    let response = icon_button(ui, icon, label, label, enabled, large, true);
     egui::Popup::menu(&response).show(|ui| {
         ui.set_min_width(180.);
         content(ui);
@@ -520,22 +551,26 @@ fn math_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAc
                 ("g — 표준 중력", "g"),
                 ("c — 빛의 속력", "c"),
             ] {
-                menu_action(
-                    ui,
-                    label,
-                    RibbonAction::InsertIdentifier {
-                        name: s,
-                        label: if s == "g" { "UNIT" } else { "CONSTANT" },
-                    },
-                    actions,
-                );
+                if s == "i" {
+                    menu_action(ui, label, RibbonAction::InsertImaginary, actions);
+                } else {
+                    menu_action(
+                        ui,
+                        label,
+                        RibbonAction::InsertIdentifier {
+                            name: s,
+                            label: if s == "g" { "UNIT" } else { "CONSTANT" },
+                        },
+                        actions,
+                    );
+                }
             }
         });
         unavailable(ui, Icon::Symbolics, "기호 연산", true);
     });
     group(ui, "스타일", 111., |ui| {
         ui.vertical(|ui| {
-            unavailable(ui, Icon::Label, "레이블", false);
+            label_menu(ui, current, actions, false);
             unavailable(ui, Icon::Subscript, "아래 첨자", false);
             unavailable(ui, Icon::Math, "방정식 행 분할", false);
         });
@@ -654,9 +689,35 @@ fn matrices_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<Ribb
     });
     group(ui, "행 및 열", 180., |ui| {
         ui.vertical(|ui| {
-            unavailable(ui, Icon::Rows, "행 삽입", false);
-            unavailable(ui, Icon::Rows, "열 삽입", false);
-            unavailable(ui, Icon::Delete, "행 / 열 삭제", false);
+            command(
+                ui,
+                Icon::Rows,
+                "행 삽입",
+                RibbonAction::InsertMatrixRow,
+                current.in_matrix,
+                false,
+                actions,
+            );
+            command(
+                ui,
+                Icon::Rows,
+                "열 삽입",
+                RibbonAction::InsertMatrixColumn,
+                current.in_matrix,
+                false,
+                actions,
+            );
+            menu_enabled(
+                ui,
+                Icon::Delete,
+                "행 / 열 삭제",
+                current.in_matrix,
+                false,
+                |ui| {
+                    menu_action(ui, "행 삭제", RibbonAction::DeleteMatrixRow, actions);
+                    menu_action(ui, "열 삭제", RibbonAction::DeleteMatrixColumn, actions);
+                },
+            );
         });
     });
     group(ui, "서식", 140., |ui| {
@@ -665,9 +726,17 @@ fn matrices_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<Ribb
     clipboard(ui, current, actions);
 }
 
-fn plots_tab(ui: &mut Ui) {
+fn plots_tab(ui: &mut Ui, actions: &mut Vec<RibbonAction>) {
     group(ui, "도표", 255., |ui| {
-        unavailable(ui, Icon::Plot, "XY 도표", true);
+        command(
+            ui,
+            Icon::Plot,
+            "XY 도표",
+            RibbonAction::InsertPlot,
+            true,
+            true,
+            actions,
+        );
         unavailable(ui, Icon::Plot, "극좌표 도표", true);
         unavailable(ui, Icon::Plot, "3D 도표", true);
     });
@@ -683,20 +752,100 @@ fn plots_tab(ui: &mut Ui) {
     }
 }
 
-fn math_format_tab(ui: &mut Ui) {
+fn label_menu(
+    ui: &mut Ui,
+    current: &RibbonContext<'_>,
+    actions: &mut Vec<RibbonAction>,
+    large: bool,
+) {
+    menu_enabled(
+        ui,
+        Icon::Label,
+        "레이블",
+        current.can_label,
+        large,
+        |ui| {
+            for (title, label) in [
+                ("변수", "VARIABLE"),
+                ("단위", "UNIT"),
+                ("상수", "CONSTANT"),
+                ("함수", "FUNCTION"),
+                ("시스템", "SYSTEM"),
+                ("키워드", "KEYWORD"),
+            ] {
+                menu_action(ui, title, RibbonAction::SetLabel(label), actions);
+            }
+        },
+    );
+}
+
+fn math_format_tab(ui: &mut Ui, current: &RibbonContext<'_>, actions: &mut Vec<RibbonAction>) {
     group(ui, "결과", 225., |ui| {
         ui.vertical(|ui| {
-            ui.add_enabled(
-                false,
-                egui::Button::new("일반        ▾").min_size(egui::vec2(130., 21.)),
-            );
-            unavailable(ui, Icon::Math, "소수 자릿수", false);
+            ui.add_enabled_ui(current.has_math, |ui| {
+                let mut format = current.result_format.min(3);
+                egui::ComboBox::from_id_salt("math_result_format")
+                    .width(130.)
+                    .selected_text(["일반", "소수", "과학", "공학"][usize::from(format)])
+                    .show_ui(ui, |ui| {
+                        for (value, title) in [(0, "일반"), (1, "소수"), (2, "과학"), (3, "공학")]
+                        {
+                            if ui.selectable_value(&mut format, value, title).changed() {
+                                actions.push(RibbonAction::SetResultFormat(value));
+                            }
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("소수 자릿수").size(11.));
+                    egui::ComboBox::from_id_salt("result_precision")
+                        .width(42.)
+                        .selected_text(current.precision.to_string())
+                        .show_ui(ui, |ui| {
+                            for precision in 0..=15 {
+                                if ui
+                                    .selectable_label(
+                                        current.precision == precision,
+                                        precision.to_string(),
+                                    )
+                                    .clicked()
+                                {
+                                    actions.push(RibbonAction::SetPrecision(precision));
+                                    ui.close();
+                                }
+                            }
+                        });
+                });
+            });
             unavailable(ui, Icon::Math, "후행 0 표시", false);
         });
     });
-    group(ui, "계산 서식", 180., |ui| {
-        unavailable(ui, Icon::Label, "레이블 스타일", true);
-        unavailable(ui, Icon::Math, "서식 지우기", true);
+    group(ui, "계산 서식", 240., |ui| {
+        ui.vertical(|ui| {
+            ui.add_enabled_ui(current.has_math, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("글꼴 크기").size(11.));
+                    egui::ComboBox::from_id_salt("math_font_points")
+                        .width(58.)
+                        .selected_text(format!("{} pt", current.font_points))
+                        .show_ui(ui, |ui| {
+                            for points in 4..=72 {
+                                if ui
+                                    .selectable_label(
+                                        (current.font_points - points as f32).abs() < 0.01,
+                                        format!("{points} pt"),
+                                    )
+                                    .clicked()
+                                {
+                                    actions.push(RibbonAction::SetFontSize(points as f32));
+                                    ui.close();
+                                }
+                            }
+                        });
+                });
+            });
+            label_menu(ui, current, actions, false);
+            unavailable(ui, Icon::Math, "서식 지우기", false);
+        });
     });
 }
 

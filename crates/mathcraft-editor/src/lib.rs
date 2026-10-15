@@ -184,6 +184,8 @@ pub struct PortableTree {
 pub const MAX_TREE_DEPTH: usize = 128;
 pub const MAX_TREE_NODES: usize = 16_384;
 pub const MAX_ATOM_BYTES: usize = 16_384;
+/// Interactive matrix budget; an independent resource limit, not Prime's limit.
+pub const MAX_MATRIX_CELLS: usize = 4_096;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TreeError {
@@ -831,7 +833,7 @@ impl Editor {
     }
 
     pub fn insert_matrix(&mut self, rows: usize, cols: usize) -> Option<NodeId> {
-        if rows == 0 || cols == 0 || rows.checked_mul(cols)? > 4096 {
+        if rows == 0 || cols == 0 || rows.checked_mul(cols)? > MAX_MATRIX_CELLS {
             return None;
         }
         self.checkpoint();
@@ -852,58 +854,209 @@ impl Editor {
         let NodeKind::Matrix { rows, cols } = self.arena.get(matrix).unwrap().kind else {
             return false;
         };
-        if rows * (cols + 1) > 4096 {
-            return false;
-        }
-        self.checkpoint();
-        let old = self.arena.get(matrix).unwrap().children.clone();
-        let mut children = vec![];
-        let mut focus = None;
-        for row in 0..rows {
-            children.extend_from_slice(&old[row * cols..(row + 1) * cols]);
-            let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
-            self.arena.node_mut(cell).parent = Some(matrix);
-            focus.get_or_insert(cell);
-            children.push(cell);
-        }
-        self.arena.node_mut(matrix).children = children;
-        self.arena.node_mut(matrix).kind = NodeKind::Matrix {
-            rows,
-            cols: cols + 1,
-        };
-        self.caret = Caret::at(focus.unwrap(), Direction::Indeterminate);
-        self.selection = Selection::None;
-        true
+        self.insert_matrix_axis(matrix, rows, cols, cols, 0, false)
     }
 
     pub fn append_matrix_row(&mut self) -> bool {
         let mut here = self.caret.node;
         loop {
             if let NodeKind::Matrix { rows, cols } = self.arena.get(here).unwrap().kind {
-                if (rows + 1) * cols > 4096 {
-                    return false;
-                }
-                self.checkpoint();
-                let mut focus = None;
-                for _ in 0..cols {
-                    let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
-                    self.arena.node_mut(cell).parent = Some(here);
-                    self.arena.node_mut(here).children.push(cell);
-                    focus.get_or_insert(cell);
-                }
-                self.arena.node_mut(here).kind = NodeKind::Matrix {
-                    rows: rows + 1,
-                    cols,
-                };
-                self.caret = Caret::at(focus.unwrap(), Direction::Indeterminate);
-                self.selection = Selection::None;
-                return true;
+                return self.insert_matrix_axis(here, rows, cols, rows, 0, true);
             }
             let Some(parent) = self.arena.get(here).unwrap().parent else {
                 return false;
             };
             here = parent;
         }
+    }
+
+    /// Insert above/below the current cell's row. Indeterminate implements the
+    /// source command's cursor-dependent choice: before at the cell's left
+    /// boundary, after otherwise. The new cell retains the current column.
+    /// Other directions, a whole-matrix selection, and budget overflow are no-ops.
+    pub fn insert_matrix_row(&mut self, direction: Direction) -> bool {
+        self.insert_matrix_dimension(direction, true)
+    }
+
+    /// Insert left/right of the current cell's column. Indeterminate uses the
+    /// same cell-boundary rule as insert_matrix_row; focus retains its row.
+    pub fn insert_matrix_column(&mut self, direction: Direction) -> bool {
+        self.insert_matrix_dimension(direction, false)
+    }
+
+    /// Remove the current cell's row, retaining the column and clamping the row
+    /// to the next surviving row (previous at the bottom). Removing the final
+    /// row leaves a 1x1 placeholder matrix, as in the original shape helper.
+    pub fn delete_matrix_row(&mut self) -> bool {
+        self.delete_matrix_dimension(true)
+    }
+
+    /// Remove the current cell's column and retain its row. Removing the final
+    /// column leaves a 1x1 placeholder matrix. An already blank 1x1 is a no-op.
+    pub fn delete_matrix_column(&mut self) -> bool {
+        self.delete_matrix_dimension(false)
+    }
+
+    fn matrix_cell(&self) -> Option<(NodeId, usize, usize, usize, NodeId)> {
+        let mut cell = self.target();
+        if self.selection != Selection::None
+            && matches!(self.arena.get(cell)?.kind, NodeKind::Matrix { .. })
+        {
+            return None;
+        }
+        while let Some(parent) = self.arena.get(cell)?.parent {
+            let node = self.arena.get(parent)?;
+            if let NodeKind::Matrix { rows, cols } = node.kind {
+                let index = node.children.iter().position(|id| *id == cell)?;
+                return Some((parent, rows, cols, index, cell));
+            }
+            cell = parent;
+        }
+        None
+    }
+
+    fn at_matrix_cell_start(&self, cell: NodeId) -> bool {
+        if self.selection == Selection::Subtree(cell) {
+            return self.caret.caret_side == Direction::Left;
+        }
+        if self.selection != Selection::None || self.caret.node != first_leaf(&self.arena, cell) {
+            return false;
+        }
+        self.caret
+            .value_range
+            .map_or(self.caret.caret_side == Direction::Left, |range| {
+                range.anchor == 0 && range.focus == 0
+            })
+    }
+
+    fn insert_matrix_dimension(&mut self, direction: Direction, row_axis: bool) -> bool {
+        let Some((matrix, rows, cols, index, cell)) = self.matrix_cell() else {
+            return false;
+        };
+        let before = match (row_axis, direction) {
+            (true, Direction::Up) | (false, Direction::Left) => true,
+            (true, Direction::Down) | (false, Direction::Right) => false,
+            (_, Direction::Indeterminate) => self.at_matrix_cell_start(cell),
+            _ => return false,
+        };
+        let position = if row_axis { index / cols } else { index % cols };
+        let retained = if row_axis { index % cols } else { index / cols };
+        self.insert_matrix_axis(
+            matrix,
+            rows,
+            cols,
+            position + usize::from(!before),
+            retained,
+            row_axis,
+        )
+    }
+
+    fn insert_matrix_axis(
+        &mut self,
+        matrix: NodeId,
+        rows: usize,
+        cols: usize,
+        position: usize,
+        retained: usize,
+        row_axis: bool,
+    ) -> bool {
+        let Some(new_rows) = rows.checked_add(usize::from(row_axis)) else {
+            return false;
+        };
+        let Some(new_cols) = cols.checked_add(usize::from(!row_axis)) else {
+            return false;
+        };
+        let Some(count) = new_rows.checked_mul(new_cols) else {
+            return false;
+        };
+        let added = if row_axis { cols } else { rows };
+        if count > MAX_MATRIX_CELLS || self.arena.nodes().count() + added > MAX_TREE_NODES {
+            return false;
+        }
+        let old = self.arena.get(matrix).unwrap().children.clone();
+        self.checkpoint();
+        let mut children = Vec::with_capacity(count);
+        for row in 0..new_rows {
+            for col in 0..new_cols {
+                let inserted = if row_axis {
+                    row == position
+                } else {
+                    col == position
+                };
+                let cell = if inserted {
+                    let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
+                    self.arena.node_mut(cell).parent = Some(matrix);
+                    cell
+                } else {
+                    let old_row = row - usize::from(row_axis && row > position);
+                    let old_col = col - usize::from(!row_axis && col > position);
+                    old[old_row * cols + old_col]
+                };
+                children.push(cell);
+            }
+        }
+        let focus_index = if row_axis {
+            position * new_cols + retained
+        } else {
+            retained * new_cols + position
+        };
+        self.caret = Caret::at(children[focus_index], Direction::Indeterminate);
+        let node = self.arena.node_mut(matrix);
+        node.children = children;
+        node.kind = NodeKind::Matrix {
+            rows: new_rows,
+            cols: new_cols,
+        };
+        self.selection = Selection::None;
+        debug_assert!(self.validate().is_ok());
+        true
+    }
+
+    fn delete_matrix_dimension(&mut self, row_axis: bool) -> bool {
+        let Some((matrix, rows, cols, index, _)) = self.matrix_cell() else {
+            return false;
+        };
+        let old = self.arena.get(matrix).unwrap().children.clone();
+        if rows == 1 && cols == 1 && self.arena.get(old[0]).unwrap().kind == NodeKind::Placeholder {
+            return false;
+        }
+        let position = if row_axis { index / cols } else { index % cols };
+        let reset = if row_axis { rows == 1 } else { cols == 1 };
+        self.checkpoint();
+        let (new_rows, new_cols, children, focus) = if reset {
+            for cell in old {
+                self.retire(cell, None);
+            }
+            let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
+            self.arena.node_mut(cell).parent = Some(matrix);
+            (1, 1, vec![cell], cell)
+        } else {
+            let new_rows = rows - usize::from(row_axis);
+            let new_cols = cols - usize::from(!row_axis);
+            let mut children = Vec::with_capacity(new_rows * new_cols);
+            for (i, cell) in old.into_iter().enumerate() {
+                let axis_index = if row_axis { i / cols } else { i % cols };
+                if axis_index == position {
+                    self.retire(cell, None);
+                } else {
+                    children.push(cell);
+                }
+            }
+            let row = (index / cols).min(new_rows - 1);
+            let col = (index % cols).min(new_cols - 1);
+            let focus = first_leaf(&self.arena, children[row * new_cols + col]);
+            (new_rows, new_cols, children, focus)
+        };
+        let node = self.arena.node_mut(matrix);
+        node.children = children;
+        node.kind = NodeKind::Matrix {
+            rows: new_rows,
+            cols: new_cols,
+        };
+        self.caret = Caret::at(focus, Direction::Left);
+        self.selection = Selection::None;
+        debug_assert!(self.validate().is_ok());
+        true
     }
 
     pub fn insert_definition(&mut self) -> NodeId {
@@ -1998,5 +2151,215 @@ mod tests {
         assert_eq!(copy.caret().value_range.unwrap().focus, 1);
         assert_ne!(copy.selection(), editor.selection());
         assert!(editor.undo());
+    }
+
+    fn matrix_fixture(rows: usize, cols: usize) -> (Editor, NodeId, Vec<NodeId>) {
+        let tree = portable(
+            NodeKind::Matrix { rows, cols },
+            (0..rows * cols)
+                .map(|i| portable(NodeKind::Number((i + 1).to_string()), vec![]))
+                .collect(),
+        );
+        let e = Editor::from_portable(&tree).unwrap();
+        let matrix = e.root();
+        let cells = e.arena().get(matrix).unwrap().children().to_vec();
+        (e, matrix, cells)
+    }
+
+    #[test]
+    fn matrix_insertions_are_relative_row_major_and_one_undo_command() {
+        for direction in [Direction::Up, Direction::Down] {
+            let (mut e, matrix, cells) = matrix_fixture(2, 3);
+            e.place_text_caret(cells[4], 1).unwrap();
+            let before = e.to_portable().unwrap();
+            let before_caret = e.caret();
+            let undo = e.undo.len();
+            assert!(e.insert_matrix_row(direction));
+            assert_eq!(e.undo.len(), undo + 1);
+            assert_eq!(e.root(), matrix);
+            let children = e.arena().get(matrix).unwrap().children();
+            let at = if direction == Direction::Up { 1 } else { 2 };
+            assert_eq!(&children[..at * 3], &cells[..at * 3]);
+            assert_eq!(&children[(at + 1) * 3..], &cells[at * 3..]);
+            assert_eq!(e.caret().node, children[at * 3 + 1]);
+            let new_id = e.caret().node;
+            let after = e.to_portable().unwrap();
+            assert_eq!(after.kind, NodeKind::Matrix { rows: 3, cols: 3 });
+            assert!(e.undo());
+            assert_eq!(e.caret(), before_caret);
+            assert_eq!(e.to_portable().unwrap(), before);
+            assert!(e.arena().get(new_id).is_none());
+            assert!(e.redo());
+            assert_eq!(e.to_portable().unwrap(), after);
+            assert_eq!(e.validate(), Ok(()));
+        }
+        for direction in [Direction::Left, Direction::Right] {
+            let (mut e, matrix, cells) = matrix_fixture(2, 3);
+            e.place_caret(cells[4], Direction::Right).unwrap();
+            assert!(e.insert_matrix_column(direction));
+            let at = if direction == Direction::Left { 1 } else { 2 };
+            let children = e.arena().get(matrix).unwrap().children();
+            assert_eq!(e.caret().node, children[4 + at]);
+            for row in 0..2 {
+                for col in 0..3 {
+                    assert_eq!(
+                        children[row * 4 + col + usize::from(col >= at)],
+                        cells[row * 3 + col]
+                    );
+                }
+            }
+            assert_eq!(
+                e.to_portable().unwrap().kind,
+                NodeKind::Matrix { rows: 2, cols: 4 }
+            );
+            assert_eq!(e.validate(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn automatic_matrix_insertion_requires_the_whole_cell_left_boundary() {
+        let fraction = portable(
+            NodeKind::Fraction,
+            vec![
+                portable(NodeKind::Number("12".into()), vec![]),
+                portable(NodeKind::Number("34".into()), vec![]),
+            ],
+        );
+        let tree = portable(NodeKind::Matrix { rows: 1, cols: 1 }, vec![fraction]);
+        for (numerator, offset, before) in [(true, 0, true), (true, 1, false), (false, 0, false)] {
+            let mut e = Editor::from_portable(&tree).unwrap();
+            let matrix = e.root();
+            let cell = e.arena().get(matrix).unwrap().children()[0];
+            let atom = e.arena().get(cell).unwrap().children()[usize::from(!numerator)];
+            e.place_text_caret(atom, offset).unwrap();
+            assert!(e.insert_matrix_column(Direction::Indeterminate));
+            let children = e.arena().get(matrix).unwrap().children();
+            assert_eq!(children[usize::from(before)], cell);
+            assert_eq!(e.caret().node, children[usize::from(!before)]);
+            assert_eq!(e.validate(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn matrix_deletion_retires_only_removed_subtrees_and_clamps_focus() {
+        for row_axis in [true, false] {
+            let (mut e, matrix, cells) = matrix_fixture(3, 3);
+            e.place_text_selection(cells[8], 0, 1).unwrap();
+            let before = e.to_portable().unwrap();
+            let caret = e.caret();
+            let old_len = e.undo.len();
+            assert!(if row_axis {
+                e.delete_matrix_row()
+            } else {
+                e.delete_matrix_column()
+            });
+            assert_eq!(e.undo.len(), old_len + 1);
+            let expected: Vec<_> = cells
+                .iter()
+                .enumerate()
+                .filter_map(|(i, id)| ((if row_axis { i / 3 } else { i % 3 }) != 2).then_some(*id))
+                .collect();
+            assert_eq!(e.arena().get(matrix).unwrap().children(), expected);
+            let focus = if row_axis { cells[5] } else { cells[7] };
+            assert_eq!(e.caret().node, focus);
+            assert!(e.arena().get(cells[8]).is_none());
+            assert_eq!(e.validate(), Ok(()));
+            let after = e.to_portable().unwrap();
+            assert!(e.undo());
+            assert_eq!(e.to_portable().unwrap(), before);
+            assert_eq!(e.caret(), caret);
+            assert!(e.redo());
+            assert_eq!(e.to_portable().unwrap(), after);
+        }
+    }
+
+    #[test]
+    fn deleting_final_matrix_axis_resets_one_placeholder_and_undo_restores_cells() {
+        for row_axis in [true, false] {
+            let (mut e, matrix, cells) =
+                matrix_fixture(if row_axis { 1 } else { 3 }, if row_axis { 3 } else { 1 });
+            e.place_caret(cells[1], Direction::Right).unwrap();
+            let before = e.to_portable().unwrap();
+            assert!(if row_axis {
+                e.delete_matrix_row()
+            } else {
+                e.delete_matrix_column()
+            });
+            assert_eq!(e.root(), matrix);
+            assert_eq!(
+                e.to_portable().unwrap(),
+                portable(
+                    NodeKind::Matrix { rows: 1, cols: 1 },
+                    vec![portable(NodeKind::Placeholder, vec![])]
+                )
+            );
+            assert!(cells.iter().all(|id| e.arena().get(*id).is_none()));
+            let undo = e.undo.len();
+            assert!(!e.delete_matrix_row());
+            assert!(!e.delete_matrix_column());
+            assert_eq!(e.undo.len(), undo);
+            assert!(e.undo());
+            assert_eq!(e.to_portable().unwrap(), before);
+            assert_eq!(e.validate(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn nested_matrix_commands_keep_outer_siblings_and_reject_ambiguous_selection() {
+        let inner = portable(
+            NodeKind::Matrix { rows: 1, cols: 1 },
+            vec![portable(NodeKind::Number("2".into()), vec![])],
+        );
+        let tree = portable(
+            NodeKind::Binary(BinaryOp::Add),
+            vec![
+                portable(NodeKind::Number("1".into()), vec![]),
+                portable(
+                    NodeKind::Matrix { rows: 1, cols: 2 },
+                    vec![inner, portable(NodeKind::Number("3".into()), vec![])],
+                ),
+            ],
+        );
+        let mut e = Editor::from_portable(&tree).unwrap();
+        let outer = e.arena().get(e.root()).unwrap().children()[1];
+        let inner = e.arena().get(outer).unwrap().children()[0];
+        let atom = e.arena().get(inner).unwrap().children()[0];
+        e.place_text_caret(atom, 1).unwrap();
+        assert!(e.insert_matrix_row(Direction::Down));
+        assert_eq!(
+            e.arena().get(outer).unwrap().kind(),
+            &NodeKind::Matrix { rows: 1, cols: 2 }
+        );
+        assert_eq!(
+            e.arena().get(inner).unwrap().kind(),
+            &NodeKind::Matrix { rows: 2, cols: 1 }
+        );
+        e.select_subtree(inner).unwrap();
+        let before = e.to_portable().unwrap();
+        let undo = e.undo.len();
+        assert!(!e.insert_matrix_column(Direction::Left));
+        assert!(!e.delete_matrix_row());
+        assert_eq!(e.to_portable().unwrap(), before);
+        assert_eq!(e.undo.len(), undo);
+        assert_eq!(e.validate(), Ok(()));
+    }
+
+    #[test]
+    fn rejected_matrix_growth_preserves_redo_selection_and_caret() {
+        let (mut e, _, cells) = matrix_fixture(64, 64);
+        e.place_text_caret(cells[0], 1).unwrap();
+        let before = e.to_portable().unwrap();
+        let caret = e.caret();
+        assert!(!e.insert_matrix_row(Direction::Down));
+        assert!(!e.insert_matrix_column(Direction::Right));
+        assert!(!e.insert_matrix_row(Direction::Left));
+        assert_eq!(e.caret(), caret);
+        assert_eq!(e.to_portable().unwrap(), before);
+        assert!(e.undo.is_empty());
+        assert!(e.delete_matrix_row());
+        assert!(e.undo());
+        assert!(!e.insert_matrix_column(Direction::Right));
+        assert!(e.redo());
+        assert_eq!(e.validate(), Ok(()));
     }
 }

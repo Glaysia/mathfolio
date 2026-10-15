@@ -66,3 +66,13 @@ Windows와 peets의 `/home/peets/Projects/mathcraft-ui-20261015` 소스 사본�
 새 검사는 종이 전용 배율과 50%·100%·200% 클릭 좌표, 문자 드래그·UTF-16 선택·치환·삭제, 기하 기반 분수·행렬 수직 이동, 수식·텍스트 Undo 후 커서 위치에서 연속 입력, Esc→영역 이동→Enter, 도구막대가 있는 상태의 Tab 이동, 메뉴 열기→Esc→입력 복귀, IME 임시·확정·취소 이벤트를 포함한다. 분수 도구가 기존 선택 피연산자를 버리지 않는 동작도 검사했다.
 
 UI 구조·타이포그래피·기하 이동은 독립적인 제품 정책이며 원본 전체 외형/키 전이와 같다고 주장하지 않는다. 실제 창·화면 캡처·원본 실행은 사용하지 않았다. 실제 Windows/Linux IME 후보창, OS 클립보드, 고해상도 화면에서의 최종 사용감은 실기 검증이 남아 있다. 구현 흐름은 [작성 경험 기준](DESIGN.md)과 [사용법](PROTOTYPE.md)에 기록했다.
+
+## 기본 공학 계산서 단계 검증: 2026-10-15
+
+Windows와 peets의 /home/peets/Projects/mathcraft-m20-20261015에서 workspace fmt, Clippy(경고 금지), 전체 244개 테스트, 빌드를 통과했다. 앱 71개, editor 25개, document 28개 테스트를 포함하며 기존 원본 38개 참조의 두 좌표 경로도 유지된다. 실행 파일은 Windows target/debug/mathcraft.exe, Linux /home/peets/Projects/mathcraft/target/debug/mathcraft다.
+
+새 검증은 함수·범위·도표 작성과 정의 수정/Undo에 따른 재계산, 축 편집 후 포커스, 행렬 행·열 삽입/삭제와 Shift 단축키, 서식의 저장·복사·Undo, 표시 반올림과 원본 계산값 분리, source hit ID, 확대 글꼴의 IME 좌표, 긴 행렬의 스크롤 범위, 숫자 일반 형식·0 표시 경계를 다룬다. 예제의 F=19.6133 N, det(A)=5, f(2)=8도 고정 검사한다.
+
+수식 서식의 MCDX 출력은 설치본 worksheet50.xsd를 사용해 구조 검사를 통과했다. 누락된 XML namespace schemaLocation에만 오프라인 표준 XML 속성 선언을 연결했고 제품 스키마 선언은 유지했다. 원본 앱으로 재열거나 화면을 대조한 결과가 아니다. 도표의 MCDX 내보내기는 명시적으로 거부하여 저장 누락을 막는다.
+
+이 단계에서 GUI·스크린샷·원본 실행은 사용하지 않았다. 전체 제품의 20%라는 수치는 계측한 호환율이 아니라 기본 계산서 작성 흐름을 기준으로 한 개발 규모의 추정이다.

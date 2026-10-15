@@ -18,11 +18,17 @@ use crate::typography::{self, INK, MathStyle};
 use std::collections::HashMap;
 const CARET: Color32 = Color32::from_rgb(0, 128, 255);
 const PADDING: f32 = 2.0;
+#[cfg(test)]
 const FONT_SIZE: f32 = typography::MATH_SIZE;
 
 #[derive(Clone, Copy, Debug)]
 pub enum FormulaResult<'a> {
+    Formatted(&'a crate::result_display::FormattedResult),
     Text(&'a str),
+    #[allow(
+        dead_code,
+        reason = "Legacy display payload used by structural geometry regressions"
+    )]
     Matrix {
         rows: usize,
         cols: usize,
@@ -108,12 +114,17 @@ pub(crate) fn formula_ui_with_focus(
 
 /// Cached values are layout-only; every hit remains bound to an existing source
 /// RHS/unit node. No temporary arena or editable result-cell nodes are created.
-pub fn measured_size(ui: &Ui, editor: &Editor, result: Option<FormulaResult<'_>>) -> Vec2 {
+pub fn measured_size_styled(
+    ui: &Ui,
+    editor: &Editor,
+    result: Option<FormulaResult<'_>>,
+    font_points: f32,
+) -> Vec2 {
     let layout = measure_with_display(
         ui.painter(),
         editor.arena(),
         editor.root(),
-        FONT_SIZE,
+        font_points.clamp(1., 200.) * 96. / 72.,
         result,
     );
     (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(12., 22.))
@@ -144,13 +155,25 @@ pub(crate) fn formula_ui_with_labels(
     focus: bool,
     labelled: Option<&PortableTree>,
 ) -> FormulaResponse {
+    formula_ui_styled(ui, editor, result, focus, labelled, 11.)
+}
+
+pub(crate) fn formula_ui_styled(
+    ui: &mut Ui,
+    editor: &mut Editor,
+    result: Option<FormulaResult<'_>>,
+    focus: bool,
+    labelled: Option<&PortableTree>,
+    font_points: f32,
+) -> FormulaResponse {
+    let font_size = font_points.clamp(1., 200.) * 96. / 72.;
     let labels = resolved_labels(editor.arena(), editor.root(), labelled);
     let initial = Typesetter {
         painter: ui.painter(),
         arena: editor.arena(),
         labels: &labels,
     }
-    .layout(editor.root(), FONT_SIZE, result);
+    .layout(editor.root(), font_size, result);
     let desired = (initial.size + vec2(PADDING * 2.0, PADDING * 2.0)).max(vec2(12., 22.));
     let (rect, mut response) = ui.allocate_exact_size(desired, Sense::click_and_drag());
     if focus {
@@ -278,7 +301,7 @@ pub(crate) fn formula_ui_with_labels(
                     | egui::Event::Copy
                     | egui::Event::Cut => true,
                     egui::Event::Ime(_) => true,
-                    egui::Event::Key { key, .. } => composing || !matches!(key, Key::Enter | Key::Escape),
+                    egui::Event::Key { key, modifiers, .. } => composing || (modifiers.shift && *key == Key::Enter) || !matches!(key, Key::Enter | Key::Escape),
                     _ => false,
                 };
                 if owned {
@@ -294,6 +317,9 @@ pub(crate) fn formula_ui_with_labels(
         for event in events {
             match event {
                 egui::Event::Text(text) => {
+                    if text == " " && ui.input(|i| i.modifiers.shift) {
+                        continue;
+                    }
                     if !preedit.is_empty() {
                         continue;
                     }
@@ -370,6 +396,12 @@ pub(crate) fn formula_ui_with_labels(
                             }
                             Key::ArrowLeft => move_horizontal(editor, false),
                             Key::ArrowRight => move_horizontal(editor, true),
+                            Key::Enter if modifiers.shift => {
+                                changed |= editor.insert_matrix_row(Direction::Indeterminate)
+                            }
+                            Key::Space if modifiers.shift => {
+                                changed |= editor.insert_matrix_column(Direction::Indeterminate)
+                            }
                             Key::ArrowUp | Key::ArrowDown => {
                                 move_vertical(editor, &hits, key == Key::ArrowDown)
                             }
@@ -399,7 +431,7 @@ pub(crate) fn formula_ui_with_labels(
         arena: editor.arena(),
         labels: &labels,
     }
-    .layout(editor.root(), FONT_SIZE, result);
+    .layout(editor.root(), font_size, result);
     let mut hits = vec![];
     collect_hits(&layout, origin, &mut hits);
     let paint = ui.painter();
@@ -431,7 +463,7 @@ pub(crate) fn formula_ui_with_labels(
         paint_caret(paint, hit, editor);
         let cursor = caret_rect(hit, editor);
         if !preedit.is_empty() {
-            let preview = text_galley(paint, &preedit, FONT_SIZE);
+            let preview = text_galley(paint, &preedit, font_size);
             let preview_rect = Rect::from_min_size(cursor.left_top(), preview.size());
             paint.rect_filled(preview_rect.expand(2.), 0., Color32::WHITE);
             paint.galley(preview_rect.min, preview, INK);
@@ -1024,100 +1056,272 @@ fn translate_primitive(primitive: Primitive, by: Vec2) -> Primitive {
     }
 }
 
+fn empty_display(node: NodeId) -> FormulaBox {
+    FormulaBox {
+        node,
+        size: Vec2::ZERO,
+        baseline: 0.,
+        primitives: vec![],
+        children: vec![],
+        atom: None,
+        hit_bounds: None,
+        text_offset: Vec2::ZERO,
+    }
+}
+fn flatten_display(mut layout: FormulaBox) -> FormulaBox {
+    for (offset, child) in std::mem::take(&mut layout.children) {
+        let child = flatten_display(child);
+        layout.primitives.extend(
+            child
+                .primitives
+                .into_iter()
+                .map(|p| translate_primitive(p, offset)),
+        );
+    }
+    layout.atom = None;
+    layout
+}
+fn measure_display_math(
+    painter: &Painter,
+    node: NodeId,
+    math: &crate::result_display::DisplayMath,
+    size: f32,
+) -> FormulaBox {
+    use crate::result_display::DisplayMath;
+    let mut result = empty_display(node);
+    match math {
+        DisplayMath::Text(text, style) => {
+            let galley = painter.layout_no_wrap(text.clone(), style.font(size), style.color());
+            result.size = galley.size();
+            result.baseline = text_baseline(&galley);
+            result.primitives.push(Primitive::Text(Vec2::ZERO, galley));
+        }
+        DisplayMath::Row(parts) => {
+            result = row_layout(
+                node,
+                parts
+                    .iter()
+                    .map(|p| RowPiece::Child(measure_display_math(painter, node, p, size)))
+                    .collect(),
+            );
+        }
+        DisplayMath::Power(base, exp) => {
+            let base = measure_display_math(painter, node, base, size);
+            let exp =
+                measure_display_math(painter, node, exp, typography::script_size(size, 7. / 11.));
+            let y = exp.size.y * 0.62;
+            result.size = vec2(
+                base.size.x + exp.size.x + 1.,
+                (base.size.y + y).max(exp.size.y),
+            );
+            result.baseline = base.baseline + y;
+            let x = base.size.x + 1.;
+            result.children = vec![(vec2(0., y), base), (vec2(x, 0.), exp)];
+        }
+        DisplayMath::Subscript(base, index) => {
+            let base = measure_display_math(painter, node, base, size);
+            let index =
+                measure_display_math(painter, node, index, typography::script_size(size, 0.7));
+            let x = base.size.x;
+            let y = base.baseline * 0.63;
+            result.size = vec2(x + index.size.x, base.size.y.max(y + index.size.y));
+            result.baseline = base.baseline;
+            result.children = vec![(Vec2::ZERO, base), (vec2(x, y), index)];
+        }
+        DisplayMath::Fraction(top, bottom) => {
+            let top = measure_display_math(painter, node, top, size);
+            let bottom = measure_display_math(painter, node, bottom, size);
+            let hyphen = text_galley(painter, "-", size);
+            let metrics = layout_fraction(FractionMetrics {
+                numerator_width: f64::from(top.size.x),
+                numerator_height: f64::from(top.size.y),
+                denominator_width: f64::from(bottom.size.x),
+                denominator_height: f64::from(bottom.size.y),
+                overhang: 2.4,
+                vertical_pad: 2.,
+                font_baseline_adjustment: f64::from(
+                    hyphen.mesh_bounds.bottom() - text_baseline(&hyphen),
+                ),
+                bar_height: 0.8,
+            });
+            result.size = vec2(metrics.width as f32, metrics.height as f32);
+            result.baseline = metrics.text_baseline as f32;
+            let y = metrics.bar_origin[1] as f32 + 0.4;
+            result
+                .primitives
+                .push(Primitive::Line(vec2(0., y), vec2(result.size.x, y)));
+            result.children = vec![
+                (
+                    vec2(
+                        metrics.numerator_origin[0] as f32,
+                        metrics.numerator_origin[1] as f32,
+                    ),
+                    top,
+                ),
+                (
+                    vec2(
+                        metrics.denominator_origin[0] as f32,
+                        metrics.denominator_origin[1] as f32,
+                    ),
+                    bottom,
+                ),
+            ];
+        }
+        DisplayMath::Group(child) => {
+            result = visual_parentheses(
+                painter,
+                measure_display_math(painter, node, child, size),
+                size,
+            );
+        }
+        DisplayMath::Root(child) => {
+            let child = measure_display_math(painter, node, child, size);
+            let width = size * 0.65;
+            let height = child.size.y + 2.;
+            result.size = vec2(width + child.size.x + 1., height);
+            result.baseline = child.baseline + 2.;
+            let points = [
+                vec2(0., height * 0.58),
+                vec2(width * 0.22, height * 0.52),
+                vec2(width * 0.43, height - 1.),
+                vec2(width - 1., 0.8),
+                vec2(result.size.x, 0.8),
+            ];
+            for pair in points.windows(2) {
+                result.primitives.push(Primitive::Line(pair[0], pair[1]));
+            }
+            result.children.push((vec2(width, 2.), child));
+        }
+    }
+    flatten_display(result)
+}
+fn matrix_display(
+    painter: &Painter,
+    node: NodeId,
+    rows: usize,
+    cols: usize,
+    cells: Vec<FormulaBox>,
+    brackets: bool,
+    size: f32,
+) -> FormulaBox {
+    if rows == 0
+        || cols == 0
+        || rows > 12
+        || cols > 12
+        || rows.checked_mul(cols) != Some(cells.len())
+    {
+        return measure_result(painter, node, FormulaResult::Text("…"), size);
+    }
+    let mut output = empty_display(node);
+    let mut widths = vec![0_f32; cols];
+    let mut ascents = vec![0_f32; rows];
+    let mut descents = vec![0_f32; rows];
+    for (i, cell) in cells.iter().enumerate() {
+        widths[i % cols] = widths[i % cols].max(cell.size.x);
+        ascents[i / cols] = ascents[i / cols].max(cell.baseline);
+        descents[i / cols] = descents[i / cols].max(cell.size.y - cell.baseline);
+    }
+    let gap = size * 0.4;
+    let margin = if brackets { 7. } else { 0. };
+    let width = widths.iter().sum::<f32>() + gap * (cols as f32 - 1.) + 2. * margin;
+    let height =
+        ascents.iter().sum::<f32>() + descents.iter().sum::<f32>() + gap * (rows as f32 - 1.);
+    output.size = vec2(width, height);
+    output.baseline = height / 2. + size * 0.2;
+    let mut cells = cells.into_iter();
+    let mut y = 0.;
+    for row in 0..rows {
+        let mut x = margin;
+        for width in &widths {
+            let cell = cells.next().unwrap();
+            let offset = vec2(
+                x + (width - cell.size.x) / 2.,
+                y + ascents[row] - cell.baseline,
+            );
+            output.primitives.extend(
+                cell.primitives
+                    .into_iter()
+                    .map(|p| translate_primitive(p, offset)),
+            );
+            x += width + gap;
+        }
+        y += ascents[row] + descents[row] + gap;
+    }
+    if brackets {
+        for x in [1., width - 1.] {
+            let direction = if x < width / 2. { 1. } else { -1. };
+            output
+                .primitives
+                .push(Primitive::Line(vec2(x, 0.), vec2(x, height)));
+            output
+                .primitives
+                .push(Primitive::Line(vec2(x, 0.), vec2(x + 4. * direction, 0.)));
+            output.primitives.push(Primitive::Line(
+                vec2(x, height),
+                vec2(x + 4. * direction, height),
+            ));
+        }
+    }
+    output
+}
 fn measure_result(
     painter: &Painter,
     node: NodeId,
     result: FormulaResult<'_>,
     size: f32,
 ) -> FormulaBox {
-    let mut output = FormulaBox {
-        node,
-        size: Vec2::ZERO,
-        baseline: 0.0,
-        primitives: vec![],
-        children: vec![],
-        atom: None,
-        hit_bounds: None,
-        text_offset: Vec2::ZERO,
-    };
+    use crate::result_display::DisplayMath;
     match result {
-        FormulaResult::Text(value) => {
-            let text = text_galley(painter, value, size);
-            output.size = text.size();
-            output.baseline = text_baseline(&text);
-            output.primitives.push(Primitive::Text(Vec2::ZERO, text));
-        }
+        FormulaResult::Text(text) => measure_display_math(
+            painter,
+            node,
+            &DisplayMath::Text(text.into(), MathStyle::Operator),
+            size,
+        ),
         FormulaResult::Matrix {
             rows,
             cols,
             cells,
             brackets,
-        } => {
-            // The worksheet limits arrays to 12x12. Defensive bounds keep an
-            // accidentally malformed display payload from allocating huge grids.
-            if rows == 0
-                || cols == 0
-                || rows > 12
-                || cols > 12
-                || rows.checked_mul(cols) != Some(cells.len())
-            {
-                return measure_result(painter, node, FormulaResult::Text("…"), size);
-            }
-            let texts: Vec<_> = cells
+        } => matrix_display(
+            painter,
+            node,
+            rows,
+            cols,
+            cells
                 .iter()
-                .map(|cell| text_galley(painter, cell, size))
-                .collect();
-            let mut widths = vec![0.0_f32; cols];
-            let mut ascents = vec![0.0_f32; rows];
-            let mut descents = vec![0.0_f32; rows];
-            for (i, text) in texts.iter().enumerate() {
-                let baseline = text_baseline(text);
-                widths[i % cols] = widths[i % cols].max(text.size().x);
-                ascents[i / cols] = ascents[i / cols].max(baseline);
-                descents[i / cols] = descents[i / cols].max(text.size().y - baseline);
-            }
-            let gap = size * 0.4;
-            let margin = if brackets { 7.0 } else { 0.0 };
-            let width = widths.iter().sum::<f32>() + gap * (cols as f32 - 1.0) + 2.0 * margin;
-            let height = ascents.iter().sum::<f32>()
-                + descents.iter().sum::<f32>()
-                + gap * (rows as f32 - 1.0);
-            output.size = vec2(width, height);
-            output.baseline = height / 2.0 + size * 0.2;
-            let mut y = 0.0;
-            let mut texts = texts.into_iter();
-            for row in 0..rows {
-                let mut x = margin;
-                for width in &widths {
-                    let text = texts.next().unwrap();
-                    let at = vec2(
-                        x + (width - text.size().x) / 2.0,
-                        y + ascents[row] - text_baseline(&text),
-                    );
-                    output.primitives.push(Primitive::Text(at, text));
-                    x += width + gap;
-                }
-                y += ascents[row] + descents[row] + gap;
-            }
-            if brackets {
-                for x in [1.0, width - 1.0] {
-                    let direction = if x < width / 2.0 { 1.0 } else { -1.0 };
-                    output
-                        .primitives
-                        .push(Primitive::Line(vec2(x, 0.0), vec2(x, height)));
-                    output.primitives.push(Primitive::Line(
-                        vec2(x, 0.0),
-                        vec2(x + 4.0 * direction, 0.0),
-                    ));
-                    output.primitives.push(Primitive::Line(
-                        vec2(x, height),
-                        vec2(x + 4.0 * direction, height),
-                    ));
-                }
+                .map(|c| {
+                    measure_display_math(
+                        painter,
+                        node,
+                        &DisplayMath::Text(c.clone(), MathStyle::Operator),
+                        size,
+                    )
+                })
+                .collect(),
+            brackets,
+            size,
+        ),
+        FormulaResult::Formatted(result) => {
+            if result.rows == 1 && result.cols == 1 && !result.brackets && result.cells.len() == 1 {
+                measure_display_math(painter, node, &result.cells[0], size)
+            } else {
+                matrix_display(
+                    painter,
+                    node,
+                    result.rows,
+                    result.cols,
+                    result
+                        .cells
+                        .iter()
+                        .map(|c| measure_display_math(painter, node, c, size))
+                        .collect(),
+                    result.brackets,
+                    size,
+                )
             }
         }
     }
-    output
 }
 
 /// Preserve the AST's meaning when a selected subtree was wrapped by a tighter
@@ -3262,6 +3466,115 @@ mod tests {
             assert_eq!(styles[1].font_id, MathStyle::Unit.font(FONT_SIZE));
             assert_eq!(styles[1].color, Color32::from_rgb(0, 0, 139));
         });
+        output.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+    #[test]
+    fn shifted_matrix_keys_insert_axes_without_advancing_the_worksheet_or_scoping_space() {
+        let context = egui::Context::default();
+        crate::configure(&context);
+        let mut editor = Editor::new();
+        input_text(&mut editor, "[1,2;3,4]");
+        let matrix = editor.root();
+        let cell = editor.arena().get(matrix).unwrap().children()[3];
+        editor.place_text_caret(cell, 1).unwrap();
+        for (key, text, rows, cols) in [(Key::Space, Some(" "), 2, 3), (Key::Enter, None, 3, 3)] {
+            let mut events = vec![
+                egui::Event::ModifiersChanged(egui::Modifiers {
+                    shift: true,
+                    ..egui::Modifiers::NONE
+                }),
+                egui::Event::Key {
+                    key,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers {
+                        shift: true,
+                        ..egui::Modifiers::NONE
+                    },
+                },
+            ];
+            if let Some(text) = text {
+                events.push(egui::Event::Text(text.into()));
+            }
+            let output = context.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    formula_ui_with_focus(ui, &mut editor, None, true);
+                },
+            );
+            output.drop_without_applying_deltas();
+            assert_eq!(
+                editor.arena().get(matrix).unwrap().kind(),
+                &NodeKind::Matrix { rows, cols }
+            );
+            assert_eq!(editor.selection(), Selection::None);
+        }
+        assert!(editor.undo());
+        assert!(editor.undo());
+        assert_eq!(
+            editor.arena().get(matrix).unwrap().kind(),
+            &NodeKind::Matrix { rows: 2, cols: 2 }
+        );
+    }
+    #[test]
+    fn structured_quantity_results_keep_source_hits_and_font_scaled_ime() {
+        let context = egui::Context::default();
+        crate::configure(&context);
+        let mut editor = Editor::new();
+        input_text(&mut editor, "2m=");
+        let before = editor.to_portable().unwrap();
+        let q = mathcraft_core::Quantity {
+            dimension: [1., 0., -2., 0., 0., 0., 0.],
+            ..mathcraft_core::Quantity::scalar(2.)
+        };
+        let result = crate::result_display::format(
+            &mathcraft_compat::Value::Scalar { quantity: q },
+            &mathcraft_document::canvas::MathFormat::default(),
+        );
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            let small =
+                measured_size_styled(ui, &editor, Some(FormulaResult::Formatted(&result)), 11.);
+            let large =
+                measured_size_styled(ui, &editor, Some(FormulaResult::Formatted(&result)), 24.);
+            assert!(large.y > small.y * 1.5);
+            formula_ui_styled(
+                ui,
+                &mut editor,
+                Some(FormulaResult::Formatted(&result)),
+                true,
+                None,
+                24.,
+            );
+            let layout = measure_with_display(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                32.,
+                Some(FormulaResult::Formatted(&result)),
+            );
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            let mut ids = std::collections::HashSet::new();
+            assert!(
+                hits.iter()
+                    .all(|h| editor.arena().get(h.node).is_some() && ids.insert(h.node))
+            );
+        });
+        assert!(
+            output
+                .platform_output
+                .ime
+                .as_ref()
+                .unwrap()
+                .cursor_rect
+                .height()
+                > 25.
+        );
         output.drop_without_applying_deltas();
         assert_eq!(editor.to_portable().unwrap(), before);
     }

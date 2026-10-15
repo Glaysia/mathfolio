@@ -1,0 +1,506 @@
+{
+  "version": 2,
+  "title": "Engineering worksheet",
+  "width": 793.7007874015748,
+  "height": 1122.51968503937,
+  "grid": 18.89763779527559,
+  "next_id": 15,
+  "regions": [
+    {
+      "id": 1,
+      "left": 0,
+      "top": 18.89763779527559,
+      "content": {
+        "Text": "공학 계산서 · 단위, 행렬, 함수와 그래프"
+      },
+      "source_region": null
+    },
+    {
+      "id": 2,
+      "left": 0,
+      "top": 56.69291338582677,
+      "content": {
+        "Text": "정의를 수정하면 아래 결과와 그래프가 다시 계산됩니다."
+      },
+      "source_region": null
+    },
+    {
+      "id": 3,
+      "left": 0,
+      "top": 113.38582677165354,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "g"
+              },
+              "children": []
+            },
+            {
+              "kind": "Fraction",
+              "children": [
+                {
+                  "kind": {
+                    "Binary": "Multiply"
+                  },
+                  "children": [
+                    {
+                      "kind": {
+                        "Number": "9.80665"
+                      },
+                      "children": []
+                    },
+                    {
+                      "kind": {
+                        "AnnotatedIdentifier": {
+                          "name": "m",
+                          "labels": "UNIT"
+                        }
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "Power",
+                  "children": [
+                    {
+                      "kind": {
+                        "AnnotatedIdentifier": {
+                          "name": "s",
+                          "labels": "UNIT"
+                        }
+                      },
+                      "children": []
+                    },
+                    {
+                      "kind": {
+                        "Number": "2"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 4,
+      "left": 0,
+      "top": 170.0787401574803,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "m"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "Binary": "Multiply"
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Number": "2"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "AnnotatedIdentifier": {
+                      "name": "kg",
+                      "labels": "UNIT"
+                    }
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 5,
+      "left": 0,
+      "top": 226.77165354330708,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "F"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "Binary": "Multiply"
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Identifier": "m"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Identifier": "g"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 6,
+      "left": 283.4645669291338,
+      "top": 226.77165354330708,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Evaluate"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "F"
+              },
+              "children": []
+            },
+            {
+              "kind": "Placeholder",
+              "children": []
+            }
+          ]
+        }
+      },
+      "source_region": null,
+      "format": {
+        "font_points": 11,
+        "result_format": "General",
+        "precision": 4,
+        "explicit": true
+      }
+    },
+    {
+      "id": 7,
+      "left": 283.4645669291338,
+      "top": 283.4645669291338,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Evaluate"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "F"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "AnnotatedIdentifier": {
+                  "name": "N",
+                  "labels": "UNIT"
+                }
+              },
+              "children": []
+            }
+          ]
+        }
+      },
+      "source_region": null,
+      "format": {
+        "font_points": 11,
+        "result_format": "General",
+        "precision": 4,
+        "explicit": true
+      }
+    },
+    {
+      "id": 8,
+      "left": 0,
+      "top": 340.1574803149606,
+      "content": {
+        "Text": "행렬 셀 안에서 Shift+Enter는 행, Shift+Space는 열을 추가합니다."
+      },
+      "source_region": null
+    },
+    {
+      "id": 9,
+      "left": 0,
+      "top": 396.8503937007874,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "A"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "Matrix": {
+                  "rows": 2,
+                  "cols": 2
+                }
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Number": "2"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Number": "1"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Number": "1"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Number": "3"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 10,
+      "left": 283.4645669291338,
+      "top": 415.74803149606294,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Evaluate"
+          },
+          "children": [
+            {
+              "kind": {
+                "Call": {
+                  "argument_count": 1
+                }
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Identifier": "det"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Identifier": "A"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "Placeholder",
+              "children": []
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 11,
+      "left": 0,
+      "top": 510.2362204724409,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "a"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "Number": "2"
+              },
+              "children": []
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 12,
+      "left": 151.1811023622047,
+      "top": 510.2362204724409,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Function": {
+                  "parameter_count": 1
+                }
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Identifier": "f"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Identifier": "x"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": {
+                "Binary": "Multiply"
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Identifier": "a"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": "Power",
+                  "children": [
+                    {
+                      "kind": {
+                        "Identifier": "x"
+                      },
+                      "children": []
+                    },
+                    {
+                      "kind": {
+                        "Number": "2"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 13,
+      "left": 0,
+      "top": 566.9291338582676,
+      "content": {
+        "Math": {
+          "kind": {
+            "Binary": "Define"
+          },
+          "children": [
+            {
+              "kind": {
+                "Identifier": "x"
+              },
+              "children": []
+            },
+            {
+              "kind": {
+                "Range": {
+                  "has_step": true
+                }
+              },
+              "children": [
+                {
+                  "kind": {
+                    "Number": "0"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Number": "0.5"
+                  },
+                  "children": []
+                },
+                {
+                  "kind": {
+                    "Number": "2"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "source_region": null
+    },
+    {
+      "id": 14,
+      "left": 0,
+      "top": 623.6220472440945,
+      "content": {
+        "Plot": {
+          "x_expression": "x",
+          "y_expression": "f(x)",
+          "width": 420,
+          "height": 260
+        }
+      },
+      "source_region": null
+    }
+  ],
+  "native_archive": null
+}
