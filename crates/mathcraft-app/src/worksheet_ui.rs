@@ -7,7 +7,7 @@ use mathcraft_document::{
     canvas::{CanvasContent, CanvasDocument, CanvasRegion},
     native::NativePackage,
 };
-use mathcraft_editor::{BinaryOp, Editor, NodeKind};
+use mathcraft_editor::{BinaryOp, Direction, Editor, NodeKind, PortableTree};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -30,6 +30,7 @@ pub struct WorksheetApp {
     status: String,
     dirty: bool,
     selected: Option<u64>,
+    editing_region: Option<u64>,
     insertion: Option<(f64, f64)>,
     text_mode: bool,
     focus_new: Option<u64>,
@@ -42,6 +43,8 @@ pub struct WorksheetApp {
     pub capture: Option<PathBuf>,
     frames: usize,
     capture_sent: bool,
+    zoom: f32,
+    last_title: String,
 }
 impl Default for WorksheetApp {
     fn default() -> Self {
@@ -54,6 +57,7 @@ impl Default for WorksheetApp {
             status: "Click the page and type. : define · = evaluate · / fraction · ^ power".into(),
             dirty: false,
             selected: None,
+            editing_region: None,
             insertion: None,
             text_mode: false,
             focus_new: None,
@@ -66,6 +70,8 @@ impl Default for WorksheetApp {
             capture: None,
             frames: 0,
             capture_sent: false,
+            zoom: 1.,
+            last_title: String::new(),
         }
     }
 }
@@ -95,6 +101,7 @@ impl WorksheetApp {
         self.document = doc;
         self.editors.clear();
         self.selected = None;
+        self.editing_region = None;
         self.dirty = true;
         self.recalculate();
     }
@@ -179,6 +186,13 @@ impl WorksheetApp {
         let path = if save_as || self.path.is_none() {
             rfd::FileDialog::new()
                 .add_filter("Mathcraft worksheet", &["mathcraft"])
+                .set_directory(
+                    self.path
+                        .as_ref()
+                        .and_then(|p| p.parent())
+                        .map(Path::to_path_buf)
+                        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default()),
+                )
                 .set_file_name("worksheet.mathcraft")
                 .save_file()
         } else {
@@ -203,6 +217,16 @@ impl WorksheetApp {
     fn recalculate(&mut self) {
         self.results.clear();
         self.calculation_error = None;
+        let mut faults: HashMap<u64, String> = self
+            .editors
+            .iter()
+            .filter_map(|(id, editor)| {
+                editor
+                    .to_portable()
+                    .err()
+                    .map(|error| (*id, format!("Incomplete expression: {error}")))
+            })
+            .collect();
         let mut math = Vec::new();
         for region in &self.document.regions {
             match &region.content {
@@ -213,13 +237,19 @@ impl WorksheetApp {
                     ) {
                         continue;
                     }
+                    if faults.contains_key(&region.id) {
+                        math.push((region.id, region.left, region.top, fault_statement(tree)));
+                        continue;
+                    }
                     match worksheet_math::tree_to_mathml(tree) {
                         Ok(xml) => math.push((region.id, region.left, region.top, xml)),
                         Err(e) => {
-                            self.calculation_error = Some(format!("Region {}: {e}", region.id));
-                            return;
+                            faults.insert(region.id, e);
+                            math.push((region.id, region.left, region.top, fault_statement(tree)));
                         }
                     }
+                }
+                CanvasContent::Opaque { kind, .. } if matches!(kind.as_str(), "image" | "text") => {
                 }
                 CanvasContent::Opaque { .. } => {
                     self.calculation_error = Some(
@@ -242,6 +272,34 @@ impl WorksheetApp {
             }
             Err(e) => self.calculation_error = Some(e),
         }
+        for (id, detail) in faults {
+            if let Some(row) = self.results.get_mut(&id) {
+                if let Some(error) = &mut row.error {
+                    error.detail = detail;
+                }
+                row.value = None;
+                row.display_value = None;
+            } else if let Some(region) = self.document.regions.iter().find(|r| r.id == id) {
+                self.results.insert(
+                    id,
+                    RegionEvaluation {
+                        region_id: id.to_string(),
+                        result_ref: None,
+                        left: region.left,
+                        top: region.top,
+                        value: None,
+                        display_value: None,
+                        error: Some(mathcraft_compat::Fault {
+                            code: "incomplete".into(),
+                            detail,
+                            previous_region: None,
+                            unsupported: true,
+                        }),
+                        redefinition_warning: false,
+                    },
+                );
+            }
+        }
     }
     fn insert(&mut self, position: (f64, f64), text: bool) -> u64 {
         let before = self.snapshot();
@@ -256,6 +314,276 @@ impl WorksheetApp {
         self.focus_new = Some(id);
         self.insertion = None;
         id
+    }
+    fn remove_selected(&mut self) {
+        if let Some(id) = self.selected.take() {
+            let before = self.snapshot();
+            self.document.regions.retain(|r| r.id != id);
+            self.editors.remove(&id);
+            self.editing_region = None;
+            self.remember(before);
+            self.recalculate();
+        }
+    }
+    fn duplicate_selected(&mut self) {
+        let content = self
+            .selected
+            .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+            .cloned();
+        if let Some(mut region) = content
+            && !matches!(region.content, CanvasContent::Opaque { .. })
+        {
+            let before = self.snapshot();
+            region.id = self.document.next_id;
+            self.document.next_id += 1;
+            region.left += self.document.grid * 2.;
+            region.top += self.document.grid * 2.;
+            region.source_region = None;
+            self.selected = Some(region.id);
+            self.document.regions.push(region);
+            self.remember(before);
+            self.recalculate();
+        }
+    }
+    fn copy_region(&mut self, ctx: &egui::Context, cut: bool) {
+        if let Some(region) = self
+            .selected
+            .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+            && !matches!(region.content, CanvasContent::Opaque { .. })
+            && let Ok(value) = serde_json::to_string(&region.content)
+        {
+            ctx.copy_text(format!("mathcraft-region:{value}"));
+            if cut {
+                self.remove_selected();
+            }
+        }
+    }
+    fn paste_region(&mut self, text: &str) -> bool {
+        let encoded = if let Some(encoded) = text.strip_prefix("mathcraft-region:") {
+            encoded
+        } else if let Some(encoded) = text.strip_prefix("mathcraft-tree:") {
+            if encoded.len() > 8 * 1024 * 1024 {
+                return true;
+            }
+            let tree = serde_json::from_str::<PortableTree>(encoded);
+            if let Ok(tree) = tree
+                && let Ok(json) = serde_json::to_string(&CanvasContent::Math(tree))
+            {
+                return self.paste_region(&format!("mathcraft-region:{json}"));
+            }
+            self.status = "Clipboard formula is invalid".into();
+            return true;
+        } else {
+            return false;
+        };
+        if encoded.len() > 8 * 1024 * 1024 {
+            self.status = "Clipboard region is too large".into();
+            return true;
+        }
+        let parsed = serde_json::from_str::<CanvasContent>(encoded);
+        let content = match parsed {
+            Ok(CanvasContent::Math(tree)) if tree.validate().is_ok() => CanvasContent::Math(tree),
+            Ok(CanvasContent::Text(text)) if text.len() <= 1024 * 1024 => CanvasContent::Text(text),
+            _ => {
+                self.status = "Clipboard region is invalid or unsupported".into();
+                return true;
+            }
+        };
+        let position = self.insertion.unwrap_or_else(|| {
+            self.selected
+                .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
+                .map(|r| {
+                    (
+                        r.left + self.document.grid * 2.,
+                        r.top + self.document.grid * 2.,
+                    )
+                })
+                .unwrap_or((self.document.grid * 2., self.document.grid * 2.))
+        });
+        let before = self.snapshot();
+        let id = self.document.next_id;
+        self.document.next_id += 1;
+        self.document.regions.push(CanvasRegion {
+            id,
+            left: position.0,
+            top: position.1,
+            content,
+            source_region: None,
+        });
+        self.selected = Some(id);
+        self.insertion = None;
+        self.remember(before);
+        self.recalculate();
+        true
+    }
+    fn export_mcdx(&mut self) {
+        if let Err(error) = self.sync_editors() {
+            self.status = format!("Could not export: {error}");
+            return;
+        }
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("Mathcad worksheet", &["mcdx"])
+            .set_file_name("worksheet.mcdx")
+            .save_file()
+        {
+            match mathcraft_document::export::export_mcdx(&self.document, &path) {
+                Ok(()) => self.status = format!("Exported {}", path.display()),
+                Err(error) => self.status = format!("Could not export: {error}"),
+            }
+        }
+    }
+    fn insert_template(&mut self, tree: PortableTree) {
+        let before = self.snapshot();
+        let id = self.selected.filter(|id| {
+            self.document
+                .regions
+                .iter()
+                .any(|r| r.id == *id && matches!(r.content, CanvasContent::Math(_)))
+        });
+        let id = if let Some(id) = id {
+            id
+        } else {
+            let p = self
+                .insertion
+                .unwrap_or((self.document.grid * 2., self.document.grid * 2.));
+            self.document.add_math(p.0, p.1)
+        };
+        let region = self
+            .document
+            .regions
+            .iter_mut()
+            .find(|r| r.id == id)
+            .unwrap();
+        if let CanvasContent::Math(current) = &mut region.content {
+            let editor = self
+                .editors
+                .entry(id)
+                .or_insert_with(|| Editor::from_portable(current).unwrap_or_default());
+            let prior = editor
+                .arena()
+                .nodes()
+                .map(|(id, _)| id.index())
+                .max()
+                .unwrap_or(0);
+            if let Err(error) = editor.replace_selection(&tree) {
+                self.status = format!("Could not insert: {error}");
+                return;
+            }
+            let empty = editor
+                .arena()
+                .nodes()
+                .find(|(id, node)| id.index() > prior && *node.kind() == NodeKind::Placeholder)
+                .map(|(id, _)| id);
+            if let Some(empty) = empty {
+                let _ = editor.place_caret(empty, Direction::Right);
+            }
+            if let Ok(value) = editor.to_portable() {
+                *current = value;
+            }
+        }
+        self.selected = Some(id);
+        self.focus_new = Some(id);
+        self.insertion = None;
+        self.remember(before);
+        self.recalculate();
+    }
+    fn insert_menu(&mut self, ui: &mut egui::Ui) {
+        let p = || PortableTree {
+            kind: NodeKind::Placeholder,
+            children: vec![],
+        };
+        for (label, tree) in [
+            (
+                "Fraction",
+                PortableTree {
+                    kind: NodeKind::Fraction,
+                    children: vec![p(), p()],
+                },
+            ),
+            (
+                "Power",
+                PortableTree {
+                    kind: NodeKind::Power,
+                    children: vec![p(), p()],
+                },
+            ),
+            (
+                "Square root",
+                PortableTree {
+                    kind: NodeKind::Root,
+                    children: vec![
+                        PortableTree {
+                            kind: NodeKind::Number("2".into()),
+                            children: vec![],
+                        },
+                        p(),
+                    ],
+                },
+            ),
+            (
+                "Absolute value",
+                PortableTree {
+                    kind: NodeKind::Absolute,
+                    children: vec![p()],
+                },
+            ),
+            (
+                "2 × 2 matrix",
+                PortableTree {
+                    kind: NodeKind::Matrix { rows: 2, cols: 2 },
+                    children: vec![p(), p(), p(), p()],
+                },
+            ),
+            (
+                "3-element vector",
+                PortableTree {
+                    kind: NodeKind::Matrix { rows: 3, cols: 1 },
+                    children: vec![p(), p(), p()],
+                },
+            ),
+            (
+                "Array index",
+                PortableTree {
+                    kind: NodeKind::Index { indices: 1 },
+                    children: vec![p(), p()],
+                },
+            ),
+            (
+                "Range",
+                PortableTree {
+                    kind: NodeKind::Range { has_step: false },
+                    children: vec![p(), p()],
+                },
+            ),
+            (
+                "Imaginary unit",
+                PortableTree {
+                    kind: NodeKind::Imaginary("1".into()),
+                    children: vec![],
+                },
+            ),
+        ] {
+            if ui.button(label).clicked() {
+                self.insert_template(tree);
+                ui.close();
+            }
+        }
+        ui.separator();
+        for name in ["sin", "cos", "tan", "ln", "exp", "sqrt", "abs"] {
+            if ui.button(name).clicked() {
+                self.insert_template(PortableTree {
+                    kind: NodeKind::Call { argument_count: 1 },
+                    children: vec![
+                        PortableTree {
+                            kind: NodeKind::Identifier(name.into()),
+                            children: vec![],
+                        },
+                        p(),
+                    ],
+                });
+                ui.close();
+            }
+        }
     }
     fn page_ui(&mut self, ui: &mut egui::Ui) {
         let before = self.snapshot();
@@ -312,9 +640,11 @@ impl WorksheetApp {
             );
         }
         let mut changed = false;
+        let mut evaluation_requested = false;
         let mut geometry_changed = false;
         let mut movement_started = false;
         let mut hit_region = false;
+        self.editing_region = None;
         for region in &mut self.document.regions {
             let origin = paper.min + vec2(region.left as f32, region.top as f32);
             let max = Rect::from_min_size(
@@ -326,24 +656,27 @@ impl WorksheetApp {
                 UiBuilder::new()
                     .id_salt(("region", id))
                     .max_rect(max)
-                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                    .layout(egui::Layout::left_to_right(egui::Align::Min)),
             );
             child.set_clip_rect(paper.intersect(ui.clip_rect()));
             let row_result = self.results.get(&id);
             let display = row_result
                 .and_then(|r| r.display_value.as_ref().or(r.value.as_ref()))
-                .map(value_text);
+                .map(display_result);
             let response = match &mut region.content {
                 CanvasContent::Math(tree) => {
                     let editor = self
                         .editors
                         .entry(id)
                         .or_insert_with(|| Editor::from_portable(tree).unwrap_or_default());
-                    let response = if self.focus_new == Some(id) {
-                        formula::formula_ui_with_focus(&mut child, editor, display.as_deref(), true)
-                    } else {
-                        formula::formula_ui_with_result(&mut child, editor, display.as_deref())
-                    };
+                    let outcome = formula::formula_ui_with_actions(
+                        &mut child,
+                        editor,
+                        display.as_ref().map(DisplayResult::borrowed),
+                        self.focus_new == Some(id),
+                    );
+                    evaluation_requested |= outcome.evaluation_requested;
+                    let response = outcome.response;
                     if response.changed() {
                         match editor.to_portable() {
                             Ok(value) => *tree = value,
@@ -381,6 +714,9 @@ impl WorksheetApp {
                 self.selected = Some(id);
                 self.insertion = None;
             }
+            if response.has_focus() {
+                self.editing_region = Some(id);
+            }
             hit_region |= response.hovered();
             if self.selected == Some(id) || response.hovered() {
                 let handle = Rect::from_min_size(
@@ -396,6 +732,7 @@ impl WorksheetApp {
                 if drag.clicked() {
                     self.selected = Some(id);
                     response.surrender_focus();
+                    self.editing_region = None;
                 }
                 if drag.drag_started() {
                     self.dragging = Some((id, region.left, region.top));
@@ -440,6 +777,8 @@ impl WorksheetApp {
         }
         if changed || geometry_changed {
             self.dirty = true;
+        }
+        if changed || geometry_changed || evaluation_requested {
             self.recalculate();
             ui.ctx().request_repaint();
         }
@@ -475,7 +814,25 @@ impl WorksheetApp {
             && matches!(region.content, CanvasContent::Math(_))
             && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
         {
-            self.insertion = Some((region.left, region.top + self.document.grid * 4.));
+            let display = self
+                .results
+                .get(&id)
+                .and_then(|r| r.display_value.as_ref().or(r.value.as_ref()))
+                .map(display_result);
+            let height = self
+                .editors
+                .get(&id)
+                .map(|e| {
+                    formula::measured_size(ui, e, display.as_ref().map(DisplayResult::borrowed)).y
+                        as f64
+                })
+                .unwrap_or(self.document.grid * 3.);
+            let advance =
+                ((height + self.document.grid) / self.document.grid).ceil() * self.document.grid;
+            self.insertion = Some((
+                region.left,
+                region.top + advance.max(self.document.grid * 4.),
+            ));
             self.selected = None;
             ui.memory_mut(|m| {
                 if let Some(focused) = m.focused() {
@@ -510,8 +867,143 @@ impl WorksheetApp {
     }
 }
 
+fn fault_statement(tree: &PortableTree) -> String {
+    const ML: &str = "http://schemas.mathsoft.com/math50";
+    if matches!(tree.kind, NodeKind::Binary(BinaryOp::Define))
+        && let Some(mut lhs) = tree.children.first()
+    {
+        while matches!(lhs.kind, NodeKind::Function { .. } | NodeKind::Index { .. }) {
+            let Some(name) = lhs.children.first() else {
+                break;
+            };
+            lhs = name;
+        }
+        if matches!(
+            lhs.kind,
+            NodeKind::Identifier(_)
+                | NodeKind::AnnotatedIdentifier { .. }
+                | NodeKind::NativeIdentifier { .. }
+        ) && let Ok(name) = worksheet_math::tree_to_mathml(lhs)
+        {
+            return format!("<ml:define xmlns:ml=\"{ML}\">{name}<ml:unsupported/></ml:define>");
+        }
+    }
+    format!(
+        "<ml:eval xmlns:ml=\"{ML}\"><ml:unsupported/><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval>"
+    )
+}
+
+enum DisplayResult {
+    Text(String),
+    Matrix {
+        rows: usize,
+        cols: usize,
+        cells: Vec<String>,
+        brackets: bool,
+    },
+}
+impl DisplayResult {
+    fn borrowed(&self) -> formula::FormulaResult<'_> {
+        match self {
+            Self::Text(text) => formula::FormulaResult::Text(text),
+            Self::Matrix {
+                rows,
+                cols,
+                cells,
+                brackets,
+            } => formula::FormulaResult::Matrix {
+                rows: *rows,
+                cols: *cols,
+                cells,
+                brackets: *brackets,
+            },
+        }
+    }
+}
+fn display_result(value: &Value) -> DisplayResult {
+    match value {
+        Value::Symbolic { mathml } => DisplayResult::Text(mathml.clone()),
+        Value::Scalar { quantity } => DisplayResult::Text(quantity.to_string()),
+        Value::Matrix {
+            rows,
+            cols,
+            elements,
+        } => {
+            let shown_rows = (*rows).min(12);
+            let shown_cols = (*cols).min(12);
+            let cells = (0..shown_rows)
+                .flat_map(|row| {
+                    (0..shown_cols).map(move |col| {
+                        if (*rows > 12 && row == 11) || (*cols > 12 && col == 11) {
+                            "…".to_owned()
+                        } else {
+                            elements[row * cols + col].to_string()
+                        }
+                    })
+                })
+                .collect();
+            DisplayResult::Matrix {
+                rows: shown_rows,
+                cols: shown_cols,
+                cells,
+                brackets: true,
+            }
+        }
+        Value::Range {
+            start, step, count, ..
+        } => {
+            if *count == 0 {
+                return DisplayResult::Text("∅".into());
+            }
+            let cells = (0..(*count).min(12))
+                .map(|i| {
+                    if *count > 12 && i == 11 {
+                        "…".into()
+                    } else {
+                        mathcraft_core::Quantity {
+                            value: start.value + step.value * i as f64,
+                            ..*start
+                        }
+                        .to_string()
+                    }
+                })
+                .collect();
+            DisplayResult::Matrix {
+                rows: (*count).min(12),
+                cols: 1,
+                cells,
+                brackets: false,
+            }
+        }
+        Value::RangeValues { elements } => {
+            if elements.is_empty() {
+                return DisplayResult::Text("∅".into());
+            }
+            let cells = elements
+                .iter()
+                .take(12)
+                .enumerate()
+                .map(|(i, q)| {
+                    if elements.len() > 12 && i == 11 {
+                        "…".into()
+                    } else {
+                        q.to_string()
+                    }
+                })
+                .collect();
+            DisplayResult::Matrix {
+                rows: elements.len().min(12),
+                cols: 1,
+                cells,
+                brackets: false,
+            }
+        }
+    }
+}
+#[cfg(test)]
 fn value_text(value: &Value) -> String {
     match value {
+        Value::Symbolic { mathml } => mathml.clone(),
         Value::Scalar { quantity } => quantity.to_string(),
         Value::Matrix {
             rows,
@@ -527,6 +1019,22 @@ fn value_text(value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join("; ")
         ),
+        Value::Range {
+            start, step, end, ..
+        } => format!(
+            "{}, {} .. {}",
+            start,
+            mathcraft_core::Quantity {
+                value: start.value + step.value,
+                ..*start
+            },
+            end
+        ),
+        Value::RangeValues { elements } => elements
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; "),
     }
 }
 
@@ -554,7 +1062,11 @@ fn import_native(path: &Path) -> Result<CanvasDocument, String> {
     if size > 16 * 1024 * 1024 {
         return Err("This worksheet exceeds the current 16 MiB import limit".into());
     }
-    let package = NativePackage::open(path)?;
+    let source_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    if source_bytes.len() > 16 * 1024 * 1024 {
+        return Err("This worksheet exceeds the current 16 MiB import limit".into());
+    }
+    let package = NativePackage::from_bytes(&source_bytes)?;
     let source = package.worksheet_xml()?;
     let xml = roxmltree::Document::parse(&source).map_err(|e| e.to_string())?;
     let mut document = CanvasDocument {
@@ -563,7 +1075,7 @@ fn import_native(path: &Path) -> Result<CanvasDocument, String> {
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned(),
-        native_archive: Some(std::fs::read(path).map_err(|e| e.to_string())?),
+        native_archive: Some(source_bytes),
         ..Default::default()
     };
     if let Some(presentation) = package
@@ -641,6 +1153,19 @@ fn import_native(path: &Path) -> Result<CanvasDocument, String> {
 impl eframe::App for WorksheetApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        let title = format!(
+            "{}{} — Mathcraft",
+            self.path
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| self.document.title.clone()),
+            if self.dirty { " *" } else { "" }
+        );
+        if title != self.last_title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.last_title = title;
+        }
         if ctx.input(|i| i.viewport().close_requested()) && self.dirty && !self.closing {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.pending = Some(Pending::Close);
@@ -648,20 +1173,78 @@ impl eframe::App for WorksheetApp {
         if self.closing {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
+        if ctx.input_mut(|i| {
+            i.consume_key(
+                egui::Modifiers {
+                    shift: true,
+                    ..egui::Modifiers::COMMAND
+                },
+                egui::Key::S,
+            )
+        }) {
+            self.save(true);
+        } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
             self.save(false);
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::N)) {
+            self.request(Pending::New);
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::O))
+            && let Some(path) = rfd::FileDialog::new()
+                .add_filter("Worksheets", &["mathcraft", "mcdx"])
+                .pick_file()
+        {
+            self.request(Pending::Open(path));
         }
         // Document history owns Ctrl+Z/Y so movement, text and math are one undo stream.
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
             self.undo();
         }
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Y)) {
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Y))
+            || ctx.input_mut(|i| {
+                i.consume_key(
+                    egui::Modifiers {
+                        shift: true,
+                        ..egui::Modifiers::COMMAND
+                    },
+                    egui::Key::Z,
+                )
+            })
+        {
             self.redo();
         }
+        if self.editing_region.is_none() {
+            let copy = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::C))
+                || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Copy)));
+            let cut = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::X))
+                || ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Cut)));
+            if copy || cut {
+                self.copy_region(&ctx, cut);
+            }
+            let pasted = ctx.input(|i| {
+                i.events.iter().find_map(|e| {
+                    if let egui::Event::Paste(text) = e {
+                        (text.starts_with("mathcraft-region:")
+                            || text.starts_with("mathcraft-tree:"))
+                        .then(|| text.clone())
+                    } else {
+                        None
+                    }
+                })
+            });
+            if let Some(text) = pasted
+                && self.paste_region(&text)
+            {
+                ctx.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Paste(_))));
+            }
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
+                self.remove_selected();
+            }
+        }
         egui::Panel::top("worksheet-toolbar")
-            .exact_size(48.)
+            .min_size(48.)
             .show(ui, |ui| {
-                ui.horizontal_centered(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.label(
                         egui::RichText::new("Mathcraft")
                             .strong()
@@ -685,23 +1268,45 @@ impl eframe::App for WorksheetApp {
                     if ui.button("Save as").clicked() {
                         self.save(true);
                     }
+                    if ui.button("Export MCDX").clicked() {
+                        self.export_mcdx();
+                    }
                     ui.separator();
                     ui.selectable_value(&mut self.text_mode, false, "Math");
                     ui.selectable_value(&mut self.text_mode, true, "Text");
+                    ui.menu_button("Insert", |ui| self.insert_menu(ui));
                     if ui.button("Recalculate").clicked() {
                         self.recalculate();
                     }
                     if ui
                         .add_enabled(self.selected.is_some(), egui::Button::new("Delete region"))
                         .clicked()
-                        && let Some(id) = self.selected.take()
                     {
-                        let before = self.snapshot();
-                        self.document.regions.retain(|r| r.id != id);
-                        self.editors.remove(&id);
-                        self.remember(before);
-                        self.recalculate();
+                        self.remove_selected();
                     }
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("Duplicate"))
+                        .clicked()
+                    {
+                        self.duplicate_selected();
+                    }
+                    egui::ComboBox::from_id_salt("worksheet-zoom")
+                        .selected_text(format!("{}%", (self.zoom * 100.).round()))
+                        .width(65.)
+                        .show_ui(ui, |ui| {
+                            for zoom in [0.5, 0.75, 1., 1.25, 1.5, 2.] {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.zoom,
+                                        zoom,
+                                        format!("{}%", (zoom * 100.) as i32),
+                                    )
+                                    .changed()
+                                {
+                                    ctx.set_zoom_factor(zoom);
+                                }
+                            }
+                        });
                 });
             });
         egui::Panel::bottom("worksheet-status")
@@ -986,5 +1591,68 @@ mod tests {
             app.results[&id].value.as_ref().unwrap().numeric_json()["real"],
             5.
         );
+    }
+    #[test]
+    fn incomplete_redefinition_poison_is_local_and_does_not_show_stale_answer() {
+        let mut app = WorksheetApp::default();
+        let mut ids = Vec::new();
+        for (i, text) in ["a:=2", "a:=3", "a=", "2+3="].iter().enumerate() {
+            let id = app.insert((38.4, 38.4 + i as f64 * 96.), false);
+            let mut editor = Editor::new();
+            formula::input_text(&mut editor, text);
+            let tree = editor.to_portable().unwrap();
+            app.document
+                .regions
+                .iter_mut()
+                .find(|r| r.id == id)
+                .unwrap()
+                .content = CanvasContent::Math(tree);
+            app.editors.insert(id, editor);
+            ids.push(id);
+        }
+        app.recalculate();
+        assert_eq!(
+            app.results[&ids[2]].value.as_ref().unwrap().numeric_json()["real"],
+            3.
+        );
+        let editor = app.editors.get_mut(&ids[1]).unwrap();
+        let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
+        editor.set_atom(rhs, NodeKind::Number(".".into())).unwrap();
+        app.recalculate();
+        assert!(app.results[&ids[1]].value.is_none());
+        assert!(app.results[&ids[1]].error.is_some());
+        assert!(app.results[&ids[2]].value.is_none());
+        assert!(app.results[&ids[2]].error.is_some());
+        assert_eq!(
+            app.results[&ids[3]].value.as_ref().unwrap().numeric_json()["real"],
+            5.
+        );
+        assert!(app.sync_editors().is_err());
+    }
+    #[test]
+    fn region_and_formula_clipboard_keep_structure_and_use_new_ids() {
+        let mut app = WorksheetApp::default();
+        let mut editor = Editor::new();
+        formula::input_text(&mut editor, "2+3=");
+        let tree = editor.to_portable().unwrap();
+        let text = format!("mathcraft-tree:{}", serde_json::to_string(&tree).unwrap());
+        assert!(app.paste_region(&text));
+        let first = app.document.regions[0].id;
+        app.duplicate_selected();
+        let second = app.document.regions[1].id;
+        assert_ne!(first, second);
+        app.recalculate();
+        assert_eq!(
+            app.results[&first].value.as_ref().unwrap().numeric_json()["real"],
+            5.
+        );
+        assert_eq!(
+            app.results[&second].value.as_ref().unwrap().numeric_json()["real"],
+            5.
+        );
+        app.remove_selected();
+        assert_eq!(app.document.regions.len(), 1);
+        app.undo();
+        assert_eq!(app.document.regions.len(), 2);
     }
 }

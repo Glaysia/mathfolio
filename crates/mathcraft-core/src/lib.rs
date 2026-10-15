@@ -3,6 +3,8 @@ use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt, sync::Arc};
 
+pub mod units;
+
 pub type Result<T> = std::result::Result<T, String>;
 
 /// SI base dimensions: length, mass, time, current, temperature, amount, luminosity.
@@ -154,6 +156,9 @@ impl fmt::Display for Quantity {
 }
 
 pub fn unit(name: &str) -> Option<Quantity> {
+    if let Some(value) = units::lookup(name) {
+        return Some(value);
+    }
     let base = |name: &str| -> Option<Quantity> {
         let (scale, dimension) = match name {
             "m" | "meter" => (1.0, [1., 0., 0., 0., 0., 0., 0.]),

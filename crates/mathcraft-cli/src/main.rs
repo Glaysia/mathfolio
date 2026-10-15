@@ -12,6 +12,98 @@ fn main() {
 fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
+        Some("features") => {
+            let result = if args.get(1).is_some_and(|s| s == "--all") {
+                mathcraft_compat::catalog::inventory()
+            } else {
+                mathcraft_compat::catalog::summary()
+            };
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
+        }
+        Some("mathml-run") => {
+            let path = args
+                .get(1)
+                .ok_or("Usage: mathcraft-cli mathml-run WORKSHEET.xml")?;
+            let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+            if file.metadata().map_err(|e| e.to_string())?.len() > 8 * 1024 * 1024 {
+                return Err("Worksheet XML exceeds 8 MiB".into());
+            }
+            use std::io::Read;
+            let mut xml = String::new();
+            file.take(8 * 1024 * 1024 + 1)
+                .read_to_string(&mut xml)
+                .map_err(|e| e.to_string())?;
+            let rows = mathcraft_compat::evaluate_worksheet(xml.trim_start_matches('\u{feff}'))?;
+            let errors = rows.iter().filter(|row| row.error.is_some()).count();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({"rows":rows,"errors":errors}))
+                    .map_err(|e| e.to_string())?
+            );
+            if errors > 0 {
+                return Err(format!("{errors} calculation errors"));
+            }
+        }
+        Some("sheet-run") => {
+            let path = args
+                .get(1)
+                .ok_or("Usage: mathcraft-cli sheet-run FILE.mathcraft")?;
+            let document = mathcraft_document::canvas::CanvasDocument::load(Path::new(path))?;
+            let mut regions = Vec::new();
+            for region in &document.regions {
+                match &region.content {
+                    mathcraft_document::canvas::CanvasContent::Math(tree)
+                        if matches!(
+                            tree.kind,
+                            mathcraft_editor::NodeKind::Binary(
+                                mathcraft_editor::BinaryOp::Define
+                                    | mathcraft_editor::BinaryOp::Evaluate
+                            )
+                        ) =>
+                    {
+                        regions.push((
+                            region.id,
+                            region.left,
+                            region.top,
+                            mathcraft_compat::editor_bridge::tree_to_mathml(tree)?,
+                        ));
+                    }
+                    mathcraft_document::canvas::CanvasContent::Opaque { kind, .. }
+                        if !matches!(kind.as_str(), "text" | "image") =>
+                    {
+                        return Err(format!("Region {} is unsupported: {kind}", region.id));
+                    }
+                    _ => (),
+                }
+            }
+            let xml = mathcraft_compat::editor_bridge::worksheet_xml(&regions)?;
+            let rows = mathcraft_compat::evaluate_worksheet(&xml)?;
+            let errors = rows.iter().filter(|r| r.error.is_some()).count();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(
+                    &serde_json::json!({"title":document.title,"rows":rows,"errors":errors})
+                )
+                .map_err(|e| e.to_string())?
+            );
+            if errors > 0 {
+                return Err(format!("{errors} calculation errors"));
+            }
+        }
+        Some("sheet-export") => {
+            let source = args
+                .get(1)
+                .ok_or("Usage: mathcraft-cli sheet-export FILE.mathcraft NEW.mcdx")?;
+            let target = args.get(2).ok_or("Missing NEW.mcdx")?;
+            let document = mathcraft_document::canvas::CanvasDocument::load(Path::new(source))?;
+            mathcraft_document::export::export_mcdx(&document, Path::new(target))?;
+            println!(
+                "Exported new MCDX; result caches marked Pending. Original application reopen remains unverified."
+            );
+        }
         Some("native-inspect") => {
             let path = args
                 .get(1)
@@ -153,7 +245,7 @@ fn run() -> Result<(), String> {
         ))?,
         Some("--version") => println!("Mathcraft {}", env!("CARGO_PKG_VERSION")),
         _ => println!(
-            "Mathcraft {}\n\n  native-inspect FILE.mcdx\n  native-copy INPUT.mcdx NEW.mcdx\n  native-run FILE.mcdx\n  conformance REFERENCE.json\n  eval \"x := 3 m; x -> cm\"\n  run FILE.mathcraft [--json]\n  run FILE.mcdx [--json]\n  import FILE.mcdx OUTPUT.mathcraft",
+            "Mathcraft {}\n\n  features [--all]\n  mathml-run WORKSHEET.xml\n  sheet-run FILE.mathcraft\n  sheet-export FILE.mathcraft NEW.mcdx\n  native-inspect FILE.mcdx\n  native-copy INPUT.mcdx NEW.mcdx\n  native-run FILE.mcdx\n  conformance REFERENCE.json\n  eval \"x := 3 m; x -> cm\"\n  run FILE.mathcraft [--json]\n  run FILE.mcdx [--json]\n  import FILE.mcdx OUTPUT.mathcraft",
             env!("CARGO_PKG_VERSION")
         ),
     }

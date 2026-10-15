@@ -238,9 +238,23 @@ impl CanvasDocument {
                             return Err("Canvas expression complexity exceeds limits".into());
                         }
                         text_bytes = text_bytes.saturating_add(match &node.kind {
-                            NodeKind::Identifier(s) | NodeKind::Number(s) => s.len(),
+                            NodeKind::Identifier(s)
+                            | NodeKind::Number(s)
+                            | NodeKind::Imaginary(s) => s.len(),
                             NodeKind::AnnotatedIdentifier { name, labels } => {
                                 name.len().saturating_add(labels.len())
+                            }
+                            NodeKind::NativeIdentifier {
+                                name,
+                                labels,
+                                subscript,
+                                ..
+                            } => name
+                                .len()
+                                .saturating_add(labels.len())
+                                .saturating_add(subscript.as_ref().map_or(0, String::len)),
+                            NodeKind::ImaginarySymbol { value, symbol } => {
+                                value.len().saturating_add(symbol.len())
                             }
                             _ => 0,
                         });

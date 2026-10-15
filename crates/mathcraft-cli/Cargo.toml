@@ -9,4 +9,5 @@ publish.workspace = true
 mathcraft-core.workspace = true
 mathcraft-document.workspace = true
 mathcraft-compat.workspace = true
+mathcraft-editor = { path = "../mathcraft-editor" }
 serde_json.workspace = true

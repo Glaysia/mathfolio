@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Independently authored engineering examples; expected mathematics, not captured Prime outputs. -->
+<worksheet xmlns="http://schemas.mathsoft.com/worksheet50" xmlns:ml="http://schemas.mathsoft.com/math50">
+  <regions>
+    <!-- A := [[1,2],[3,4]] -->
+    <region region-id="0" left="0" top="0"><math><ml:define><ml:id labels="VARIABLE">A</ml:id><ml:matrix rows="2" cols="2"><ml:real>1</ml:real><ml:real>3</ml:real><ml:real>2</ml:real><ml:real>4</ml:real></ml:matrix></ml:define></math></region>
+    <!-- |A| = -2 -->
+    <region region-id="1" left="0" top="100"><math><ml:eval><ml:apply><ml:absval/><ml:id labels="VARIABLE">A</ml:id></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- A*A^-1 = identity -->
+    <region region-id="2" left="0" top="200"><math><ml:eval><ml:apply><ml:mult/><ml:id labels="VARIABLE">A</ml:id><ml:apply><ml:pow/><ml:id labels="VARIABLE">A</ml:id><ml:real>-1</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- v := [3,4] -->
+    <region region-id="3" left="0" top="300"><math><ml:define><ml:id labels="VARIABLE">v</ml:id><ml:matrix rows="2" cols="1"><ml:real>3</ml:real><ml:real>4</ml:real></ml:matrix></ml:define></math></region>
+    <!-- |v| = 5 -->
+    <region region-id="4" left="0" top="400"><math><ml:eval><ml:apply><ml:absval/><ml:id labels="VARIABLE">v</ml:id></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- sum_to(n) uses a local program -->
+    <region region-id="5" left="0" top="500"><math><ml:define><ml:function><ml:id labels="VARIABLE">sum_to</ml:id><ml:boundVars><ml:id labels="VARIABLE">n</ml:id></ml:boundVars></ml:function><ml:program><ml:localDefine><ml:id labels="VARIABLE">s</ml:id><ml:real>0</ml:real></ml:localDefine><ml:for><ml:id labels="VARIABLE">k</ml:id><ml:range><ml:real>1</ml:real><ml:id labels="VARIABLE">n</ml:id></ml:range><ml:program><ml:localDefine><ml:id labels="VARIABLE">s</ml:id><ml:apply><ml:plus/><ml:id labels="VARIABLE">s</ml:id><ml:id labels="VARIABLE">k</ml:id></ml:apply></ml:localDefine></ml:program></ml:for><ml:id labels="VARIABLE">s</ml:id></ml:program></ml:define></math></region>
+    <!-- sum_to(10) = 55 -->
+    <region region-id="6" left="0" top="600"><math><ml:eval><ml:apply><ml:id labels="VARIABLE">sum_to</ml:id><ml:real>10</ml:real></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- root(x^2-2,x,0,2) -->
+    <region region-id="7" left="0" top="700"><math><ml:eval><ml:apply><ml:id labels="KEYWORD">root</ml:id><ml:sequence><ml:apply><ml:minus/><ml:apply><ml:pow/><ml:id labels="VARIABLE">x</ml:id><ml:real>2</ml:real></ml:apply><ml:real>2</ml:real></ml:apply><ml:id labels="VARIABLE">x</ml:id><ml:real>0</ml:real><ml:real>2</ml:real></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- integral_0^3 x^2 dx = 9 -->
+    <region region-id="8" left="0" top="800"><math><ml:eval><ml:apply><ml:integral/><ml:lambda><ml:boundVars><ml:id labels="VARIABLE">x</ml:id></ml:boundVars><ml:apply><ml:pow/><ml:id labels="VARIABLE">x</ml:id><ml:real>2</ml:real></ml:apply></ml:lambda><ml:lowerBound><ml:real>0</ml:real></ml:lowerBound><ml:upperBound><ml:real>3</ml:real></ml:upperBound></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- t := 2 -->
+    <region region-id="9" left="0" top="900"><math><ml:define><ml:id labels="VARIABLE">t</ml:id><ml:real>2</ml:real></ml:define></math></region>
+    <!-- derivative t^3 at t=2 = 12 -->
+    <region region-id="10" left="0" top="1000"><math><ml:eval><ml:apply><ml:derivative/><ml:lambda><ml:boundVars><ml:id labels="VARIABLE">t</ml:id></ml:boundVars><ml:apply><ml:pow/><ml:id labels="VARIABLE">t</ml:id><ml:real>3</ml:real></ml:apply></ml:lambda><ml:degree><ml:real>1</ml:real></ml:degree></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- log(8,2) = 3 -->
+    <region region-id="11" left="0" top="1100"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">log</ml:id><ml:sequence><ml:real>8</ml:real><ml:real>2</ml:real></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- atan2(0,1) = pi/2 in Mathcad argument order -->
+    <region region-id="12" left="0" top="1200"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">atan2</ml:id><ml:sequence><ml:real>0</ml:real><ml:real>1</ml:real></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- mean(v) = 3.5 -->
+    <region region-id="13" left="0" top="1300"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">mean</ml:id><ml:sequence><ml:id labels="VARIABLE">v</ml:id></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- Var(v) = 0.5 (sample) -->
+    <region region-id="14" left="0" top="1400"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">Var</ml:id><ml:sequence><ml:id labels="VARIABLE">v</ml:id></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- var(v) = 0.25 (population) -->
+    <region region-id="15" left="0" top="1500"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">var</ml:id><ml:sequence><ml:id labels="VARIABLE">v</ml:id></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- polyroots(-6 + 11x - 6x^2 + x^3) = {1,2,3} -->
+    <region region-id="16" left="0" top="1600"><math><ml:eval><ml:apply><ml:id labels="FUNCTION">polyroots</ml:id><ml:sequence><ml:matrix rows="4" cols="1"><ml:real>-6</ml:real><ml:real>11</ml:real><ml:real>-6</ml:real><ml:real>1</ml:real></ml:matrix></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+    <!-- Exact symbolic 1/3 + 1/6 = 1/2, independent of numeric rounding -->
+    <region region-id="17" left="0" top="1700"><math><ml:symEval><ml:apply><ml:plus/><ml:apply><ml:div/><ml:real>1</ml:real><ml:real>3</ml:real></ml:apply><ml:apply><ml:div/><ml:real>1</ml:real><ml:real>6</ml:real></ml:apply></ml:apply></ml:symEval></math></region>
+    <!-- Native nested Find block: p+q=5, p-q=1; only answer is exported -->
+    <region region-id="18" left="0" top="1800"><solveblock><regions>
+      <region region-id="180" left="0" top="0" solve-block-category="guess-value"><math><ml:define><ml:id labels="VARIABLE">p</ml:id><ml:real>0</ml:real></ml:define></math></region>
+      <region region-id="181" left="0" top="100" solve-block-category="guess-value"><math><ml:define><ml:id labels="VARIABLE">q</ml:id><ml:real>0</ml:real></ml:define></math></region>
+      <region region-id="182" left="0" top="200" solve-block-category="constraint"><math><ml:apply><ml:equal/><ml:apply><ml:plus/><ml:id labels="VARIABLE">p</ml:id><ml:id labels="VARIABLE">q</ml:id></ml:apply><ml:real>5</ml:real></ml:apply></math></region>
+      <region region-id="183" left="0" top="300" solve-block-category="constraint"><math><ml:apply><ml:equal/><ml:apply><ml:minus/><ml:id labels="VARIABLE">p</ml:id><ml:id labels="VARIABLE">q</ml:id></ml:apply><ml:real>1</ml:real></ml:apply></math></region>
+      <region region-id="184" left="0" top="400" solve-block-category="solver"><math><ml:define><ml:id labels="VARIABLE">answer</ml:id><ml:eval><ml:apply><ml:id labels="KEYWORD">Find</ml:id><ml:sequence><ml:id labels="VARIABLE">p</ml:id><ml:id labels="VARIABLE">q</ml:id></ml:sequence></ml:apply><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></ml:define></math></region>
+    </regions></solveblock></region>
+    <region region-id="19" left="0" top="2400"><math><ml:eval><ml:id labels="VARIABLE">answer</ml:id><ml:unitOverride><ml:placeholder/></ml:unitOverride></ml:eval></math></region>
+  </regions>
+</worksheet>

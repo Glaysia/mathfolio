@@ -9,7 +9,7 @@ use eframe::egui::{
     Ui, Vec2, pos2, vec2,
 };
 use mathcraft_editor::{
-    Arena, BinaryOp, Direction, Editor, FractionMetrics, NodeId, NodeKind, Selection,
+    Arena, BinaryOp, Direction, Editor, FractionMetrics, NodeId, NodeKind, PortableTree, Selection,
     layout_fraction,
 };
 use std::sync::Arc;
@@ -19,6 +19,31 @@ const CARET: Color32 = Color32::from_rgb(28, 102, 206);
 const PADDING: f32 = 12.0;
 const FONT_SIZE: f32 = 26.0;
 
+#[derive(Clone, Copy, Debug)]
+pub enum FormulaResult<'a> {
+    Text(&'a str),
+    Matrix {
+        rows: usize,
+        cols: usize,
+        cells: &'a [String],
+        brackets: bool,
+    },
+}
+
+/// A calculation request is a command even when the editable tree is unchanged.
+/// REA: EquationModel.ProcessEqualsKey invokes the evaluation callback for an
+/// existing EVALUATION without adding a second operator or an undo entry.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct InputOutcome {
+    pub document_changed: bool,
+    pub evaluation_requested: bool,
+}
+
+pub(crate) struct FormulaResponse {
+    pub response: Response,
+    pub evaluation_requested: bool,
+}
+
 struct FormulaBox {
     node: NodeId,
     size: Vec2,
@@ -27,6 +52,7 @@ struct FormulaBox {
     children: Vec<(Vec2, FormulaBox)>,
     atom: Option<Arc<Galley>>,
     hit_bounds: Option<Rect>,
+    text_offset: Vec2,
 }
 
 enum Primitive {
@@ -39,14 +65,15 @@ struct HitNode {
     node: NodeId,
     rect: Rect,
     atom: Option<Arc<Galley>>,
+    text_origin: Pos2,
 }
 
 /// Paint and edit one structural formula. The caller supplies a stable egui ID
 /// scope when rendering multiple editors (`ui.push_id(worksheet_region_id, …)`).
 ///
 /// Supported: atomic text, / ^ ( ), + - *, Space, Tab, left/right, Backspace,
-/// Delete, Ctrl/Cmd+Z and redo. ':' and '=' wrap the whole current root using
-/// the bounded project policy below, not Prime's complete contextual dispatcher.
+/// Delete, Ctrl/Cmd+Z and redo. '=' evaluates the root or a definition's RHS;
+/// repeated evaluation requests do not change the document or its undo history.
 /// Enter/Escape events are left for the surrounding worksheet to handle.
 #[allow(
     dead_code,
@@ -69,7 +96,38 @@ pub(crate) fn formula_ui_with_focus(
     result: Option<&str>,
     focus: bool,
 ) -> Response {
-    let initial = measure_with_result(
+    formula_ui_with_display(ui, editor, result.map(FormulaResult::Text), focus)
+}
+
+/// Cached values are layout-only; every hit remains bound to an existing source
+/// RHS/unit node. No temporary arena or editable result-cell nodes are created.
+pub fn measured_size(ui: &Ui, editor: &Editor, result: Option<FormulaResult<'_>>) -> Vec2 {
+    let layout = measure_with_display(
+        ui.painter(),
+        editor.arena(),
+        editor.root(),
+        FONT_SIZE,
+        result,
+    );
+    (layout.size + vec2(PADDING * 2., PADDING * 2.)).max(vec2(76., 58.))
+}
+
+pub fn formula_ui_with_display(
+    ui: &mut Ui,
+    editor: &mut Editor,
+    result: Option<FormulaResult<'_>>,
+    focus: bool,
+) -> Response {
+    formula_ui_with_actions(ui, editor, result, focus).response
+}
+
+pub(crate) fn formula_ui_with_actions(
+    ui: &mut Ui,
+    editor: &mut Editor,
+    result: Option<FormulaResult<'_>>,
+    focus: bool,
+) -> FormulaResponse {
+    let initial = measure_with_display(
         ui.painter(),
         editor.arena(),
         editor.root(),
@@ -91,7 +149,7 @@ pub(crate) fn formula_ui_with_focus(
             && let Some(hit) = hit_node(&hits, pointer)
         {
             if let Some(galley) = &hit.atom {
-                let cursor = galley.cursor_from_pos(pointer - hit.rect.min);
+                let cursor = galley.cursor_from_pos(pointer - hit.text_origin);
                 let offset = galley
                     .text()
                     .chars()
@@ -113,6 +171,7 @@ pub(crate) fn formula_ui_with_focus(
         }
     }
 
+    let mut evaluation_requested = false;
     if response.has_focus() {
         ui.memory_mut(|memory| {
             memory.set_focus_lock_filter(
@@ -130,7 +189,10 @@ pub(crate) fn formula_ui_with_focus(
             let mut ours = Vec::new();
             input.events.retain(|event| {
                 let owned = match event {
-                    egui::Event::Text(_) | egui::Event::Paste(_) => true,
+                    egui::Event::Text(_)
+                    | egui::Event::Paste(_)
+                    | egui::Event::Copy
+                    | egui::Event::Cut => true,
                     egui::Event::Key { key, .. } => !matches!(key, Key::Enter | Key::Escape),
                     _ => false,
                 };
@@ -146,8 +208,26 @@ pub(crate) fn formula_ui_with_focus(
         let mut changed = false;
         for event in events {
             match event {
-                egui::Event::Text(text) | egui::Event::Paste(text) => {
-                    changed |= input_text(editor, &text);
+                egui::Event::Text(text) => {
+                    let outcome = input_text_with_actions(editor, &text);
+                    changed |= outcome.document_changed;
+                    evaluation_requested |= outcome.evaluation_requested;
+                }
+                egui::Event::Paste(text) => {
+                    let outcome = paste_tree_or_text_with_actions(editor, &text);
+                    changed |= outcome.document_changed;
+                    evaluation_requested |= outcome.evaluation_requested;
+                }
+                egui::Event::Copy | egui::Event::Cut => {
+                    if let Some(text) = copy_tree(editor) {
+                        ui.ctx().copy_text(text);
+                        if event == egui::Event::Cut {
+                            if editor.selection() == Selection::None {
+                                let _ = editor.select_subtree(editor.caret().node);
+                            }
+                            changed |= editor.delete_structure(true);
+                        }
+                    }
                 }
                 egui::Event::Key {
                     key,
@@ -185,7 +265,7 @@ pub(crate) fn formula_ui_with_focus(
         }
     }
 
-    let layout = measure_with_result(
+    let layout = measure_with_display(
         ui.painter(),
         editor.arena(),
         editor.root(),
@@ -212,9 +292,12 @@ pub(crate) fn formula_ui_with_focus(
     {
         paint_caret(paint, hit, editor);
     }
-    response.on_hover_text(
-        "수식 직접 입력 · / 분수 · ^ 지수 · ( ) 괄호 · Space 범위 선택 · Tab 입력 칸 이동",
-    )
+    FormulaResponse {
+        response: response.on_hover_text(
+            "수식 직접 입력 · / 분수 · ^ 지수 · ( ) 괄호 · Space 범위 선택 · Tab 입력 칸 이동",
+        ),
+        evaluation_requested,
+    }
 }
 
 fn text_galley(painter: &Painter, text: &str, size: f32) -> Arc<Galley> {
@@ -240,6 +323,22 @@ fn measure_with_result(
     size: f32,
     result_text: Option<&str>,
 ) -> FormulaBox {
+    measure_with_display(
+        painter,
+        arena,
+        id,
+        size,
+        result_text.map(FormulaResult::Text),
+    )
+}
+
+fn measure_with_display(
+    painter: &Painter,
+    arena: &Arena,
+    id: NodeId,
+    size: f32,
+    result_text: Option<FormulaResult<'_>>,
+) -> FormulaBox {
     let node = arena.get(id).expect("validated editor tree");
     let mut result = FormulaBox {
         node: id,
@@ -249,11 +348,15 @@ fn measure_with_result(
         children: vec![],
         atom: None,
         hit_bounds: None,
+        text_offset: Vec2::ZERO,
     };
     match node.kind() {
         NodeKind::Identifier(text)
         | NodeKind::Number(text)
-        | NodeKind::AnnotatedIdentifier { name: text, .. } => {
+        | NodeKind::AnnotatedIdentifier { name: text, .. }
+        | NodeKind::NativeIdentifier { name: text, .. }
+        | NodeKind::Imaginary(text)
+        | NodeKind::ImaginarySymbol { value: text, .. } => {
             let galley = text_galley(painter, if text.is_empty() { " " } else { text }, size);
             result.size = galley.size().max(vec2(4.0, size));
             result.baseline = text_baseline(&galley);
@@ -261,6 +364,27 @@ fn measure_with_result(
                 .primitives
                 .push(Primitive::Text(Vec2::ZERO, galley.clone()));
             result.atom = Some(galley);
+            let suffix = match node.kind() {
+                NodeKind::NativeIdentifier {
+                    subscript: Some(text),
+                    ..
+                } => Some((text.as_str(), size * 0.68, size * 0.42)),
+                NodeKind::Imaginary(_) => Some(("i", size, 0.0)),
+                NodeKind::ImaginarySymbol { symbol, .. } => Some((symbol.as_str(), size, 0.0)),
+                _ => None,
+            };
+            if let Some((suffix, font_size, y)) = suffix {
+                let suffix = text_galley(painter, suffix, font_size);
+                let original = result.size;
+                result
+                    .primitives
+                    .push(Primitive::Text(vec2(original.x, y), suffix.clone()));
+                result.size = vec2(
+                    original.x + suffix.size().x,
+                    original.y.max(y + suffix.size().y),
+                );
+                result.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, original));
+            }
         }
         NodeKind::Placeholder => {
             result.size = vec2(size * 0.46, size * 0.80);
@@ -271,6 +395,171 @@ fn measure_with_result(
                     pos2(1.0, size * 0.12),
                     vec2(size * 0.34, size * 0.55),
                 )));
+        }
+        NodeKind::UnaryNeg => {
+            let mut child = measure(painter, arena, node.children()[0], size);
+            if arena.get(node.children()[0]).unwrap().kind().precedence() < node.kind().precedence()
+            {
+                child = visual_parentheses(painter, child, size);
+            }
+            result = row_layout(
+                id,
+                vec![
+                    RowPiece::Text(text_galley(painter, "−", size)),
+                    RowPiece::Child(child),
+                ],
+            );
+        }
+        NodeKind::Absolute => {
+            let child = measure(painter, arena, node.children()[0], size);
+            let height = child.size.y;
+            result.size = child.size + vec2(10.0, 0.0);
+            result.baseline = child.baseline;
+            result
+                .primitives
+                .push(Primitive::Line(vec2(2.0, 0.0), vec2(2.0, height)));
+            result.primitives.push(Primitive::Line(
+                vec2(result.size.x - 2.0, 0.0),
+                vec2(result.size.x - 2.0, height),
+            ));
+            result.children.push((vec2(5.0, 0.0), child));
+        }
+        NodeKind::Root => {
+            let degree = measure(painter, arena, node.children()[0], size * 0.58);
+            let radicand = measure(painter, arena, node.children()[1], size);
+            let radical = text_galley(painter, "√", size.max(radicand.size.y * 0.95));
+            let x = degree.size.x + radical.size().x;
+            let y = 3.0_f32.max(degree.size.y * 0.35);
+            result.size = vec2(
+                x + radicand.size.x + 3.0,
+                (radicand.size.y + y).max(radical.size().y),
+            );
+            result.baseline = radicand.baseline + y;
+            result
+                .primitives
+                .push(Primitive::Text(vec2(degree.size.x, 0.0), radical));
+            result.primitives.push(Primitive::Line(
+                vec2(x - 2.0, 1.0),
+                vec2(result.size.x, 1.0),
+            ));
+            result.children.push((Vec2::ZERO, degree));
+            result.children.push((vec2(x, y), radicand));
+        }
+        NodeKind::Call { .. } | NodeKind::Function { .. } => {
+            let mut pieces = vec![
+                RowPiece::Child(measure(painter, arena, node.children()[0], size)),
+                RowPiece::Text(text_galley(painter, "(", size)),
+            ];
+            for (index, child) in node.children()[1..].iter().enumerate() {
+                if index > 0 {
+                    pieces.push(RowPiece::Text(text_galley(painter, ", ", size)));
+                }
+                pieces.push(RowPiece::Child(measure(painter, arena, *child, size)));
+            }
+            pieces.push(RowPiece::Text(text_galley(painter, ")", size)));
+            result = row_layout(id, pieces);
+        }
+        NodeKind::Range { has_step } => {
+            let mut pieces = vec![];
+            for (index, child) in node.children().iter().enumerate() {
+                if index > 0 {
+                    pieces.push(RowPiece::Text(text_galley(
+                        painter,
+                        if *has_step && index == 1 {
+                            ", "
+                        } else {
+                            " .. "
+                        },
+                        size,
+                    )));
+                }
+                pieces.push(RowPiece::Child(measure(painter, arena, *child, size)));
+            }
+            result = row_layout(id, pieces);
+        }
+        NodeKind::Index { .. } => {
+            let base = measure(painter, arena, node.children()[0], size);
+            let mut pieces = vec![];
+            for (index, child) in node.children()[1..].iter().enumerate() {
+                if index > 0 {
+                    pieces.push(RowPiece::Text(text_galley(painter, ",", size * 0.72)));
+                }
+                pieces.push(RowPiece::Child(measure(
+                    painter,
+                    arena,
+                    *child,
+                    size * 0.72,
+                )));
+            }
+            let index = row_layout(id, pieces);
+            let baseline = base.baseline;
+            let offset = vec2(base.size.x + 1.0, baseline * 0.63);
+            result.size = vec2(
+                offset.x + index.size.x,
+                base.size.y.max(offset.y + index.size.y),
+            );
+            result.baseline = baseline;
+            result.children.push((Vec2::ZERO, base));
+            result
+                .primitives
+                .extend(index.primitives.into_iter().map(|p| match p {
+                    Primitive::Text(x, g) => Primitive::Text(x + offset, g),
+                    other => other,
+                }));
+            result
+                .children
+                .extend(index.children.into_iter().map(|(x, b)| (x + offset, b)));
+        }
+        NodeKind::Matrix { rows, cols } => {
+            let cells: Vec<_> = node
+                .children()
+                .iter()
+                .map(|child| measure(painter, arena, *child, size))
+                .collect();
+            let mut widths = vec![0.0_f32; *cols];
+            let mut ascents = vec![0.0_f32; *rows];
+            let mut descents = vec![0.0_f32; *rows];
+            for (i, cell) in cells.iter().enumerate() {
+                widths[i % cols] = widths[i % cols].max(cell.size.x);
+                ascents[i / cols] = ascents[i / cols].max(cell.baseline);
+                descents[i / cols] = descents[i / cols].max(cell.size.y - cell.baseline);
+            }
+            let gap = size * 0.4;
+            let width = widths.iter().sum::<f32>() + gap * (*cols as f32 - 1.0) + 14.0;
+            let height = ascents.iter().sum::<f32>()
+                + descents.iter().sum::<f32>()
+                + gap * (*rows as f32 - 1.0);
+            result.size = vec2(width, height);
+            result.baseline = height / 2.0 + size * 0.2;
+            let mut y = 0.0;
+            let mut cells = cells.into_iter();
+            for row in 0..*rows {
+                let mut x = 7.0;
+                for width in &widths {
+                    let cell = cells.next().unwrap();
+                    let offset = vec2(
+                        x + (width - cell.size.x) / 2.0,
+                        y + ascents[row] - cell.baseline,
+                    );
+                    result.children.push((offset, cell));
+                    x += width + gap;
+                }
+                y += ascents[row] + descents[row] + gap;
+            }
+            for x in [1.0, width - 1.0] {
+                let direction = if x < width / 2.0 { 1.0 } else { -1.0 };
+                result
+                    .primitives
+                    .push(Primitive::Line(vec2(x, 0.0), vec2(x, height)));
+                result.primitives.push(Primitive::Line(
+                    vec2(x, 0.0),
+                    vec2(x + 4.0 * direction, 0.0),
+                ));
+                result.primitives.push(Primitive::Line(
+                    vec2(x, height),
+                    vec2(x + 4.0 * direction, height),
+                ));
+            }
         }
         NodeKind::Fraction => {
             let numerator = measure(painter, arena, node.children()[0], size);
@@ -309,7 +598,12 @@ fn measure_with_result(
             ));
         }
         NodeKind::Power => {
-            let base = measure(painter, arena, node.children()[0], size);
+            let mut base = measure(painter, arena, node.children()[0], size);
+            if arena.get(node.children()[0]).unwrap().kind().precedence()
+                <= node.kind().precedence()
+            {
+                base = visual_parentheses(painter, base, size);
+            }
             let exponent = measure(painter, arena, node.children()[1], size * 0.72);
             // Raised script geometry is a project policy; exact Prime metrics unknown.
             let base_y = exponent.size.y * 0.62;
@@ -344,23 +638,36 @@ fn measure_with_result(
                 .push((vec2(left.size().x + 2.0, child_y), child));
         }
         NodeKind::Binary(op) => {
-            let left = measure(painter, arena, node.children()[0], size);
-            let mut right = measure(painter, arena, node.children()[1], size);
+            let mut left = measure(painter, arena, node.children()[0], size);
+            let mut right = if *op == BinaryOp::Define {
+                measure_with_display(painter, arena, node.children()[1], size, result_text)
+            } else {
+                measure(painter, arena, node.children()[1], size)
+            };
+            let precedence = node.kind().precedence();
+            if arena.get(node.children()[0]).unwrap().kind().precedence() < precedence {
+                left = visual_parentheses(painter, left, size);
+            }
+            let right_precedence = arena.get(node.children()[1]).unwrap().kind().precedence();
+            if right_precedence < precedence
+                || (right_precedence == precedence
+                    && matches!(op, BinaryOp::Subtract | BinaryOp::InlineDivide))
+            {
+                right = visual_parentheses(painter, right, size);
+            }
             if *op == BinaryOp::Evaluate
                 && let Some(value) = result_text
             {
-                let value = text_galley(painter, value, size);
+                let value = measure_result(painter, node.children()[1], value, size);
                 match arena.get(node.children()[1]).unwrap().kind() {
                     NodeKind::Placeholder => {
-                        right.size = value.size();
-                        right.baseline = text_baseline(&value);
-                        right.primitives = vec![Primitive::Text(Vec2::ZERO, value)];
+                        right = value;
                     }
                     _ => {
                         let unit_size = right.size;
-                        let prefix = value.size().x + size * 0.18;
-                        let baseline = right.baseline.max(text_baseline(&value));
-                        let value_y = baseline - text_baseline(&value);
+                        let prefix = value.size.x + size * 0.18;
+                        let baseline = right.baseline.max(value.baseline);
+                        let value_y = baseline - value.baseline;
                         let unit_y = baseline - right.baseline;
                         for primitive in &mut right.primitives {
                             match primitive {
@@ -377,15 +684,17 @@ fn measure_with_result(
                         for (offset, _) in &mut right.children {
                             *offset += vec2(prefix, unit_y);
                         }
-                        right
-                            .primitives
-                            .push(Primitive::Text(vec2(0.0, value_y), value.clone()));
-                        right.hit_bounds =
-                            Some(Rect::from_min_size(pos2(prefix, unit_y), unit_size));
+                        right.text_offset += vec2(prefix, unit_y);
+                        for primitive in value.primitives {
+                            right
+                                .primitives
+                                .push(translate_primitive(primitive, vec2(0.0, value_y)));
+                        }
                         right.size = vec2(
                             prefix + unit_size.x,
-                            (unit_y + unit_size.y).max(value_y + value.size().y),
+                            (unit_y + unit_size.y).max(value_y + value.size.y),
                         );
+                        right.hit_bounds = Some(Rect::from_min_size(Pos2::ZERO, right.size));
                         right.baseline = baseline;
                     }
                 }
@@ -394,6 +703,7 @@ fn measure_with_result(
                 BinaryOp::Add => "+",
                 BinaryOp::Subtract => "−",
                 BinaryOp::Multiply => "·",
+                BinaryOp::Scale => " ",
                 BinaryOp::InlineDivide => "÷",
                 BinaryOp::Define => ":=",
                 BinaryOp::Evaluate => "=",
@@ -424,6 +734,198 @@ fn measure_with_result(
     result
 }
 
+enum RowPiece {
+    Child(FormulaBox),
+    Text(Arc<Galley>),
+}
+
+fn translate_primitive(primitive: Primitive, by: Vec2) -> Primitive {
+    match primitive {
+        Primitive::Text(p, g) => Primitive::Text(p + by, g),
+        Primitive::Line(a, b) => Primitive::Line(a + by, b + by),
+        Primitive::Placeholder(rect) => Primitive::Placeholder(rect.translate(by)),
+    }
+}
+
+fn measure_result(
+    painter: &Painter,
+    node: NodeId,
+    result: FormulaResult<'_>,
+    size: f32,
+) -> FormulaBox {
+    let mut output = FormulaBox {
+        node,
+        size: Vec2::ZERO,
+        baseline: 0.0,
+        primitives: vec![],
+        children: vec![],
+        atom: None,
+        hit_bounds: None,
+        text_offset: Vec2::ZERO,
+    };
+    match result {
+        FormulaResult::Text(value) => {
+            let text = text_galley(painter, value, size);
+            output.size = text.size();
+            output.baseline = text_baseline(&text);
+            output.primitives.push(Primitive::Text(Vec2::ZERO, text));
+        }
+        FormulaResult::Matrix {
+            rows,
+            cols,
+            cells,
+            brackets,
+        } => {
+            // The worksheet limits arrays to 12x12. Defensive bounds keep an
+            // accidentally malformed display payload from allocating huge grids.
+            if rows == 0
+                || cols == 0
+                || rows > 12
+                || cols > 12
+                || rows.checked_mul(cols) != Some(cells.len())
+            {
+                return measure_result(painter, node, FormulaResult::Text("…"), size);
+            }
+            let texts: Vec<_> = cells
+                .iter()
+                .map(|cell| text_galley(painter, cell, size))
+                .collect();
+            let mut widths = vec![0.0_f32; cols];
+            let mut ascents = vec![0.0_f32; rows];
+            let mut descents = vec![0.0_f32; rows];
+            for (i, text) in texts.iter().enumerate() {
+                let baseline = text_baseline(text);
+                widths[i % cols] = widths[i % cols].max(text.size().x);
+                ascents[i / cols] = ascents[i / cols].max(baseline);
+                descents[i / cols] = descents[i / cols].max(text.size().y - baseline);
+            }
+            let gap = size * 0.4;
+            let margin = if brackets { 7.0 } else { 0.0 };
+            let width = widths.iter().sum::<f32>() + gap * (cols as f32 - 1.0) + 2.0 * margin;
+            let height = ascents.iter().sum::<f32>()
+                + descents.iter().sum::<f32>()
+                + gap * (rows as f32 - 1.0);
+            output.size = vec2(width, height);
+            output.baseline = height / 2.0 + size * 0.2;
+            let mut y = 0.0;
+            let mut texts = texts.into_iter();
+            for row in 0..rows {
+                let mut x = margin;
+                for width in &widths {
+                    let text = texts.next().unwrap();
+                    let at = vec2(
+                        x + (width - text.size().x) / 2.0,
+                        y + ascents[row] - text_baseline(&text),
+                    );
+                    output.primitives.push(Primitive::Text(at, text));
+                    x += width + gap;
+                }
+                y += ascents[row] + descents[row] + gap;
+            }
+            if brackets {
+                for x in [1.0, width - 1.0] {
+                    let direction = if x < width / 2.0 { 1.0 } else { -1.0 };
+                    output
+                        .primitives
+                        .push(Primitive::Line(vec2(x, 0.0), vec2(x, height)));
+                    output.primitives.push(Primitive::Line(
+                        vec2(x, 0.0),
+                        vec2(x + 4.0 * direction, 0.0),
+                    ));
+                    output.primitives.push(Primitive::Line(
+                        vec2(x, height),
+                        vec2(x + 4.0 * direction, height),
+                    ));
+                }
+            }
+        }
+    }
+    output
+}
+
+/// Preserve the AST's meaning when a selected subtree was wrapped by a tighter
+/// operator. These are visual parentheses, not an unobserved tree mutation.
+fn visual_parentheses(painter: &Painter, mut child: FormulaBox, size: f32) -> FormulaBox {
+    let paren_size = size.max(child.size.y * 0.93);
+    let left = text_galley(painter, "(", paren_size);
+    let right = text_galley(painter, ")", paren_size);
+    let height = child.size.y.max(left.size().y);
+    let offset = vec2(left.size().x + 2.0, (height - child.size.y) / 2.0);
+    for primitive in &mut child.primitives {
+        match primitive {
+            Primitive::Text(p, _) => *p += offset,
+            Primitive::Line(a, b) => {
+                *a += offset;
+                *b += offset;
+            }
+            Primitive::Placeholder(rect) => *rect = rect.translate(offset),
+        }
+    }
+    for (p, _) in &mut child.children {
+        *p += offset;
+    }
+    child.text_offset += offset;
+    let right_x = offset.x + child.size.x + 2.0;
+    child.size = vec2(right_x + right.size().x, height);
+    child.baseline += offset.y;
+    child.primitives.push(Primitive::Text(
+        vec2(0.0, (height - left.size().y) / 2.0),
+        left,
+    ));
+    child.primitives.push(Primitive::Text(
+        vec2(right_x, (height - right.size().y) / 2.0),
+        right,
+    ));
+    child
+}
+
+fn row_layout(node: NodeId, pieces: Vec<RowPiece>) -> FormulaBox {
+    let baseline = pieces
+        .iter()
+        .map(|piece| match piece {
+            RowPiece::Child(child) => child.baseline,
+            RowPiece::Text(text) => text_baseline(text),
+        })
+        .fold(0.0_f32, f32::max);
+    let descent = pieces
+        .iter()
+        .map(|piece| match piece {
+            RowPiece::Child(child) => child.size.y - child.baseline,
+            RowPiece::Text(text) => text.size().y - text_baseline(text),
+        })
+        .fold(0.0_f32, f32::max);
+    let mut result = FormulaBox {
+        node,
+        size: vec2(0.0, baseline + descent),
+        baseline,
+        primitives: vec![],
+        children: vec![],
+        atom: None,
+        hit_bounds: None,
+        text_offset: Vec2::ZERO,
+    };
+    for piece in pieces {
+        match piece {
+            RowPiece::Child(child) => {
+                let width = child.size.x;
+                result
+                    .children
+                    .push((vec2(result.size.x, baseline - child.baseline), child));
+                result.size.x += width;
+            }
+            RowPiece::Text(text) => {
+                let width = text.size().x;
+                result.primitives.push(Primitive::Text(
+                    vec2(result.size.x, baseline - text_baseline(&text)),
+                    text,
+                ));
+                result.size.x += width;
+            }
+        }
+    }
+    result
+}
+
 fn collect_hits(layout: &FormulaBox, origin: Pos2, hits: &mut Vec<HitNode>) {
     hits.push(HitNode {
         node: layout.node,
@@ -432,6 +934,7 @@ fn collect_hits(layout: &FormulaBox, origin: Pos2, hits: &mut Vec<HitNode>) {
             |bounds| bounds.translate(origin.to_vec2()),
         ),
         atom: layout.atom.clone(),
+        text_origin: origin + layout.text_offset,
     });
     for (offset, child) in &layout.children {
         collect_hits(child, origin + *offset, hits);
@@ -470,10 +973,13 @@ fn paint_box(painter: &Painter, layout: &FormulaBox, origin: Pos2) {
 
 fn paint_caret(painter: &Painter, hit: &HitNode, editor: &Editor) {
     let caret = editor.caret();
+    let caret_rect = hit.atom.as_ref().map_or(hit.rect, |galley| {
+        Rect::from_min_size(hit.text_origin, galley.size())
+    });
     let mut x = if caret.caret_side == Direction::Left {
-        hit.rect.left()
+        caret_rect.left()
     } else {
-        hit.rect.right()
+        caret_rect.right()
     };
     if let Some(galley) = &hit.atom
         && let Some(range) = caret.value_range
@@ -489,94 +995,297 @@ fn paint_caret(painter: &Painter, hit: &HitNode, editor: &Editor) {
             })
             .count();
         let cursor = egui::text::CCursor::new(index);
-        x = hit.rect.min.x + galley.pos_from_cursor(cursor).left();
+        x = hit.text_origin.x + galley.pos_from_cursor(cursor).left();
     }
     painter.line_segment(
-        [pos2(x, hit.rect.top()), pos2(x, hit.rect.bottom())],
+        [pos2(x, caret_rect.top()), pos2(x, caret_rect.bottom())],
         Stroke::new(1.5, CARET),
     );
     painter.line_segment(
-        [pos2(x, hit.rect.bottom()), pos2(x + 5.0, hit.rect.bottom())],
+        [
+            pos2(x, caret_rect.bottom()),
+            pos2(x + 5.0, caret_rect.bottom()),
+        ],
         Stroke::new(1.5, CARET),
     );
 }
 
 pub(crate) fn input_text(editor: &mut Editor, text: &str) -> bool {
+    input_text_with_actions(editor, text).document_changed
+}
+
+pub(crate) fn input_text_with_actions(editor: &mut Editor, text: &str) -> InputOutcome {
+    // One committed text event may require several tree edits (e.g. 2m).
+    // Keep the user command intact when undoing those internal operations.
+    editor.edit_group(|editor| input_text_operations(editor, text))
+}
+
+fn input_text_operations(editor: &mut Editor, text: &str) -> InputOutcome {
     let mut changed = false;
+    let mut evaluation_requested = false;
     for ch in text.chars() {
+        let current = editor.caret().node;
+        let kind = editor.arena().get(current).unwrap().kind().clone();
         match ch {
             '/' => {
-                editor.insert_fraction();
+                editor.insert_fraction_infix();
                 changed = true;
             }
             '^' => {
-                editor.insert_power();
+                editor.insert_power_infix();
                 changed = true;
             }
             '(' => {
-                editor.insert_group();
+                match atomic_text(editor, current).as_deref() {
+                    Some("sqrt") => {
+                        editor.edit_group(|editor| {
+                            let _ = editor.set_atom(current, NodeKind::Placeholder);
+                            editor.insert_root();
+                        });
+                    }
+                    Some("abs") => {
+                        editor.edit_group(|editor| {
+                            let _ = editor.set_atom(current, NodeKind::Placeholder);
+                            editor.insert_absolute();
+                        });
+                    }
+                    _ if matches!(
+                        kind,
+                        NodeKind::Identifier(_)
+                            | NodeKind::AnnotatedIdentifier { .. }
+                            | NodeKind::NativeIdentifier { .. }
+                    ) =>
+                    {
+                        editor.insert_call();
+                    }
+                    _ => {
+                        editor.insert_group();
+                    }
+                }
                 changed = true;
             }
-            ')' => {
+            ')' | ']' => {
                 editor.exit_group_right();
+            }
+            '[' => {
+                if kind == NodeKind::Placeholder {
+                    editor.insert_matrix(1, 1);
+                } else {
+                    editor.insert_index();
+                }
+                changed = true;
             }
             ' ' => {
                 editor.expand_scope();
             }
             '+' => {
-                editor.insert_binary(BinaryOp::Add);
+                editor.insert_infix(BinaryOp::Add);
                 changed = true;
             }
+            '-' if matches!(&kind,NodeKind::Number(value) if value.ends_with('e') || value.ends_with('E')) => {
+                changed |= insert_character(editor, ch)
+            }
             '-' => {
-                editor.insert_binary(BinaryOp::Subtract);
+                if kind == NodeKind::Placeholder {
+                    editor.insert_unary_neg();
+                } else {
+                    editor.insert_infix(BinaryOp::Subtract);
+                }
                 changed = true;
             }
             '*' => {
-                editor.insert_binary(BinaryOp::Multiply);
+                editor.insert_infix(BinaryOp::Multiply);
                 changed = true;
             }
             ':' => changed |= insert_root_command(editor, BinaryOp::Define),
-            '=' => changed |= insert_root_command(editor, BinaryOp::Evaluate),
-            // These need dedicated structural/context rules; do not disguise them as text.
-            '[' | ']' | '\r' | '\n' | '\t' => {}
-            ch if !ch.is_control() => {
-                // A unit/name typed after a numeric atom becomes multiplication,
-                // preserving two editable operands instead of the name "2m".
-                // Full Prime implicit-operator/caret behavior still needs probes.
-                if ch.is_alphabetic()
-                    && matches!(
-                        editor.arena().get(editor.caret().node).map(|n| n.kind()),
-                        Some(NodeKind::Number(_))
-                    )
+            '=' => {
+                let outcome = process_equals(editor);
+                changed |= outcome.document_changed;
+                evaluation_requested |= outcome.evaluation_requested;
+            }
+            ',' => {
+                if !editor.append_argument() {
+                    editor.insert_step_range();
+                }
+                changed = true;
+            }
+            ';' => changed |= editor.append_matrix_row(),
+            '\\' | '√' => {
+                editor.insert_root();
+                changed = true;
+            }
+            '|' => {
+                if ancestor_kind(editor, current, |kind| matches!(kind, NodeKind::Absolute))
+                    .is_some()
                 {
-                    editor.insert_binary(BinaryOp::Multiply);
+                    editor.exit_group_right();
+                } else {
+                    editor.insert_absolute();
+                    changed = true;
+                }
+            }
+            '.' if matches!(&kind,NodeKind::Number(value) if value.ends_with('.')) => {
+                if let NodeKind::Number(mut value) = kind {
+                    value.pop();
+                    let _ = editor.set_atom(current, NodeKind::Number(value));
+                }
+                if let Some(range) = ancestor_kind(editor, current, |kind| {
+                    matches!(kind, NodeKind::Range { has_step: true })
+                }) {
+                    let end = editor.arena().get(range).unwrap().children()[2];
+                    let _ = editor.place_caret(end, Direction::Indeterminate);
+                } else {
+                    editor.insert_range();
+                }
+                changed = true;
+            }
+            '\r' | '\n' | '\t' => {}
+            ch if !ch.is_control() => {
+                if editor.selection() != Selection::None {
+                    changed |= insert_character(editor, ch);
+                    continue;
+                }
+                if let NodeKind::Number(value) = &kind {
+                    if matches!(ch, 'i' | 'j') {
+                        let _ = editor.set_atom(
+                            current,
+                            NodeKind::ImaginarySymbol {
+                                value: value.clone(),
+                                symbol: ch.to_string(),
+                            },
+                        );
+                        changed = true;
+                        continue;
+                    }
+                    if ch.is_alphabetic() && !matches!(ch, 'e' | 'E') {
+                        editor.insert_infix(BinaryOp::Multiply);
+                    }
+                } else if !matches!(
+                    kind,
+                    NodeKind::Placeholder
+                        | NodeKind::Identifier(_)
+                        | NodeKind::AnnotatedIdentifier { .. }
+                        | NodeKind::NativeIdentifier { .. }
+                        | NodeKind::Imaginary(_)
+                        | NodeKind::ImaginarySymbol { .. }
+                ) && editor.caret().caret_side == Direction::Right
+                {
+                    editor.insert_infix(BinaryOp::Multiply);
                 }
                 changed |= insert_character(editor, ch);
             }
             _ => {}
         }
     }
-    changed
+    InputOutcome {
+        document_changed: changed,
+        evaluation_requested,
+    }
 }
 
-/// Independent bounded policy. REA shows that Prime's '=' first attempts a
-/// local range definition and has evaluation/undo branches; this is not that
-/// complete dispatcher. Definitions keep their own RHS and do not acquire a
-/// second evaluation node. In particular ':' followed by '=' inserts only ':='.
+fn ancestor_kind(
+    editor: &Editor,
+    mut node: NodeId,
+    predicate: impl Fn(&NodeKind) -> bool,
+) -> Option<NodeId> {
+    loop {
+        let value = editor.arena().get(node)?;
+        if predicate(value.kind()) {
+            return Some(node);
+        }
+        node = value.parent()?;
+    }
+}
+
+/// Bounded definition shortcut; the separate '=' command handles evaluation.
 fn insert_root_command(editor: &mut Editor, operation: BinaryOp) -> bool {
     match editor.arena().get(editor.root()).unwrap().kind() {
         NodeKind::Binary(BinaryOp::Define | BinaryOp::Evaluate) => false,
         _ => {
-            let _ = editor.select_subtree(editor.root());
-            editor.insert_binary(operation);
+            if operation == BinaryOp::Define {
+                editor.insert_definition();
+            } else {
+                editor.insert_evaluation();
+            }
             true
         }
     }
 }
 
+/// REA get_EvaluationRoot recognizes both a root evaluation and the evaluation
+/// on a definition's RHS. Local range binding and expression-only contexts are
+/// not represented by the current portable editor and remain outside this path.
+fn process_equals(editor: &mut Editor) -> InputOutcome {
+    let root = editor.arena().get(editor.root()).unwrap();
+    let target = if root.kind() == &NodeKind::Binary(BinaryOp::Define) {
+        root.children()[1]
+    } else {
+        editor.root()
+    };
+    let node = editor.arena().get(target).unwrap();
+    if node.kind() == &NodeKind::Binary(BinaryOp::Evaluate) {
+        return InputOutcome {
+            document_changed: false,
+            evaluation_requested: true,
+        };
+    }
+    // ':' already created the definition; the '=' in ':=' must not evaluate
+    // its still-empty RHS. This is the bounded text-entry shortcut policy.
+    if target != editor.root() && node.kind() == &NodeKind::Placeholder {
+        return InputOutcome::default();
+    }
+    editor.insert_evaluation();
+    InputOutcome {
+        document_changed: true,
+        evaluation_requested: true,
+    }
+}
+
+const TREE_CLIPBOARD_PREFIX: &str = "mathcraft-tree:";
+
+fn copy_tree(editor: &Editor) -> Option<String> {
+    let target = match editor.selection() {
+        Selection::None => editor.caret().node,
+        Selection::Subtree(id) => id,
+    };
+    let tree = editor.export_subtree(target).ok()?;
+    Some(format!(
+        "{TREE_CLIPBOARD_PREFIX}{}",
+        serde_json::to_string(&tree).ok()?
+    ))
+}
+
+#[cfg(test)]
+fn paste_tree_or_text(editor: &mut Editor, text: &str) -> bool {
+    paste_tree_or_text_with_actions(editor, text).document_changed
+}
+
+fn paste_tree_or_text_with_actions(editor: &mut Editor, text: &str) -> InputOutcome {
+    if let Some(json) = text.strip_prefix(TREE_CLIPBOARD_PREFIX) {
+        if json.len() > 8 * 1024 * 1024 {
+            return InputOutcome::default();
+        }
+        let Ok(tree) = serde_json::from_str::<PortableTree>(json) else {
+            return InputOutcome::default();
+        };
+        InputOutcome {
+            document_changed: editor.replace_selection(&tree).is_ok(),
+            evaluation_requested: false,
+        }
+    } else {
+        // The original builds one compound Paste command. Text can expand to
+        // several structural mutations, but undo must restore the whole paste.
+        editor.edit_group(|editor| input_text_with_actions(editor, text))
+    }
+}
+
 fn atomic_text(editor: &Editor, node: NodeId) -> Option<String> {
     match editor.arena().get(node)?.kind() {
-        NodeKind::Number(text) | NodeKind::Identifier(text) => Some(text.clone()),
+        NodeKind::Number(text) | NodeKind::Identifier(text) | NodeKind::Imaginary(text) => {
+            Some(text.clone())
+        }
+        NodeKind::NativeIdentifier { name, .. } => Some(name.clone()),
+        NodeKind::ImaginarySymbol { value, .. } => Some(value.clone()),
         NodeKind::AnnotatedIdentifier { name, .. } => Some(name.clone()),
         NodeKind::Placeholder => Some(String::new()),
         _ => None,
@@ -586,7 +1295,14 @@ fn atomic_text(editor: &Editor, node: NodeId) -> Option<String> {
 fn text_kind(text: String) -> NodeKind {
     if text.is_empty() {
         NodeKind::Placeholder
-    } else if text.chars().all(|ch| ch.is_ascii_digit() || ch == '.') {
+    } else if text
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_digit() || ch == '.')
+        && text
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || matches!(ch, '.' | 'e' | 'E' | '+' | '-'))
+    {
         NodeKind::Number(text)
     } else {
         NodeKind::Identifier(text)
@@ -594,6 +1310,30 @@ fn text_kind(text: String) -> NodeKind {
 }
 
 fn edited_text_kind(editor: &Editor, target: NodeId, text: String) -> NodeKind {
+    match editor.arena().get(target).map(|node| node.kind()) {
+        Some(NodeKind::NativeIdentifier {
+            labels,
+            contextual,
+            subscript,
+            ..
+        }) => {
+            return NodeKind::NativeIdentifier {
+                name: text,
+                labels: labels.clone(),
+                contextual: *contextual,
+                subscript: subscript.clone(),
+            };
+        }
+        Some(NodeKind::Imaginary(_)) => return NodeKind::Imaginary(text),
+        Some(NodeKind::ImaginarySymbol { symbol, .. }) => {
+            return NodeKind::ImaginarySymbol {
+                value: text,
+                symbol: symbol.clone(),
+            };
+        }
+        _ => {}
+    }
+
     if let Some(NodeKind::AnnotatedIdentifier { labels, .. }) =
         editor.arena().get(target).map(|node| node.kind())
     {
@@ -623,6 +1363,14 @@ fn insert_character(editor: &mut Editor, ch: char) -> bool {
         Selection::None => editor.caret().node,
     };
     let Some(mut text) = atomic_text(editor, target) else {
+        if editor.selection() == Selection::Subtree(target) {
+            return editor
+                .replace_selection(&PortableTree {
+                    kind: text_kind(ch.to_string()),
+                    children: vec![],
+                })
+                .is_ok();
+        }
         return false;
     };
     let replace = editor.selection() == Selection::Subtree(target);
@@ -660,8 +1408,11 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
         Selection::Subtree(node) => node,
         Selection::None => editor.caret().node,
     };
+    if editor.selection() != Selection::None {
+        return editor.delete_structure(backwards);
+    }
     let Some(mut text) = atomic_text(editor, target) else {
-        return false;
+        return editor.delete_structure(backwards);
     };
     if editor.selection() == Selection::Subtree(target) {
         let kind = edited_text_kind(editor, target, String::new());
@@ -682,12 +1433,12 @@ fn delete_character(editor: &mut Editor, backwards: bool) -> bool {
     };
     let (start, end) = if backwards {
         let Some((start, _)) = text[..byte].char_indices().next_back() else {
-            return false;
+            return editor.delete_structure(backwards);
         };
         (start, byte)
     } else {
         let Some(ch) = text[byte..].chars().next() else {
-            return false;
+            return editor.delete_structure(backwards);
         };
         (byte, byte + ch.len_utf8())
     };
@@ -750,6 +1501,17 @@ fn atom_extreme(editor: &mut Editor, end: bool) {
 }
 
 fn move_horizontal(editor: &mut Editor, forward: bool) {
+    if let Selection::Subtree(node) = editor.selection() {
+        let _ = editor.place_caret(
+            node,
+            if forward {
+                Direction::Right
+            } else {
+                Direction::Left
+            },
+        );
+        return;
+    }
     let node = editor.caret().node;
     if let Some(text) = atomic_text(editor, node) {
         let offset = editor.caret().value_range.map_or_else(
@@ -779,8 +1541,71 @@ fn move_horizontal(editor: &mut Editor, forward: bool) {
                 return;
             }
         }
+    } else {
+        let side = editor.caret().caret_side;
+        if (forward && side == Direction::Left) || (!forward && side == Direction::Right) {
+            let mut leaf = node;
+            loop {
+                let children = editor.arena().get(leaf).unwrap().children();
+                if children.is_empty() {
+                    break;
+                }
+                leaf = if forward {
+                    children[0]
+                } else {
+                    *children.last().unwrap()
+                };
+            }
+            let _ = editor.place_caret(
+                leaf,
+                if forward {
+                    Direction::Left
+                } else {
+                    Direction::Right
+                },
+            );
+            return;
+        }
     }
-    cycle_leaf(editor, forward, false);
+    if let Some(parent) = editor.arena().get(node).unwrap().parent() {
+        let children = editor.arena().get(parent).unwrap().children();
+        let index = children.iter().position(|child| *child == node).unwrap();
+        let sibling = if forward {
+            children.get(index + 1).copied()
+        } else {
+            index.checked_sub(1).map(|i| children[i])
+        };
+        if let Some(mut leaf) = sibling {
+            loop {
+                let children = editor.arena().get(leaf).unwrap().children();
+                if children.is_empty() {
+                    break;
+                }
+                leaf = if forward {
+                    children[0]
+                } else {
+                    *children.last().unwrap()
+                };
+            }
+            let _ = editor.place_caret(
+                leaf,
+                if forward {
+                    Direction::Left
+                } else {
+                    Direction::Right
+                },
+            );
+        } else {
+            let _ = editor.place_caret(
+                parent,
+                if forward {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                },
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -888,8 +1713,14 @@ mod tests {
         assert_eq!(node.kind(), &NodeKind::Binary(BinaryOp::Define));
         assert_eq!(atomic_text(&definition, node.children()[0]).unwrap(), "x");
         assert_eq!(atomic_text(&definition, node.children()[1]).unwrap(), "2");
-        assert!(!input_text(&mut definition, "="));
+        assert!(input_text(&mut definition, "="));
         assert_eq!(definition.root(), root);
+        let rhs = definition.arena().get(root).unwrap().children()[1];
+        assert_eq!(
+            definition.arena().get(rhs).unwrap().kind(),
+            &NodeKind::Binary(BinaryOp::Evaluate)
+        );
+        assert!(!input_text(&mut definition, "="));
         let mut evaluation = Editor::new();
         input_text(&mut evaluation, "1+2=");
         let root = evaluation.root();
@@ -901,6 +1732,86 @@ mod tests {
         );
         assert!(!input_text(&mut evaluation, "="));
         assert_eq!(evaluation.root(), root);
+    }
+
+    #[test]
+    fn equals_requests_calculation_without_another_edit_or_undo_step() {
+        let mut editor = typed_one_character_at_a_time("2+3");
+        let original = editor.to_portable().unwrap();
+        assert_eq!(
+            input_text_with_actions(&mut editor, "="),
+            InputOutcome {
+                document_changed: true,
+                evaluation_requested: true
+            }
+        );
+        let evaluated = editor.to_portable().unwrap();
+        let caret = editor.caret();
+        let selection = editor.selection();
+        assert_eq!(
+            input_text_with_actions(&mut editor, "="),
+            InputOutcome {
+                document_changed: false,
+                evaluation_requested: true
+            }
+        );
+        assert_eq!(editor.to_portable().unwrap(), evaluated);
+        assert_eq!(editor.caret(), caret);
+        assert_eq!(editor.selection(), selection);
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), original);
+        assert!(editor.redo());
+        assert_eq!(editor.to_portable().unwrap(), evaluated);
+    }
+
+    #[test]
+    fn equals_on_definition_keeps_assignment_and_editable_display_unit_separate() {
+        let mut editor = typed_one_character_at_a_time("distance:=2m");
+        let defined = editor.to_portable().unwrap();
+        let outcome = input_text_with_actions(&mut editor, "=");
+        assert!(outcome.document_changed && outcome.evaluation_requested);
+        let evaluated = editor.to_portable().unwrap();
+        assert_eq!(evaluated.kind, NodeKind::Binary(BinaryOp::Define));
+        assert_eq!(
+            evaluated.children[1].kind,
+            NodeKind::Binary(BinaryOp::Evaluate)
+        );
+        input_text(&mut editor, "c");
+        input_text(&mut editor, "m");
+        let fragment =
+            mathcraft_compat::editor_bridge::tree_to_mathml(&editor.to_portable().unwrap())
+                .unwrap();
+        let xml = mathcraft_compat::editor_bridge::worksheet_xml(&[(0, 0., 0., fragment)]).unwrap();
+        let result = mathcraft_compat::evaluate_worksheet(&xml).unwrap();
+        assert!(result[0].error.is_none(), "{:?}", result[0].error);
+        let Some(mathcraft_compat::Value::Scalar { quantity }) = result[0].value else {
+            panic!()
+        };
+        assert_eq!(quantity.value.re, 2.);
+        assert_eq!(quantity.dimension[0], 1.);
+        let Some(mathcraft_compat::Value::Scalar { quantity }) = result[0].display_value else {
+            panic!()
+        };
+        assert_eq!(quantity.value.re, 200.);
+        assert!(editor.undo()); // remove m
+        assert!(editor.undo()); // remove c
+        assert_eq!(editor.to_portable().unwrap(), evaluated);
+        assert!(editor.undo()); // remove evaluation, preserving the definition
+        assert_eq!(editor.to_portable().unwrap(), defined);
+    }
+
+    #[test]
+    fn definition_shortcut_does_not_request_evaluation_of_empty_rhs() {
+        let mut editor = Editor::new();
+        assert!(input_text_with_actions(&mut editor, "x:").document_changed);
+        let before = editor.to_portable().unwrap();
+        assert_eq!(
+            input_text_with_actions(&mut editor, "="),
+            InputOutcome::default()
+        );
+        assert_eq!(editor.to_portable().unwrap(), before);
+        input_text(&mut editor, "2");
+        assert!(input_text_with_actions(&mut editor, "=").evaluation_requested);
     }
 
     #[test]
@@ -975,7 +1886,7 @@ mod tests {
             );
             let right = &layout.children[1].1;
             let bounds = right.hit_bounds.unwrap();
-            assert!(bounds.min.x > 0.0);
+            assert!(right.text_offset.x > 0.0);
             let mut hits = vec![];
             collect_hits(&layout, Pos2::ZERO, &mut hits);
             let point = layout.children[1].0.to_pos2() + bounds.center().to_vec2();
@@ -1056,5 +1967,518 @@ mod tests {
             },
         );
         frame.drop_without_applying_deltas();
+    }
+    fn typed_one_character_at_a_time(text: &str) -> Editor {
+        let mut editor = Editor::new();
+        for ch in text.chars() {
+            input_text(&mut editor, &ch.to_string());
+            assert_eq!(editor.validate(), Ok(()), "after {ch:?} in {text}");
+        }
+        editor
+    }
+
+    fn calculated(texts: &[&str]) -> serde_json::Value {
+        use mathcraft_compat::editor_bridge::{tree_to_mathml, worksheet_xml};
+        let regions: Vec<_> = texts
+            .iter()
+            .enumerate()
+            .map(|(index, text)| {
+                let editor = typed_one_character_at_a_time(text);
+                let tree = editor.to_portable().unwrap();
+                (
+                    index as u64,
+                    10.0,
+                    10.0 + index as f64 * 80.0,
+                    tree_to_mathml(&tree).unwrap(),
+                )
+            })
+            .collect();
+        let xml = worksheet_xml(&regions).unwrap();
+        let results = mathcraft_compat::evaluate_worksheet(&xml).unwrap();
+        let result = results.last().unwrap();
+        assert!(
+            result.error.is_none(),
+            "{texts:?}: {:?} XML: {xml}",
+            result.error
+        );
+        result
+            .value
+            .as_ref()
+            .expect("evaluation result")
+            .numeric_json()
+    }
+
+    #[test]
+    fn character_entry_through_mathml_calculator_respects_precedence_and_functions() {
+        for (text, expected) in [
+            ("2*3+4=", 10.0),
+            ("2+3*4=", 14.0),
+            ("(2+3)*4=", 20.0),
+            ("2*(3+4)=", 14.0),
+            ("8/4*2=", 4.0),
+            ("2^3^2=", 512.0),
+            ("-2^2=", -4.0),
+            ("2*-3+4=", -2.0),
+            ("sin(0)=", 0.0),
+            ("sqrt(9)=", 3.0),
+            ("abs(-3)=", 3.0),
+            ("1e-3+2=", 2.001),
+        ] {
+            let value = calculated(&[text]);
+            let actual = value["real"].as_f64().unwrap();
+            assert!(
+                (actual - expected).abs() < 1e-12,
+                "{text}: {actual} != {expected}"
+            );
+        }
+        assert_eq!(calculated(&["f(x):=x^2", "f(3)="])["real"], 9.0);
+        assert_eq!(calculated(&["f(x,y):=x*y+x", "f(2,3)="])["real"], 8.0);
+        let imaginary = calculated(&["2j+3="]);
+        assert_eq!(imaginary["real"], 3.0);
+        assert_eq!(imaginary["imag"], 2.0);
+    }
+
+    #[test]
+    fn character_entry_builds_rectangular_matrices_indices_and_ranges() {
+        let matrix = typed_one_character_at_a_time("[1,2;3,4]")
+            .to_portable()
+            .unwrap();
+        assert_eq!(matrix.kind, NodeKind::Matrix { rows: 2, cols: 2 });
+        assert_eq!(
+            matrix
+                .children
+                .iter()
+                .map(|cell| &cell.kind)
+                .collect::<Vec<_>>(),
+            vec![
+                &NodeKind::Number("1".into()),
+                &NodeKind::Number("2".into()),
+                &NodeKind::Number("3".into()),
+                &NodeKind::Number("4".into())
+            ]
+        );
+        let index = typed_one_character_at_a_time("A[1,0]")
+            .to_portable()
+            .unwrap();
+        assert_eq!(index.kind, NodeKind::Index { indices: 2 });
+        assert_eq!(
+            typed_one_character_at_a_time("1..3")
+                .to_portable()
+                .unwrap()
+                .kind,
+            NodeKind::Range { has_step: false }
+        );
+        let stepped = typed_one_character_at_a_time("1,3..7")
+            .to_portable()
+            .unwrap();
+        assert_eq!(stepped.kind, NodeKind::Range { has_step: true });
+        assert_eq!(stepped.children[2].kind, NodeKind::Number("7".into()));
+        let empty = typed_one_character_at_a_time("f()").to_portable().unwrap();
+        assert_eq!(empty.kind, NodeKind::Call { argument_count: 0 });
+        assert_eq!(empty.children.len(), 1);
+    }
+
+    #[test]
+    fn committed_text_event_undoes_implicit_multiplication_as_one_command() {
+        let mut editor = typed_one_character_at_a_time("2");
+        let before = editor.to_portable().unwrap();
+        assert!(input_text(&mut editor, "m"));
+        assert_eq!(
+            editor.to_portable().unwrap().kind,
+            NodeKind::Binary(BinaryOp::Multiply)
+        );
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert!(editor.redo());
+        assert!(input_text(&mut editor, "eters"));
+        assert_eq!(
+            atomic_text(&editor, editor.caret().node).as_deref(),
+            Some("meters")
+        );
+        assert!(editor.undo());
+        assert_eq!(
+            atomic_text(&editor, editor.caret().node).as_deref(),
+            Some("m")
+        );
+    }
+
+    #[test]
+    fn paste_is_one_edit_and_repeated_equals_still_requests_calculation() {
+        let mut editor = typed_one_character_at_a_time("8+");
+        let before = editor.to_portable().unwrap();
+        let root = editor.root();
+        let untouched = editor.arena().get(root).unwrap().children()[0];
+        let outcome = paste_tree_or_text_with_actions(&mut editor, "sqrt(4)+3=");
+        assert!(outcome.document_changed && outcome.evaluation_requested);
+        let after = editor.to_portable().unwrap();
+        assert!(editor.undo());
+        assert_eq!(editor.root(), root);
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(editor.arena().get(root).unwrap().children()[0], untouched);
+        assert!(editor.redo());
+        assert_eq!(editor.to_portable().unwrap(), after);
+        let caret = editor.caret();
+        assert_eq!(
+            paste_tree_or_text_with_actions(&mut editor, "="),
+            InputOutcome {
+                document_changed: false,
+                evaluation_requested: true,
+            }
+        );
+        assert_eq!(editor.caret(), caret);
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+
+    #[test]
+    fn typing_over_selected_compound_replaces_only_that_branch() {
+        let mut editor = typed_one_character_at_a_time("1+2/3");
+        let root = editor.root();
+        let children = editor.arena().get(root).unwrap().children().to_vec();
+        assert_eq!(
+            editor.arena().get(children[1]).unwrap().kind(),
+            &NodeKind::Fraction
+        );
+        editor.select_subtree(children[1]).unwrap();
+        let before = editor.to_portable().unwrap();
+        assert!(input_text(&mut editor, "x"));
+        assert_eq!(editor.root(), root);
+        let children_after = editor.arena().get(root).unwrap().children();
+        assert_eq!(children_after[0], children[0]);
+        assert_eq!(
+            editor.arena().get(children_after[1]).unwrap().kind(),
+            &NodeKind::Identifier("x".into())
+        );
+        assert!(editor.undo());
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(editor.selection(), Selection::Subtree(children[1]));
+        assert!(input_text(&mut editor, "7"));
+        assert_eq!(
+            editor.arena().get(editor.caret().node).unwrap().kind(),
+            &NodeKind::Number("7".into())
+        );
+        assert!(!editor.redo());
+    }
+
+    #[test]
+    fn typing_over_selected_number_does_not_make_a_unit_or_imaginary_product() {
+        for text in ["m", "i", "j"] {
+            let mut editor = typed_one_character_at_a_time("23");
+            editor.select_subtree(editor.root()).unwrap();
+            assert!(input_text(&mut editor, text));
+            assert_eq!(
+                editor.to_portable().unwrap().kind,
+                NodeKind::Identifier(text.into())
+            );
+            assert!(editor.undo());
+            assert_eq!(
+                editor.to_portable().unwrap().kind,
+                NodeKind::Number("23".into())
+            );
+        }
+    }
+
+    #[test]
+    fn structural_clipboard_and_delete_preserve_undo_and_other_branches() {
+        let source = typed_one_character_at_a_time("sin(2)+3");
+        let mut source = source;
+        source.select_subtree(source.root()).unwrap();
+        let clipboard = copy_tree(&source).unwrap();
+        let mut target = typed_one_character_at_a_time("1+4");
+        assert!(paste_tree_or_text(&mut target, &clipboard));
+        assert_eq!(
+            target.arena().get(target.root()).unwrap().kind(),
+            &NodeKind::Binary(BinaryOp::Add)
+        );
+        assert_eq!(
+            target
+                .arena()
+                .get(target.arena().get(target.root()).unwrap().children()[0])
+                .unwrap()
+                .kind(),
+            &NodeKind::Number("1".into())
+        );
+        let before = target.to_portable().unwrap();
+        assert!(!paste_tree_or_text(&mut target, "mathcraft-tree:{bad"));
+        assert_eq!(target.to_portable().unwrap(), before);
+        target.select_subtree(target.root()).unwrap();
+        assert!(delete_character(&mut target, true));
+        assert_eq!(
+            target.arena().get(target.root()).unwrap().kind(),
+            &NodeKind::Placeholder
+        );
+        assert!(target.undo());
+        assert_eq!(target.to_portable().unwrap(), before);
+        let mut fraction = typed_one_character_at_a_time("1/");
+        assert!(delete_character(&mut fraction, true));
+        assert_eq!(
+            fraction.to_portable().unwrap().kind,
+            NodeKind::Number("1".into())
+        );
+    }
+    #[test]
+    fn structural_navigation_exits_containers_and_never_wraps_at_formula_edges() {
+        let mut editor = typed_one_character_at_a_time("sin(12)");
+        let call = editor.root();
+        move_horizontal(&mut editor, false);
+        assert_eq!(atomic_text(&editor, editor.caret().node).unwrap(), "12");
+        move_horizontal(&mut editor, true);
+        assert_eq!(editor.caret().node, call);
+        assert_eq!(editor.caret().caret_side, Direction::Right);
+        move_horizontal(&mut editor, true);
+        assert_eq!(editor.caret().node, call);
+        let before = editor.to_portable().unwrap();
+        assert!(!delete_character(&mut editor, true));
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(atomic_text(&editor, editor.caret().node).unwrap(), "12");
+        let mut sum = typed_one_character_at_a_time("2+34");
+        let node = sum.caret().node;
+        sum.place_text_caret(node, 0).unwrap();
+        let before = sum.to_portable().unwrap();
+        assert!(!delete_character(&mut sum, true));
+        assert_eq!(sum.to_portable().unwrap(), before);
+    }
+
+    #[test]
+    fn native_identifier_subscript_and_i_j_survive_edit_and_clipboard() {
+        let mut editor = Editor::new();
+        let id = editor.root();
+        editor
+            .set_atom(
+                id,
+                NodeKind::NativeIdentifier {
+                    name: "f".into(),
+                    labels: "VARIABLE".into(),
+                    contextual: Some(true),
+                    subscript: Some("0".into()),
+                },
+            )
+            .unwrap();
+        input_text(&mut editor, "x");
+        assert_eq!(
+            editor.arena().get(id).unwrap().kind(),
+            &NodeKind::NativeIdentifier {
+                name: "fx".into(),
+                labels: "VARIABLE".into(),
+                contextual: Some(true),
+                subscript: Some("0".into())
+            }
+        );
+        let clipboard = copy_tree(&editor).unwrap();
+        let mut pasted = Editor::new();
+        assert!(paste_tree_or_text(&mut pasted, &clipboard));
+        assert_eq!(pasted.to_portable().unwrap(), editor.to_portable().unwrap());
+        assert_eq!(
+            typed_one_character_at_a_time("2j")
+                .to_portable()
+                .unwrap()
+                .kind,
+            NodeKind::ImaginarySymbol {
+                value: "2".into(),
+                symbol: "j".into()
+            }
+        );
+    }
+    #[test]
+    fn readonly_matrix_and_range_columns_keep_original_tree_and_hit_ids() {
+        let context = egui::Context::default();
+        let mut editor = typed_one_character_at_a_time("1=");
+        let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
+        let before = editor.to_portable().unwrap();
+        let before_caret = editor.caret();
+        let cells = vec!["1".into(), "200".into(), "3.5".into(), "4".into()];
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_display(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some(FormulaResult::Matrix {
+                    rows: 2,
+                    cols: 2,
+                    cells: &cells,
+                    brackets: true,
+                }),
+            );
+            let result = &layout.children[1].1;
+            assert!(result.children.is_empty());
+            assert!(result.atom.is_none());
+            let glyphs: Vec<_> = result
+                .primitives
+                .iter()
+                .filter_map(|p| match p {
+                    Primitive::Text(position, text) => {
+                        Some((*position, text.text().to_owned(), text_baseline(text)))
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(glyphs.len(), 4);
+            assert_eq!(glyphs[0].0.y + glyphs[0].2, glyphs[1].0.y + glyphs[1].2);
+            assert!(glyphs[2].0.y > glyphs[0].0.y);
+            assert!(glyphs[1].0.x > glyphs[0].0.x);
+            assert_eq!(
+                result
+                    .primitives
+                    .iter()
+                    .filter(|p| matches!(p, Primitive::Line(..)))
+                    .count(),
+                6
+            );
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            assert_eq!(hits.iter().filter(|hit| hit.node == rhs).count(), 1);
+            for (position, _, _) in &glyphs {
+                let point = layout.children[1].0.to_pos2() + *position + vec2(1.0, 1.0);
+                assert_eq!(hit_node(&hits, point).unwrap().node, rhs);
+            }
+            formula_ui_with_display(
+                ui,
+                &mut editor,
+                Some(FormulaResult::Matrix {
+                    rows: 2,
+                    cols: 2,
+                    cells: &cells,
+                    brackets: true,
+                }),
+                false,
+            );
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+        assert_eq!(editor.caret(), before_caret);
+        let column = vec!["1".into(), "2".into(), "3".into()];
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let output = measure_result(
+                ui.painter(),
+                rhs,
+                FormulaResult::Matrix {
+                    rows: 3,
+                    cols: 1,
+                    cells: &column,
+                    brackets: false,
+                },
+                FONT_SIZE,
+            );
+            assert_eq!(
+                output
+                    .primitives
+                    .iter()
+                    .filter(|p| matches!(p, Primitive::Text(..)))
+                    .count(),
+                3
+            );
+            assert!(
+                !output
+                    .primitives
+                    .iter()
+                    .any(|p| matches!(p, Primitive::Line(..)))
+            );
+            assert!(output.children.is_empty());
+        });
+        frame.drop_without_applying_deltas();
+    }
+
+    #[test]
+    fn readonly_matrix_prefix_keeps_unit_caret_at_its_actual_text_origin() {
+        let context = egui::Context::default();
+        let editor = typed_one_character_at_a_time("1=m");
+        let before = editor.to_portable().unwrap();
+        let rhs = editor.arena().get(editor.root()).unwrap().children()[1];
+        let cells = vec!["1".into(), "2".into()];
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_display(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some(FormulaResult::Matrix {
+                    rows: 2,
+                    cols: 1,
+                    cells: &cells,
+                    brackets: true,
+                }),
+            );
+            let unit = &layout.children[1].1;
+            assert!(unit.text_offset.x > 0.0);
+            assert!(unit.text_offset.y > 0.0);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            let hit = hits.iter().find(|hit| hit.node == rhs).unwrap();
+            assert_eq!(
+                hit.text_origin,
+                layout.children[1].0.to_pos2() + unit.text_offset
+            );
+            assert_eq!(
+                hit_node(&hits, layout.children[1].0.to_pos2() + vec2(5.0, 5.0))
+                    .unwrap()
+                    .node,
+                rhs
+            );
+            let unit_point = hit.text_origin + vec2(1.0, 1.0);
+            assert_eq!(hit_node(&hits, unit_point).unwrap().node, rhs);
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
+    }
+    #[test]
+    fn nested_definition_evaluation_receives_matrix_result_at_its_own_unit_slot() {
+        let context = egui::Context::default();
+        let mut tree = typed_one_character_at_a_time("x:=2").to_portable().unwrap();
+        let value = tree.children.pop().unwrap();
+        tree.children.push(PortableTree {
+            kind: NodeKind::Binary(BinaryOp::Evaluate),
+            children: vec![
+                value,
+                PortableTree {
+                    kind: NodeKind::AnnotatedIdentifier {
+                        name: "m".into(),
+                        labels: "UNIT".into(),
+                    },
+                    children: vec![],
+                },
+            ],
+        });
+        let editor = Editor::from_portable(&tree).unwrap();
+        let before = editor.to_portable().unwrap();
+        let cells = vec!["2".into(), "4".into()];
+        let frame = context.run_ui(egui::RawInput::default(), |ui| {
+            let layout = measure_with_display(
+                ui.painter(),
+                editor.arena(),
+                editor.root(),
+                FONT_SIZE,
+                Some(FormulaResult::Matrix {
+                    rows: 2,
+                    cols: 1,
+                    cells: &cells,
+                    brackets: true,
+                }),
+            );
+            let evaluation = &layout.children[1].1;
+            let unit = &evaluation.children[1].1;
+            let displayed: Vec<_> = unit
+                .primitives
+                .iter()
+                .filter_map(|p| match p {
+                    Primitive::Text(_, text) => Some(text.text()),
+                    _ => None,
+                })
+                .collect();
+            assert!(displayed.contains(&"2"));
+            assert!(displayed.contains(&"4"));
+            assert!(displayed.contains(&"m"));
+            assert!(unit.text_offset.x > 0.0);
+            let mut hits = vec![];
+            collect_hits(&layout, Pos2::ZERO, &mut hits);
+            assert!(
+                hits.iter()
+                    .all(|hit| editor.arena().get(hit.node).is_some())
+            );
+            let mut ids = std::collections::HashSet::new();
+            assert!(hits.iter().all(|hit| ids.insert(hit.node)));
+        });
+        frame.drop_without_applying_deltas();
+        assert_eq!(editor.to_portable().unwrap(), before);
     }
 }

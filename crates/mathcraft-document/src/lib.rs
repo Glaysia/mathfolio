@@ -6,6 +6,7 @@ use std::{
 };
 
 pub mod canvas;
+pub mod export;
 mod mcdx;
 pub mod native;
 pub use mcdx::import_mcdx;

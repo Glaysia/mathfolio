@@ -5,7 +5,11 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: 자유 배치 워크시트에서 구조 수식을 작성·편집·계산·저장하는 초기 통합. 원본 전체 호환은 미완료다.
+- 현재 단계: REA로 원본의 수식 작성·편집·계산 상태 전이를 추적하고 Rust에 연결 중. 원본 전체 호환은 미완료다.
+
+제품의 중심은 종이에 쓰듯 수식을 작성하고 고치는 경험이다. 계산 엔진은 그 흐름을 지탱한다. [작성 경험의 기준](docs/DESIGN.md)에 원본 근거와 구현·검증 범위를 연결했다.
+
+[계산 엔진 상태와 실행법](docs/ENGINE.md) · [원본 계산 바인딩 목록](docs/spec/mathcad12-engine-catalog.json)
 
 [개발 계획](docs/PLAN.md) · [환경 조사](docs/ENVIRONMENT.md) · [분석 기록 양식](docs/OBSERVATION_TEMPLATE.md)
 
@@ -26,14 +30,16 @@ cargo run -p mathcraft-cli --locked -- conformance tests/reference/mathcad12.jso
 cargo run -p mathcraft-cli --locked -- native-inspect INPUT.mcdx
 cargo run -p mathcraft-cli --locked -- native-copy INPUT.mcdx NEW.mcdx
 cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
+cargo run -p mathcraft-cli --locked -- features
+cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
 ```
 
 전체 검사는 Windows에서 `./scripts/check.ps1`, Linux에서 `bash scripts/check.sh`로 실행한다. 신규 환경 준비 절차와 검증 상태는 [개발 환경](docs/DEVELOPMENT.md)을 참고한다.
 
 ## 다음 작업
 
-1. 워크시트 안의 구조 수식 편집·단위·커서·선택을 원본 키 조작과 대조하고 확장.
-2. MathML 직접 실행의 범위·행렬·풀이 블록·상징 연산과 의존성 갱신 확장.
-3. MCDX 보존 계층에 편집·캐시 무효화·왕복 저장을 추가하고 원본 재열기 검증.
+1. 원본 편집 명령·선택·커서·라벨·피드백 상태를 REA로 추적하고 작성 시나리오에 연결.
+2. 편집→계산→수정→Undo→저장 흐름의 재현 테스트를 확대.
+3. Windows와 peets에서 GUI 없이 상태 전이·MathML·MCDX 및 기존 참조 결과를 검증.
 
 설치 프로그램과 원본 제품 바이너리는 Git 추적에서 제외한다.

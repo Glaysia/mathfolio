@@ -1218,6 +1218,7 @@ dependencies = [
  "mathcraft-compat",
  "mathcraft-core",
  "mathcraft-document",
+ "mathcraft-editor",
  "serde_json",
 ]
 
@@ -1245,6 +1246,7 @@ dependencies = [
 name = "mathcraft-document"
 version = "0.1.0"
 dependencies = [
+ "mathcraft-compat",
  "mathcraft-core",
  "mathcraft-editor",
  "num-complex",

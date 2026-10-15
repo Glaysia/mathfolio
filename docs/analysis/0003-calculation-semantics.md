@@ -196,3 +196,53 @@ TreeToRL의 관찰 범위도 명확히 한다. REA `mcfront12.tree.members.json`
 | 전체 재계산 | 필요 시 노드 잠금을 풀고 options 의존성을 바꿔 재계산 유발 | frontend 3482–3488. 식문자열만 cache key로 쓰면 누락 |
 
 정의는 numeric/symbolic/explicit 형태를 함께 관리하며 RHS action 생성은 한 번만 수행하는 경로가 있다(3187–3252행). 같은 변수에 대해 출력을 세 번 계산하는 것으로 구현하면 부작용·random·외부 데이터 입력이 달라질 수 있다. Rust의 공개 AST에는 정의/평가/단위 override/label/index/placeholder/region identity를 유지하고, 이 frontend와 **행동을 맞추는 독립 구현**을 해야 한다. PTC의 Lisp monad나 생성 코드를 옮기는 작업은 하지 않는다.
+
+### 2026-10-15: 구조 편집기와 독립 계산기의 결합 검증
+
+이 단계에서는 원본 프로그램, COM 및 GUI를 실행하지 않았다. 기존 정적 REA 증거와 사용자 문서 `detune.mcdx`를 읽기 전용으로 사용했다. 문서 SHA-256은 `bd4b329ce3cb2de848843c80e3bd42570022dc54a2c7d335f898c234151c1cbf`이다. 구현은 `mathcraft-compat/src/editor_bridge.rs`, `src/lib.rs`에 있으며 PTC의 소스나 생성 코드를 복제하지 않는다.
+
+해당 문서의 수학 영역은 66개이다. 최상위 정의 63개 중 47개의 RHS는 `eval`이고, 최상위 `eval`은 3개이므로 현재 수식에서 요청한 출력은 50개이다. 35개 `ws:math`에는 계산식 외에 `ws:resultFormat` 또는 `ws:formattingOverride`가 붙어 있다. 이 두 종류는 계산식과 분리한다. 편집 bridge는 수식만 반환하며, 원래 wrapper/표시 형제의 보존 책임은 원본 아카이브를 가진 문서 계층에 있다. `disable-calc`를 포함한 다른 wrapper 속성 및 모르는 형제는 조용히 제거하지 않고 오류로 반환한다. `ws:text`/`ws:image`만 가진 영역은 계산 노드에서 제외하며, 모르는 영역 종류는 여전히 명시적인 미지원이다.
+
+식별자는 라벨 문자열과 원래 `label-is-contextual` 여부, XAML `Span` 안의 문자와 PTC `Subscript`를 구조적으로 보존한다. XAML은 inert XML로 읽으며 실행하지 않는다. 계산에서 literal subscript를 단순 `_` 문자열로 합치면 `Z`의 literal subscript `in`과 이름 자체가 `Z_in`인 식별자가 충돌한다. 현재 독립 구현은 XML 식별자에 나타날 수 없는 내부 구분자를 사용해 이 두 identity를 구분한다. 지원하지 않는 rich identifier 속성/중첩은 raw XML 보존용 오류를 낸다. `ml:imag`의 `symbol="i"`/`"j"`도 보존한다. 원본 문서에 명시된 라벨은 계산에서도 그대로 사용한다. 편집 후 contextual label 전체를 다시 추론하는 Prime의 wildcard 정책을 구현한 것은 아니다.
+
+정의 즉시 평가의 구현 계약은 `a:=a+1=`의 RHS를 이전 환경에서 한 번만 평가한 뒤 새 binding을 저장하고, 그 저장된 값을 출력하는 것이다. 예를 들어 이전 `a=2`일 때 저장값과 표시값은 모두 3이어야 하며 4가 되면 안 된다. `distance:=2 m=cm`은 canonical binding을 `2 m`로 유지하고 표시 payload만 `200`으로 만든다. 뒤의 `distance=`도 `2 m`이다. 함수의 free identifier는 정의 시점 snapshot을 참조한다. `a:=2; f(m,s):=a*m+s; a:=3; f(4,1)=`의 결과는 9이다. 신규 입력의 파라미터 `m`, `s`는 변수로 분류하여 기본 단위와 구분한다. 이는 제한된 독립 자동 라벨 정책이며 전체 Prime inference와 같다는 주장이 아니다.
+
+추가한 scalar 함수는 `sin`, `cos`, `tan`, `ln`, `log`(10 기반), `exp`, `sqrt`, `abs`, `re`, `im`, `conj`이다. 복소수와 물리 차원을 보존하며, 삼각/로그/지수 함수에는 무차원 검사를 적용한다. `re`/`im`/`conj`/`abs`는 입력의 차원을 유지한다. 사용자 함수는 같은 라벨 identity의 기본 함수보다 우선하며, 실패한 사용자 정의도 기본 함수로 되돌리지 않고 오류를 전파한다. 함수명 identity를 읽을 수 있으면 잘못된 파라미터 선언도 실패한 binding을 남겨 기존 함수가 계속 실행되지 않게 한다. 이 함수들의 기본 수치 검사는 독립 구현 회귀 테스트이며 원본에서 새로 실행한 oracle은 아니다. 행렬의 일반 산술, solver, symbolic, 전체 범위 반복을 지원한다고 해석하면 안 된다.
+
+검증 결과:
+
+- `cargo test -p mathcraft-compat --locked`: 24개 테스트 통과. 기존 38개 원본 synthetic reference case를 검사하는 테스트도 포함한다.
+- `cargo clippy -p mathcraft-compat --locked --all-targets -- -D warnings`: 통과.
+- 원본 문서의 수학 66개를 `PortableTree`로 읽고 MathML로 저장한 뒤 다시 읽었을 때 66개 모두 구조가 동일하다.
+- 이 66개 저장 수식을 별도의 새 테스트 MCDX에 넣어 독립 Rust로 재계산한 전체 영역 JSON은 원래 수식 입력을 계산한 JSON과 동일하다. geometry, resultRef, 오류, canonical/display 값도 포함한다.
+- 독립 계산에서 수학 영역 66개의 오류는 0개, 현재 요청된 출력은 50개이다. 계산에 원본 저장 캐시는 사용하지 않았다.
+- 원본 저장 캐시에는 숫자 결과가 51개 있다. 현재 출력이 있는 50개는 비교 시 united result의 canonical 값과 무단위 display payload를 구분하면 모두 일치한다(절대 허용치 `1e-12`, 상대 허용치 `1e-8`). 남은 result14는 현재 소스의 출력 요청이 없는 `M` 정의에 붙은 과거 증거로 보존하며 신규 출력/성공으로 세지 않는다.
+
+재현 자료는 ignored `artifacts/rea/calculation-deep/verify-detune-expanded.py`, `detune-expanded-verification.json`, `detune-independent-expanded.json`, `detune-bridge-roundtrip.json`, `detune-bridge-recalculated.json`에 있다. **저장 캐시와의 50/50 일치는 원본 엔진의 신규 실행과 비교한 정합성 결과가 아니다.** 전체 제품 호환을 입증하지 않는다.
+
+### 행렬 순서의 확인 범위
+
+K의 `XmcdToIResultNodeTransform.BuildMatrix`(`0x0600022e`, CIL 시작 파일 offset 14712)는 rows/cols를 읽어 eager matrix를 만들고 `AddElementsToMatrix`로 채운다. `AddElementsToMatrix`(`0x06000234`, 시작 15856)의 IL_0014..001e는 `(row,column,convertedChild)`로 `IEagerMatrixResultNode.SetElementAt`(`0x06000127`)을 호출한다. IL_0023..0035는 row를 증가시키고 `Rows`에 도달하면 column을 증가시키며 row를 0으로 되돌린다. 따라서 **결과 XML**의 linear children은 column-major이다. 새 decode 자료는 기존 K의 REA metadata와 원본 method byte hash를 재사용한 `calculation-core-members.json.full-il.json`에 있다.
+
+이 결과 경로만으로 입력 식 MathML의 일반 행렬 순서까지 단정하지 않고, 다음의 별도 shipped example을 확인했다. `Help/en/PTC_Mathcad_Help/example_matrix_algebra.html:40–56`의 Math50 입력 matrix는 flat child를 `0,3,5,1,0,3,2,2,1`로 저장한다. 함께 설치된 `images/example_matrix_algebra0.png`를 직접 읽으면 행은 `(0,1,2)`, `(3,0,2)`, `(5,3,1)`이다. **따라서 입력 식 XML도 column-major이다.** 이 근거로 bridge의 XML↔editor 변환과 계산기 입력 변환을 확장했다. editor와 `Value::Matrix.elements`는 row-major이고, 원본 결과 비교용 `numeric_json()`만 column-major로 만든다. `A:=[1,2;3,4]; A[1,0]=`은 ORIGIN=0에서 3이고 SYSTEM ORIGIN=1이면 `A[2,1]=`이 3이다. 단일 index는 원본 `index_operator.html:49–80`에서 명시한 column vector에만 허용한다. 일반 행렬 산술이나 index LHS 정의는 아직 미지원이다.
+
+### 범위 값과 top-level 반복 평가의 제한된 지원
+
+shipped `example_using_range_variables_in_plots.html:145–153`의 입력 구조는 `range(sequence(start,second),end)`이다. step 없는 경우는 `range(start,end)`이다. `range_operators.html:55–102`는 기본 step=1, 명시한 second에서 step=`second-start`, 실수 bounds, 차원이 있으면 second 필수, endpoint가 step의 정수배가 아니면 마지막 endpoint 전에 멈춤을 설명한다. `range_variables.html:66–90`은 range가 vector가 아니며 일반 변수 정의 RHS의 scalar 대신 쓸 수 없다고 명시한다. `images/range_variable3.png`는 i=0..2의 평가를 괄호 없는 column `0,1,2`로, `range_variable8.png`는 `i+1=`을 괄호 없는 column `1,2,3`으로 표시한다.
+
+독립 구현은 `Value::Range {start,step,end,count}`를 별도 타입으로 유지한다. scalar/matrix로 자동 변환하지 않는다. `Statement::Evaluate`에서 식이 한 개의 named range에 직접 의존하면 snapshot을 복제하여 각 점의 scalar binding을 대입하고 `Value::RangeValues {elements}`로 출력한다. 예를 들어 `i:=0..2; i+1=`은 `1,2,3`이고, `f(x):=x^2; f(i)=`는 `0,1,4`이다. 일반 `j:=i+1`은 여전히 scalar 오류/미지원이며 range alias도 허용하지 않는다. 서로 다른 range 두 개의 cartesian 순서, 사용자 함수의 captured free range 내부까지 추적하는 암묵 반복, index LHS 반복, symbolic 반복은 구현하지 않고 오류로 알린다. 직접 입력된 range의 범위는 최대 16,384개이며, 반대 방향으로 정의된 step이나 비유한 cardinality도 미지원으로 남긴다. 부동소수점의 정수 endpoint 부근에는 작은 rounding 허용치를 두는 독립 정책이며 원본의 정확한 rounding 계약은 아직 확인하지 않았다.
+
+shipped HTML/PNG 전체 해시와 선택 범위 해시는 ignored `artifacts/rea/calculation-deep/shipped-help-structures-identities.json`에 기록했다. 이 자료는 설치된 도움말의 정적 증거이며 이번 단계에서 새 원본 실행은 하지 않았다. 원문 도움말/이미지/프로그램 소스는 저장소에 복제하지 않는다.
+
+재확인용 핵심 SHA-256:
+
+| 설치 도움말의 상대 경로 | SHA-256 |
+|---|---|
+| `example_matrix_algebra.html` | `983fea74e45014f51d1adc9469956cf67babd841944207319e14239b457bb064` |
+| `images/example_matrix_algebra0.png` | `483c71ac76d242ab7294574bce687171b2e053f59a5bb4ff3dc7c67f363f0d1b` |
+| `example_using_range_variables_in_plots.html` | `389d13171f85199e803465ef1c347509a3eec2cb43ce51c3bd02b63c6b5726a1` |
+| `range_variables.html` | `4d2244201e63f926eb3094d5f8e2b74f1ef6fea7557036c76ca404bc939bb71b` |
+| `range_operators.html` | `88c8276521d5db8e8f53e29db0c193a9eb98c4e654c3e8021960761ed6acbe32` |
+| `index_operator.html` | `3d5997e15472d892c1c55026410eef52d751ccfb6d06f22d03a587d14f8cb2ad` |
+| `images/range_variable3.png` | `e24154cb9158dc3bd9772567bd1a669ea92b3e3e684aeaac3f2b39815858cf32` |
+| `images/range_variable8.png` | `94b4c5c8cba4583f1fd282760770198365122aa4b4f48ca22411284d56d109ac` |

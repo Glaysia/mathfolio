@@ -194,3 +194,26 @@ K `WorksheetPageLayout.SetupDefaultPageSizeInformation` (`0x0600087e`)은 **종�
 제품의 자원 제한: 영역 4,096개, 단일 텍스트 1 MiB, 전체 텍스트 8 MiB, 전체 수식 노드 65,536개, 캔버스 수식 깊이 48. 깊이 제한은 serde_json의 bounded parser로 저장 후 다시 읽기가 가능하게 하려는 정책이며 원본 제품의 한계가 아니다. 유효한 PortableTree 구조, 유한 좌표·양의 문서 크기/grid, 중복되지 않는 ID와 next_id도 검증한다.
 
 synthetic 테스트 6개를 추가해 수식·label·배치·opaque XML·원본 archive bytes의 저장/열기, 교체 저장, 중간값 snap, 실패한 이동의 원자성, invalid 저장과 rename 실패 시 이전 파일 보존/임시 파일 정리, 잘못된 버전/ID/트리/예산 거부, 지원 최대 깊이의 저장 왕복을 확인했다. `cargo test -p mathcraft-document --offline` 전체 19개 및 `cargo clippy -p mathcraft-document --all-targets --locked -- -D warnings` 통과. 원본 앱 실행·GUI·COM은 사용하지 않았다.
+
+## 후속 구현: 지원 범위의 편집 내용을 새 MCDX로 내보내기
+
+`crates/mathcraft-document/src/export.rs`의 `export_mcdx(&CanvasDocument, &Path)` 및 `CanvasDocument::export_mcdx`가 편집 내보내기 API다. `NativePackage::from_bytes`로 캔버스의 원본 ZIP을 파일 추출 없이 검사한다. 출력은 새 `.mcdx`만 생성하고 이미 존재하는 모든 경로를 거부한다. 원본 앱·COM·GUI를 실행하지 않았다.
+
+원본 archive가 있는 경우:
+
+- `source_region`을 원본의 최상위 region-id와 대응한다. 최상위 영역의 이동, 지원하는 수식/텍스트 편집, 삭제 및 새 수식/텍스트 추가를 반영한다. 잘못된/중복된 출처 참조는 거부한다.
+- 수정할 수식은 `ws:math` 내부의 Math50 표현식만 바꾼다. 원래 영역의 알 수 없는 속성, math wrapper 속성, resultFormat/formattingOverride 같은 표시용 sibling을 보존한다. 수식이 달라지면 이전 actualWidth/actualHeight 측정값을 제거한다. 새 resultRef는 별도 결과 ID 공간에서 할당한다.
+- 수정하지 않은 plain-text 내용은 기존 rich XAML package와 관계 part를 바이트 그대로 보존한다. 수정된 텍스트/추가 텍스트는 독립적으로 작성한 FlowDocument XAML package와 새 관계를 만든다. 오래된 관계·원본 payload·알 수 없는 part를 임의로 제거하지 않는다. embedded region이 있는 텍스트의 직접 편집은 거부한다.
+- Area 등 opaque 영역의 자식 XML은 보존하고 최상위 위치를 수정한다. flat canvas에서 자식 영역을 직접 편집하는 것은 지원 범위가 아니다. 원본 컨텍스트가 없는 새 opaque 영역의 추가도 거부한다.
+- 알려진 결과 문서 `resultsList`의 기존 결과를 Pending으로 바꾸고 계산값·symbolic/plot 결과·기존 오류/재정의 경고를 제거한다. 수정/추가 수식에 새 Pending 항목을 만든다. 오래된 숫자 캐시를 새로운 계산 결과로 재사용하지 않는다. 알 수 없는 future XML 자식을 제거해서 현 스키마에 억지로 맞추지는 않는다.
+- 수정하지 않은 ZIP part의 바이트·압축·관계는 그대로 유지한다. 수정된 XML part도 원래 UTF-8/UTF-16 인코딩을 유지한다. 원본 XML comment, 표시 sibling, 알 수 없는 바이너리 payload 보존을 synthetic 테스트로 확인했다.
+
+원본 archive가 없는 경우 자체 최소 OPC 패키지를 생성한다. worksheet/header/footer, calculation/presentation 설정, Pending results, Mathcraft로 식별하는 app metadata, core title, content types와 관계를 작성한다. 실제 Prime의 스타일/폰트/프로그램 자원을 복사하지 않는다. 현재 신규 문서는 관찰된 Letter/A4 Standard/Fine grid로 제한한다. 사용자 지정 인쇄/페이지 모델 전체를 구현한 것은 아니다.
+
+검증 결과:
+
+- exporter 테스트 4개를 추가했고 document crate 전체 23개 테스트 및 Clippy `-D warnings`를 통과했다. source 수정 테스트는 MathML/좌표/텍스트 변경, 삭제/추가, 중첩 opaque 보존, 기존 관계 유지, 모든 알려진 cache의 Pending/값 삭제, 원본 불변, overwrite 거부를 확인한다. UTF-16과 표시 sibling 보존도 검사한다.
+- 독립 신규 fixture `new.mcdx`와 지원 구조의 편집 fixture `edited-valid.mcdx`는 각각 worksheet/header/footer/result/calculation/presentation/app **7개 part 모두** 실제 배포 DLL에서 확보한 XSD로 검증을 통과했다. System.Xml.Schema.XmlSchemaSet으로 스키마 10개를 컴파일했고 네트워크 schema resolution을 차단했다. 근거: ignored `artifacts/rea/document-deep/export-tests/schema-validation.json`, 재현 스크립트 `validate-schema.ps1`.
+- 별도의 unknown-future 보존 fixture `edited.mcdx`에는 의도적으로 현 스키마가 모르는 `urn:unknown:future` 자식을 넣었다. 그 두 결과 part는 현 XSD에서 거부되며, exporter가 해당 알 수 없는 자식을 지우지 않았음을 테스트한다. 이 fixture까지 모두 XSD 유효하다고 보고하지 않는다.
+
+**남은 검증:** Mathcad Prime에서 실제로 다시 열고 편집/재계산하는 검증은 수행하지 않았다. XSD 통과는 제품 런타임 호환성과 같지 않다. 중첩 영역 직접 편집, 고급 서식 편집, 외부 객체 수정, 임의의 페이지/인쇄 모델을 포함한 완전한 Mathcad 편집 왕복은 아직 완료되지 않았다.

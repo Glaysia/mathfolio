@@ -23,6 +23,7 @@ pub enum BinaryOp {
     Add,
     Subtract,
     Multiply,
+    Scale,
     InlineDivide,
     Define,
     Evaluate,
@@ -33,8 +34,41 @@ pub enum BinaryOp {
 pub enum NodeKind {
     Placeholder,
     Identifier(String),
-    AnnotatedIdentifier { name: String, labels: String },
+    AnnotatedIdentifier {
+        name: String,
+        labels: String,
+    },
+    NativeIdentifier {
+        name: String,
+        labels: String,
+        contextual: Option<bool>,
+        subscript: Option<String>,
+    },
     Number(String),
+    Imaginary(String),
+    ImaginarySymbol {
+        value: String,
+        symbol: String,
+    },
+    UnaryNeg,
+    Root,
+    Absolute,
+    Call {
+        argument_count: usize,
+    },
+    Function {
+        parameter_count: usize,
+    },
+    Matrix {
+        rows: usize,
+        cols: usize,
+    },
+    Index {
+        indices: usize,
+    },
+    Range {
+        has_step: bool,
+    },
     Binary(BinaryOp),
     Fraction,
     Power,
@@ -48,13 +82,25 @@ impl NodeKind {
             Self::Placeholder
             | Self::Identifier(_)
             | Self::AnnotatedIdentifier { .. }
-            | Self::Number(_) => i32::MAX,
+            | Self::NativeIdentifier { .. }
+            | Self::Number(_)
+            | Self::Imaginary(_)
+            | Self::ImaginarySymbol { .. } => i32::MAX,
             Self::Binary(BinaryOp::Define) => 10,
             Self::Binary(BinaryOp::Evaluate) => 20,
             Self::Binary(BinaryOp::Add | BinaryOp::Subtract) => 100,
             Self::Binary(BinaryOp::Multiply | BinaryOp::InlineDivide) => 140,
+            Self::Binary(BinaryOp::Scale) => 142,
             Self::Fraction => 143,
+            Self::UnaryNeg => 150,
             Self::Power => 160,
+            Self::Index { .. } => 170,
+            Self::Root => 180,
+            Self::Absolute => 190,
+            Self::Range { has_step: false } => 50,
+            Self::Range { has_step: true } => 51,
+            Self::Call { .. } | Self::Function { .. } => 300,
+            Self::Matrix { .. } => 200,
             Self::Group => 299,
         }
     }
@@ -62,11 +108,24 @@ impl NodeKind {
     pub fn descriptor_name(&self) -> &'static str {
         match self {
             Self::Placeholder => "PLACEHOLDER",
-            Self::Identifier(_) | Self::AnnotatedIdentifier { .. } => "IDENTIFIER",
+            Self::Identifier(_)
+            | Self::AnnotatedIdentifier { .. }
+            | Self::NativeIdentifier { .. } => "IDENTIFIER",
             Self::Number(_) => "NUMERIC",
+            Self::Imaginary(_) | Self::ImaginarySymbol { .. } => "NUMERIC",
+            Self::UnaryNeg => "NEGATION",
+            Self::Root => "NTHROOT",
+            Self::Absolute => "ABSOLUTEVALUE",
+            Self::Call { .. } => "APPLY",
+            Self::Function { .. } => "FUNCTION_DEFINITION",
+            Self::Matrix { .. } => "MATRIX",
+            Self::Index { .. } => "MATRIX_INDEX",
+            Self::Range { has_step: false } => "RANGE",
+            Self::Range { has_step: true } => "STEPRANGE",
             Self::Binary(BinaryOp::Add) => "ADDITION",
             Self::Binary(BinaryOp::Subtract) => "SUBTRACTION",
             Self::Binary(BinaryOp::Multiply) => "MULTIPLICATION",
+            Self::Binary(BinaryOp::Scale) => "SCALE",
             Self::Binary(BinaryOp::InlineDivide) => "INLINE_DIVISION",
             Self::Binary(BinaryOp::Define) => "DEFINITION",
             Self::Binary(BinaryOp::Evaluate) => "EVALUATION",
@@ -81,16 +140,33 @@ impl NodeKind {
             Self::Placeholder
             | Self::Identifier(_)
             | Self::AnnotatedIdentifier { .. }
-            | Self::Number(_) => 0,
-            Self::Group => 1,
-            Self::Binary(_) | Self::Fraction | Self::Power => 2,
+            | Self::NativeIdentifier { .. }
+            | Self::Number(_)
+            | Self::Imaginary(_)
+            | Self::ImaginarySymbol { .. } => 0,
+            Self::Group | Self::UnaryNeg | Self::Absolute => 1,
+            Self::Binary(_) | Self::Fraction | Self::Power | Self::Root => 2,
+            Self::Call { argument_count } => argument_count.saturating_add(1),
+            Self::Function { parameter_count } => parameter_count.saturating_add(1),
+            Self::Matrix { rows, cols } => rows.checked_mul(*cols).unwrap_or(usize::MAX),
+            Self::Index { indices } => indices.saturating_add(1),
+            Self::Range { has_step } => {
+                if *has_step {
+                    3
+                } else {
+                    2
+                }
+            }
         }
     }
 
     fn text(&self) -> Option<&str> {
         match self {
-            Self::Identifier(text) | Self::Number(text) => Some(text),
-            Self::AnnotatedIdentifier { name, .. } => Some(name),
+            Self::Identifier(text) | Self::Number(text) | Self::Imaginary(text) => Some(text),
+            Self::AnnotatedIdentifier { name, .. } | Self::NativeIdentifier { name, .. } => {
+                Some(name)
+            }
+            Self::ImaginarySymbol { value, .. } => Some(value),
             _ => None,
         }
     }
@@ -161,6 +237,8 @@ impl PortableTree {
                 }
                 match &node.kind {
                     NodeKind::Number(_)
+                    | NodeKind::Imaginary(_)
+                    | NodeKind::ImaginarySymbol { .. }
                         if text
                             .parse::<f64>()
                             .ok()
@@ -168,7 +246,9 @@ impl PortableTree {
                     {
                         return Err(TreeError::InvalidNumber);
                     }
-                    NodeKind::Identifier(_) | NodeKind::AnnotatedIdentifier { .. }
+                    NodeKind::Identifier(_)
+                    | NodeKind::AnnotatedIdentifier { .. }
+                    | NodeKind::NativeIdentifier { .. }
                         if text.trim().is_empty() || text.chars().any(char::is_control) =>
                     {
                         return Err(TreeError::InvalidIdentifier);
@@ -176,7 +256,32 @@ impl PortableTree {
                     _ => {}
                 }
             }
-            if let NodeKind::AnnotatedIdentifier { labels, .. } = &node.kind {
+            if matches!(
+                node.kind,
+                NodeKind::Matrix { rows: 0, .. }
+                    | NodeKind::Matrix { cols: 0, .. }
+                    | NodeKind::Index { indices: 0 }
+            ) {
+                return Err(TreeError::InvalidTree(
+                    "empty matrix dimensions or zero index count",
+                ));
+            }
+            if let NodeKind::ImaginarySymbol { symbol, .. } = &node.kind
+                && !matches!(symbol.as_str(), "i" | "j")
+            {
+                return Err(TreeError::InvalidNumber);
+            }
+            if let NodeKind::NativeIdentifier {
+                subscript: Some(text),
+                ..
+            } = &node.kind
+                && (text.len() > MAX_ATOM_BYTES || text.chars().any(char::is_control))
+            {
+                return Err(TreeError::InvalidIdentifier);
+            }
+            if let NodeKind::AnnotatedIdentifier { labels, .. }
+            | NodeKind::NativeIdentifier { labels, .. } = &node.kind
+            {
                 if labels.len() > MAX_ATOM_BYTES {
                     return Err(TreeError::TextTooLong);
                 }
@@ -306,6 +411,14 @@ struct Snapshot {
     root: NodeId,
     caret: Caret,
     selection: Selection,
+    scope: Option<ScopeState>,
+}
+
+#[derive(Clone, Debug)]
+struct ScopeState {
+    origin: Caret,
+    direction: Direction,
+    history: Vec<(Caret, Selection)>,
 }
 
 #[derive(Clone, Debug)]
@@ -314,6 +427,9 @@ pub struct Editor {
     root: NodeId,
     caret: Caret,
     selection: Selection,
+    scope: Option<ScopeState>,
+    edit_group_depth: usize,
+    edit_group_checkpointed: bool,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
 }
@@ -349,6 +465,30 @@ impl Editor {
         Ok(tree)
     }
 
+    pub fn export_subtree(&self, node: NodeId) -> Result<PortableTree, TreeError> {
+        let mut count = 0;
+        let tree = export_node(&self.arena, node, 1, &mut count)?;
+        tree.validate()?;
+        Ok(tree)
+    }
+
+    pub fn replace_selection(&mut self, tree: &PortableTree) -> Result<(), TreeError> {
+        tree.validate()?;
+        let target = self.target();
+        let parent = self
+            .arena
+            .get(target)
+            .ok_or(TreeError::InvalidTree("missing target"))?
+            .parent;
+        self.checkpoint();
+        let imported = import_node(&mut self.arena, tree);
+        self.replace_child(parent, target, imported);
+        self.retire(target, None);
+        self.caret = Caret::at(first_leaf(&self.arena, imported), Direction::Right);
+        self.selection = Selection::None;
+        Ok(())
+    }
+
     /// Validate before mutating. A successful import is one undoable operation.
     pub fn load_portable(&mut self, tree: &PortableTree) -> Result<(), TreeError> {
         tree.validate()?;
@@ -371,6 +511,9 @@ impl Editor {
             root,
             caret: Caret::at(root, Direction::Indeterminate),
             selection: Selection::None,
+            scope: None,
+            edit_group_depth: 0,
+            edit_group_checkpointed: false,
             undo: vec![],
             redo: vec![],
         }
@@ -378,6 +521,29 @@ impl Editor {
 
     pub fn arena(&self) -> &Arena {
         &self.arena
+    }
+
+    /// One user command may perform many primitive mutations (for example
+    /// plain-text paste). The original paste path uses a CompoundCommand;
+    /// this nested Rust grouping API is our independent implementation of that
+    /// atomic undo contract. Navigation-only groups do not touch undo/redo.
+    /// Undo/redo is unavailable inside a group. A panic unwinds the group state
+    /// and leaves any partial mutation available as one undoable command.
+    pub fn edit_group<R>(&mut self, edit: impl FnOnce(&mut Self) -> R) -> R {
+        let outer = self.edit_group_depth == 0;
+        if outer {
+            self.edit_group_checkpointed = false;
+        }
+        self.edit_group_depth += 1;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| edit(self)));
+        self.edit_group_depth -= 1;
+        if outer {
+            self.edit_group_checkpointed = false;
+        }
+        match result {
+            Ok(value) => value,
+            Err(payload) => std::panic::resume_unwind(payload),
+        }
     }
     pub fn root(&self) -> NodeId {
         self.root
@@ -393,6 +559,7 @@ impl Editor {
         self.arena.get(node).ok_or(EditError::MissingNode)?;
         self.caret = Caret::at(node, side);
         self.selection = Selection::None;
+        self.scope = None;
         Ok(())
     }
 
@@ -424,6 +591,7 @@ impl Editor {
     pub fn select_subtree(&mut self, node: NodeId) -> Result<(), EditError> {
         self.arena.get(node).ok_or(EditError::MissingNode)?;
         self.selection = Selection::Subtree(node);
+        self.scope = None;
         Ok(())
     }
 
@@ -447,7 +615,8 @@ impl Editor {
         };
     }
 
-    /// Independent wrapping policy: selection (or current node) becomes numerator.
+    /// Independent whole-subtree wrapping policy: preserve the operand on the
+    /// scoped side (numerator for Right, denominator for Left).
     pub fn insert_fraction(&mut self) -> NodeId {
         self.wrap_binary(NodeKind::Fraction)
     }
@@ -462,6 +631,370 @@ impl Editor {
         self.wrap_binary(NodeKind::Binary(op))
     }
 
+    /// Independent linear-entry policy using recovered binding powers. Explicit
+    /// selections and container boundaries take priority over automatic climbing.
+    pub fn insert_infix(&mut self, op: BinaryOp) -> NodeId {
+        self.checkpoint();
+        self.prepare_infix(&NodeKind::Binary(op));
+        self.wrap_binary_inner(NodeKind::Binary(op))
+    }
+
+    pub fn insert_fraction_infix(&mut self) -> NodeId {
+        self.checkpoint();
+        self.prepare_infix(&NodeKind::Fraction);
+        self.wrap_binary_inner(NodeKind::Fraction)
+    }
+
+    pub fn insert_power_infix(&mut self) -> NodeId {
+        self.checkpoint();
+        self.prepare_infix(&NodeKind::Power);
+        self.wrap_binary_inner(NodeKind::Power)
+    }
+
+    fn prepare_infix(&mut self, incoming: &NodeKind) {
+        if self.selection != Selection::None {
+            return;
+        }
+        let mut target = self.caret.node;
+        while let Some(parent) = self.arena.get(target).unwrap().parent {
+            let node = self.arena.get(parent).unwrap();
+            let infix = matches!(node.kind, NodeKind::Binary(op) if !matches!(op, BinaryOp::Define | BinaryOp::Evaluate))
+                || matches!(
+                    node.kind,
+                    NodeKind::Fraction
+                        | NodeKind::Power
+                        | NodeKind::UnaryNeg
+                        | NodeKind::Range { .. }
+                );
+            let stronger = node.kind.precedence() > incoming.precedence()
+                || (node.kind.precedence() == incoming.precedence()
+                    && !matches!(incoming, NodeKind::Power));
+            if !infix || node.children.last() != Some(&target) || !stronger {
+                break;
+            }
+            target = parent;
+        }
+        self.selection = Selection::Subtree(target);
+    }
+
+    pub fn insert_unary_neg(&mut self) -> NodeId {
+        self.wrap_unary(NodeKind::UnaryNeg)
+    }
+    pub fn insert_absolute(&mut self) -> NodeId {
+        self.wrap_unary(NodeKind::Absolute)
+    }
+
+    fn wrap_unary(&mut self, kind: NodeKind) -> NodeId {
+        self.checkpoint();
+        let target = self.target();
+        let parent = self.arena.get(target).unwrap().parent;
+        let node = self.arena.allocate(kind, vec![target]);
+        self.replace_child(parent, target, node);
+        self.caret = Caret::at(target, Direction::Right);
+        self.selection = Selection::None;
+        node
+    }
+
+    pub fn insert_root(&mut self) -> NodeId {
+        self.checkpoint();
+        let target = self.target();
+        let parent = self.arena.get(target).unwrap().parent;
+        let degree = self.arena.allocate(NodeKind::Number("2".into()), vec![]);
+        let root = self.arena.allocate(NodeKind::Root, vec![degree, target]);
+        self.replace_child(parent, target, root);
+        self.caret = Caret::at(target, Direction::Right);
+        self.selection = Selection::None;
+        root
+    }
+
+    pub fn insert_call(&mut self) -> NodeId {
+        self.wrap_binary(NodeKind::Call { argument_count: 1 })
+    }
+
+    pub fn insert_index(&mut self) -> NodeId {
+        self.wrap_binary(NodeKind::Index { indices: 1 })
+    }
+
+    pub fn insert_range(&mut self) -> NodeId {
+        self.checkpoint();
+        self.prepare_infix(&NodeKind::Range { has_step: false });
+        self.wrap_binary_inner(NodeKind::Range { has_step: false })
+    }
+
+    pub fn insert_step_range(&mut self) -> NodeId {
+        self.checkpoint();
+        let target = self.target();
+        let parent = self.arena.get(target).unwrap().parent;
+        let second = self.arena.allocate(NodeKind::Placeholder, vec![]);
+        let end = self.arena.allocate(NodeKind::Placeholder, vec![]);
+        let range = self.arena.allocate(
+            NodeKind::Range { has_step: true },
+            vec![target, second, end],
+        );
+        self.replace_child(parent, target, range);
+        self.caret = Caret::at(second, Direction::Indeterminate);
+        self.selection = Selection::None;
+        range
+    }
+
+    /// Append a call/index argument, or move through an existing stepped range.
+    pub fn append_argument(&mut self) -> bool {
+        let mut here = self.caret.node;
+        while let Some(parent) = self.arena.get(here).unwrap().parent {
+            let kind = self.arena.get(parent).unwrap().kind.clone();
+            let next = match kind {
+                NodeKind::Call { argument_count } => NodeKind::Call {
+                    argument_count: argument_count + 1,
+                },
+                NodeKind::Function { parameter_count } => NodeKind::Function {
+                    parameter_count: parameter_count + 1,
+                },
+                NodeKind::Index { indices } => NodeKind::Index {
+                    indices: indices + 1,
+                },
+                NodeKind::Matrix { cols, .. } => {
+                    let children = &self.arena.get(parent).unwrap().children;
+                    let index = children.iter().position(|id| *id == here).unwrap();
+                    if index % cols + 1 < cols
+                        && self.arena.get(children[index + 1]).unwrap().kind
+                            == NodeKind::Placeholder
+                    {
+                        self.caret = Caret::at(children[index + 1], Direction::Indeterminate);
+                        self.selection = Selection::None;
+                        return true;
+                    }
+                    return self.append_matrix_column(parent);
+                }
+                _ => {
+                    here = parent;
+                    continue;
+                }
+            };
+            self.checkpoint();
+            let arg = self.arena.allocate(NodeKind::Placeholder, vec![]);
+            self.arena.node_mut(arg).parent = Some(parent);
+            self.arena.node_mut(parent).children.push(arg);
+            self.arena.node_mut(parent).kind = next;
+            self.caret = Caret::at(arg, Direction::Indeterminate);
+            self.selection = Selection::None;
+            return true;
+        }
+        false
+    }
+
+    pub fn insert_matrix(&mut self, rows: usize, cols: usize) -> Option<NodeId> {
+        if rows == 0 || cols == 0 || rows.checked_mul(cols)? > 4096 {
+            return None;
+        }
+        self.checkpoint();
+        let target = self.target();
+        let parent = self.arena.get(target)?.parent;
+        let mut cells = vec![target];
+        for _ in 1..rows * cols {
+            cells.push(self.arena.allocate(NodeKind::Placeholder, vec![]));
+        }
+        let node = self.arena.allocate(NodeKind::Matrix { rows, cols }, cells);
+        self.replace_child(parent, target, node);
+        self.caret = Caret::at(target, Direction::Indeterminate);
+        self.selection = Selection::None;
+        Some(node)
+    }
+
+    fn append_matrix_column(&mut self, matrix: NodeId) -> bool {
+        let NodeKind::Matrix { rows, cols } = self.arena.get(matrix).unwrap().kind else {
+            return false;
+        };
+        if rows * (cols + 1) > 4096 {
+            return false;
+        }
+        self.checkpoint();
+        let old = self.arena.get(matrix).unwrap().children.clone();
+        let mut children = vec![];
+        let mut focus = None;
+        for row in 0..rows {
+            children.extend_from_slice(&old[row * cols..(row + 1) * cols]);
+            let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
+            self.arena.node_mut(cell).parent = Some(matrix);
+            focus.get_or_insert(cell);
+            children.push(cell);
+        }
+        self.arena.node_mut(matrix).children = children;
+        self.arena.node_mut(matrix).kind = NodeKind::Matrix {
+            rows,
+            cols: cols + 1,
+        };
+        self.caret = Caret::at(focus.unwrap(), Direction::Indeterminate);
+        self.selection = Selection::None;
+        true
+    }
+
+    pub fn append_matrix_row(&mut self) -> bool {
+        let mut here = self.caret.node;
+        loop {
+            if let NodeKind::Matrix { rows, cols } = self.arena.get(here).unwrap().kind {
+                if (rows + 1) * cols > 4096 {
+                    return false;
+                }
+                self.checkpoint();
+                let mut focus = None;
+                for _ in 0..cols {
+                    let cell = self.arena.allocate(NodeKind::Placeholder, vec![]);
+                    self.arena.node_mut(cell).parent = Some(here);
+                    self.arena.node_mut(here).children.push(cell);
+                    focus.get_or_insert(cell);
+                }
+                self.arena.node_mut(here).kind = NodeKind::Matrix {
+                    rows: rows + 1,
+                    cols,
+                };
+                self.caret = Caret::at(focus.unwrap(), Direction::Indeterminate);
+                self.selection = Selection::None;
+                return true;
+            }
+            let Some(parent) = self.arena.get(here).unwrap().parent else {
+                return false;
+            };
+            here = parent;
+        }
+    }
+
+    pub fn insert_definition(&mut self) -> NodeId {
+        self.checkpoint();
+        if let NodeKind::Call { argument_count } = self.arena.get(self.root).unwrap().kind {
+            self.arena.node_mut(self.root).kind = NodeKind::Function {
+                parameter_count: argument_count,
+            };
+        }
+        self.selection = Selection::Subtree(self.root);
+        self.wrap_binary_inner(NodeKind::Binary(BinaryOp::Define))
+    }
+
+    pub fn insert_evaluation(&mut self) -> NodeId {
+        // EVALUATION is admitted at equation root or Define's RHS slot only.
+        // Reuse an existing evaluation instead of nesting another result slot.
+        let target =
+            if self.arena.get(self.root).unwrap().kind == NodeKind::Binary(BinaryOp::Define) {
+                self.arena.get(self.root).unwrap().children[1]
+            } else {
+                self.root
+            };
+        if self.arena.get(target).unwrap().kind == NodeKind::Binary(BinaryOp::Evaluate) {
+            return target;
+        }
+        self.checkpoint();
+        self.selection = Selection::Subtree(target);
+        self.wrap_binary_inner(NodeKind::Binary(BinaryOp::Evaluate))
+    }
+
+    /// Independent structural deletion policy, preserving stable IDs of survivors.
+    pub fn delete_structure(&mut self, backwards: bool) -> bool {
+        if let Selection::Subtree(id) = self.selection {
+            self.checkpoint();
+            let children = self.arena.get(id).unwrap().children.clone();
+            for child in children {
+                self.retire(child, None);
+            }
+            let node = self.arena.node_mut(id);
+            node.kind = NodeKind::Placeholder;
+            node.children.clear();
+            self.caret = Caret::at(id, Direction::Indeterminate);
+            self.selection = Selection::None;
+            return true;
+        }
+        let id = self.caret.node;
+        let node = self.arena.get(id).unwrap();
+        let (wrapper, survivor) = if !node.children.is_empty()
+            && backwards
+            && self.caret.caret_side == Direction::Right
+        {
+            let safe_unwrap = matches!(
+                node.kind,
+                NodeKind::Group | NodeKind::UnaryNeg | NodeKind::Absolute
+            ) || matches!(node.kind, NodeKind::Call { argument_count: 0 });
+            let empty_rhs = node
+                .children
+                .last()
+                .is_some_and(|child| self.arena.get(*child).unwrap().kind == NodeKind::Placeholder);
+            if safe_unwrap || empty_rhs {
+                (id, node.children[0])
+            } else {
+                let mut leaf = *node.children.last().unwrap();
+                while let Some(last) = self.arena.get(leaf).unwrap().children.last() {
+                    leaf = *last;
+                }
+                self.caret = Caret::at(leaf, Direction::Right);
+                return false;
+            }
+        } else if let Some(parent) = node.parent {
+            let parent_node = self.arena.get(parent).unwrap();
+            let slot = parent_node
+                .children
+                .iter()
+                .position(|child| *child == id)
+                .unwrap();
+            if matches!(parent_node.kind, NodeKind::Matrix { .. }) {
+                return false;
+            }
+            if node.kind != NodeKind::Placeholder {
+                return false;
+            }
+            if slot > 0 && parent_node.children.len() > 2 {
+                let next_kind = match parent_node.kind {
+                    NodeKind::Call { argument_count } => Some(NodeKind::Call {
+                        argument_count: argument_count - 1,
+                    }),
+                    NodeKind::Function { parameter_count } => Some(NodeKind::Function {
+                        parameter_count: parameter_count - 1,
+                    }),
+                    NodeKind::Index { indices } => Some(NodeKind::Index {
+                        indices: indices - 1,
+                    }),
+                    _ => None,
+                };
+                if let Some(kind) = next_kind {
+                    let previous = parent_node.children[slot - 1];
+                    self.checkpoint();
+                    self.retire(id, None);
+                    self.arena.node_mut(parent).children.remove(slot);
+                    self.arena.node_mut(parent).kind = kind;
+                    self.caret = Caret::at(previous, Direction::Right);
+                    self.selection = Selection::None;
+                    return true;
+                }
+            }
+            if parent_node.children.len() == 1 {
+                (parent, id)
+            } else if backwards && slot > 0 {
+                (parent, parent_node.children[0])
+            } else if !backwards && slot == 0 {
+                (parent, *parent_node.children.last().unwrap())
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        };
+        self.checkpoint();
+        let parent = self.arena.get(wrapper).unwrap().parent;
+        self.replace_child(parent, wrapper, survivor);
+        self.arena.node_mut(survivor).parent = parent;
+        self.retire(wrapper, Some(survivor));
+        self.caret = Caret::at(survivor, Direction::Right);
+        self.selection = Selection::None;
+        true
+    }
+
+    fn retire(&mut self, id: NodeId, preserve: Option<NodeId>) {
+        if preserve == Some(id) {
+            return;
+        }
+        let children = self.arena.get(id).unwrap().children.clone();
+        for child in children {
+            self.retire(child, preserve);
+        }
+        self.arena.slots[id.0] = None;
+    }
+
     pub fn insert_group(&mut self) -> NodeId {
         self.checkpoint();
         let target = self.target();
@@ -473,9 +1006,55 @@ impl Editor {
         group
     }
 
-    /// Independent minimal policy: select the current subtree, then its parents.
-    /// PLACEHOLDER has observed IsScopable=false, so it is skipped.
+    /// Recover the original scoping direction from a text caret's UTF-16
+    /// midpoint (strictly before the midpoint is Left; midpoint itself Right).
+    /// E: ak.a 0x060003e9 IL_003e..00c0. Partial operand ranges are deferred.
+    pub fn scope_direction(&self) -> Direction {
+        if let Some(scope) = &self.scope {
+            return scope.direction;
+        }
+        if let Some(range) = self.caret.value_range
+            && let Some(text) = self.arena.get(self.caret.node).and_then(|n| n.kind.text())
+        {
+            let length = text.encode_utf16().count();
+            return if range.focus.saturating_mul(2) < length {
+                Direction::Left
+            } else {
+                Direction::Right
+            };
+        }
+        match self.caret.caret_side {
+            Direction::Left => Direction::Left,
+            Direction::Right => Direction::Right,
+            _ => match self.caret.node_side {
+                Direction::Left => Direction::Left,
+                _ => Direction::Right,
+            },
+        }
+    }
+
+    /// Original scope history/terminal cycle and text-midpoint direction.
+    /// The represented whole-subtree subset grows through parents; native
+    /// adjacent/partial operand sets are not silently modeled as extra subtrees.
     pub fn expand_scope(&mut self) -> bool {
+        if self.selection == Selection::Subtree(self.root) {
+            let origin = self
+                .scope
+                .take()
+                .map(|scope| scope.origin)
+                .unwrap_or(self.caret);
+            self.caret = origin;
+            self.selection = Selection::None;
+            return true;
+        }
+        if self.selection == Selection::None || self.scope.is_none() {
+            let direction = self.scope_direction();
+            self.scope = Some(ScopeState {
+                origin: self.caret,
+                direction,
+                history: Vec::new(),
+            });
+        }
         let mut next = match self.selection {
             Selection::None => Some(self.caret.node),
             Selection::Subtree(node) => self.arena.get(node).and_then(Node::parent),
@@ -483,6 +1062,9 @@ impl Editor {
         while let Some(id) = next {
             let node = self.arena.get(id).unwrap();
             if node.kind != NodeKind::Placeholder {
+                let scope = self.scope.as_mut().unwrap();
+                scope.history.push((self.caret, self.selection));
+                self.caret.caret_side = scope.direction;
                 self.selection = Selection::Subtree(id);
                 return true;
             }
@@ -491,10 +1073,40 @@ impl Editor {
         false
     }
 
+    /// Undo the last scope expansion without creating a document undo command.
+    /// E: ak.k 0x060003db pops its prior segment, then returns to origin.
+    pub fn contract_scope(&mut self) -> bool {
+        if self.selection == Selection::None {
+            self.scope = None;
+            return false;
+        }
+        let Some(scope) = self.scope.as_mut() else {
+            return false;
+        };
+        let Some((caret, selection)) = scope.history.pop() else {
+            return false;
+        };
+        self.caret = caret;
+        self.selection = selection;
+        if self.selection == Selection::None {
+            self.scope = None;
+        }
+        true
+    }
+
     /// Independent nearest-group policy for the observed ')' group-exit command.
     pub fn exit_group_right(&mut self) -> bool {
         let on_right_of_group = self.caret.caret_side == Direction::Right
-            && self.arena.get(self.caret.node).unwrap().kind == NodeKind::Group;
+            && matches!(
+                self.arena.get(self.caret.node).unwrap().kind,
+                NodeKind::Group
+                    | NodeKind::Call { .. }
+                    | NodeKind::Function { .. }
+                    | NodeKind::Absolute
+                    | NodeKind::Root
+                    | NodeKind::Index { .. }
+                    | NodeKind::Matrix { .. }
+            );
         let mut current = if on_right_of_group {
             self.arena.get(self.caret.node).unwrap().parent
         } else {
@@ -502,7 +1114,25 @@ impl Editor {
         };
         while let Some(id) = current {
             let node = self.arena.get(id).unwrap();
-            if node.kind == NodeKind::Group {
+            if matches!(
+                node.kind,
+                NodeKind::Group
+                    | NodeKind::Call { .. }
+                    | NodeKind::Function { .. }
+                    | NodeKind::Absolute
+                    | NodeKind::Root
+                    | NodeKind::Index { .. }
+                    | NodeKind::Matrix { .. }
+            ) {
+                if matches!(node.kind, NodeKind::Call { argument_count: 1 })
+                    && self.arena.get(node.children[1]).unwrap().kind == NodeKind::Placeholder
+                {
+                    let empty = node.children[1];
+                    self.checkpoint();
+                    self.retire(empty, None);
+                    self.arena.node_mut(id).children.pop();
+                    self.arena.node_mut(id).kind = NodeKind::Call { argument_count: 0 };
+                }
                 self.caret = Caret::at(id, Direction::Right);
                 self.selection = Selection::None;
                 return true;
@@ -513,6 +1143,9 @@ impl Editor {
     }
 
     pub fn undo(&mut self) -> bool {
+        if self.edit_group_depth != 0 {
+            return false;
+        }
         let Some(snapshot) = self.undo.pop() else {
             return false;
         };
@@ -522,6 +1155,9 @@ impl Editor {
     }
 
     pub fn redo(&mut self) -> bool {
+        if self.edit_group_depth != 0 {
+            return false;
+        }
         let Some(snapshot) = self.redo.pop() else {
             return false;
         };
@@ -581,19 +1217,37 @@ impl Editor {
 
     fn wrap_binary(&mut self, kind: NodeKind) -> NodeId {
         self.checkpoint();
+        self.wrap_binary_inner(kind)
+    }
+
+    fn wrap_binary_inner(&mut self, kind: NodeKind) -> NodeId {
         let target = self.target();
         let old = self.arena.get(target).unwrap();
         let parent = old.parent;
         let empty = old.kind == NodeKind::Placeholder;
-        let needs_group =
-            kind == NodeKind::Power && matches!(old.kind, NodeKind::Power | NodeKind::Fraction);
+        // Insertion operation bl.bq IL_0394..03de fills the first operand
+        // when scope direction is Right and the last operand when Left.
+        let insert_left = self.selection != Selection::None
+            && self.caret.caret_side == Direction::Left
+            && !matches!(
+                kind,
+                NodeKind::Binary(BinaryOp::Define | BinaryOp::Evaluate)
+            );
+        let needs_group = !insert_left
+            && kind == NodeKind::Power
+            && matches!(old.kind, NodeKind::Power | NodeKind::Fraction);
         let first = if needs_group {
             self.arena.allocate(NodeKind::Group, vec![target])
         } else {
             target
         };
         let second = self.arena.allocate(NodeKind::Placeholder, vec![]);
-        let wrapper = self.arena.allocate(kind, vec![first, second]);
+        let children = if insert_left {
+            vec![second, first]
+        } else {
+            vec![first, second]
+        };
+        let wrapper = self.arena.allocate(kind, children);
         self.replace_child(parent, target, wrapper);
         self.caret = Caret::at(
             if empty { target } else { second },
@@ -616,8 +1270,14 @@ impl Editor {
     }
 
     fn checkpoint(&mut self) {
-        self.undo.push(self.snapshot());
-        self.redo.clear();
+        if self.edit_group_depth == 0 || !self.edit_group_checkpointed {
+            self.undo.push(self.snapshot());
+            self.redo.clear();
+            if self.edit_group_depth != 0 {
+                self.edit_group_checkpointed = true;
+            }
+        }
+        self.scope = None;
     }
 
     fn snapshot(&self) -> Snapshot {
@@ -626,6 +1286,7 @@ impl Editor {
             root: self.root,
             caret: self.caret,
             selection: self.selection,
+            scope: self.scope.clone(),
         }
     }
 
@@ -639,6 +1300,7 @@ impl Editor {
         self.root = snapshot.root;
         self.caret = snapshot.caret;
         self.selection = snapshot.selection;
+        self.scope = snapshot.scope;
     }
 }
 
@@ -788,7 +1450,9 @@ mod tests {
         let empty_right = e.caret().node;
         assert!(e.expand_scope());
         assert_eq!(e.selection(), Selection::Subtree(add));
-        assert!(!e.expand_scope());
+        assert!(e.expand_scope());
+        assert_eq!(e.selection(), Selection::None);
+        assert_eq!(e.caret().node, empty_right);
         e.place_caret(empty_right, Direction::Indeterminate)
             .unwrap();
         number(&mut e, "2");
@@ -796,6 +1460,145 @@ mod tests {
         assert_eq!(e.arena().get(add).unwrap().children(), &[left, fraction]);
         assert_eq!(e.root(), add);
         assert_eq!(e.validate(), Ok(()));
+    }
+
+    #[test]
+    fn evaluation_wraps_definition_rhs_once_and_undo_restores_selection_and_caret() {
+        let mut e = Editor::new();
+        let name = e.caret().node;
+        e.set_atom(name, NodeKind::Identifier("a".into())).unwrap();
+        let definition = e.insert_definition();
+        let rhs = number(&mut e, "5");
+        e.place_text_caret(rhs, 0).unwrap();
+        e.select_subtree(rhs).unwrap();
+        let before = e.to_portable();
+        let caret = e.caret();
+        let selection = e.selection();
+        let evaluation = e.insert_evaluation();
+        assert_eq!(e.root(), definition);
+        assert_eq!(
+            e.arena().get(definition).unwrap().children(),
+            &[name, evaluation]
+        );
+        assert_eq!(e.arena().get(evaluation).unwrap().children()[0], rhs);
+        let count = e.undo.len();
+        let after = e.to_portable();
+        let after_caret = e.caret();
+        assert_eq!(e.insert_evaluation(), evaluation);
+        assert_eq!(e.undo.len(), count);
+        assert_eq!(e.to_portable(), after);
+        assert_eq!(e.caret(), after_caret);
+        assert!(e.undo());
+        assert_eq!(e.to_portable(), before);
+        assert_eq!(e.caret(), caret);
+        assert_eq!(e.selection(), selection);
+        assert!(e.redo());
+        assert_eq!(e.to_portable(), after);
+        assert_eq!(e.validate(), Ok(()));
+    }
+
+    fn sum_product() -> (Editor, NodeId, NodeId, NodeId, NodeId, NodeId) {
+        let atom = |s: &str| PortableTree {
+            kind: NodeKind::Identifier(s.into()),
+            children: vec![],
+        };
+        let tree = PortableTree {
+            kind: NodeKind::Binary(BinaryOp::Add),
+            children: vec![
+                atom("a"),
+                PortableTree {
+                    kind: NodeKind::Binary(BinaryOp::Multiply),
+                    children: vec![atom("b"), atom("c")],
+                },
+            ],
+        };
+        let e = Editor::from_portable(&tree).unwrap();
+        let add = e.root();
+        let children = e.arena().get(add).unwrap().children();
+        let a = children[0];
+        let mult = children[1];
+        let factors = e.arena().get(mult).unwrap().children();
+        let b = factors[0];
+        let c = factors[1];
+        (e, a, b, c, mult, add)
+    }
+
+    #[test]
+    fn scope_in_sum_product_contracts_and_cycles_back_to_exact_original_caret() {
+        let (mut e, a, b, c, mult, add) = sum_product();
+        for (leaf, path) in [
+            (a, vec![a, add]),
+            (b, vec![b, mult, add]),
+            (c, vec![c, mult, add]),
+        ] {
+            e.place_text_caret(leaf, 1).unwrap();
+            let origin = e.caret();
+            let undo_count = e.undo.len();
+            for selected in &path {
+                assert!(e.expand_scope());
+                assert_eq!(e.selection(), Selection::Subtree(*selected));
+                assert_eq!(e.scope_direction(), Direction::Right);
+            }
+            assert!(e.contract_scope());
+            assert_eq!(e.selection(), Selection::Subtree(path[path.len() - 2]));
+            assert!(e.expand_scope());
+            assert_eq!(e.selection(), Selection::Subtree(add));
+            assert!(e.expand_scope());
+            assert_eq!(e.selection(), Selection::None);
+            assert_eq!(e.caret(), origin);
+            assert!(!e.contract_scope());
+            assert_eq!(e.undo.len(), undo_count);
+        }
+    }
+
+    #[test]
+    fn scope_uses_utf16_midpoint_and_infix_inserts_on_the_selected_side() {
+        for (offset, direction) in [
+            (0, Direction::Left),
+            (1, Direction::Left),
+            (2, Direction::Right),
+            (4, Direction::Right),
+        ] {
+            let mut e = Editor::new();
+            let target = e.caret().node;
+            e.set_atom(target, NodeKind::Identifier("abcd".into()))
+                .unwrap();
+            e.place_text_caret(target, offset).unwrap();
+            let before = e.to_portable();
+            let origin = e.caret();
+            assert!(e.expand_scope());
+            assert_eq!(e.scope_direction(), direction);
+            let selected = e.selection();
+            let scoped_caret = e.caret();
+            let fraction = e.insert_fraction();
+            let operands = e.arena().get(fraction).unwrap().children();
+            assert_eq!(
+                operands[if direction == Direction::Right { 0 } else { 1 }],
+                target
+            );
+            assert_eq!(
+                e.arena().get(e.caret().node).unwrap().kind(),
+                &NodeKind::Placeholder
+            );
+            assert!(e.undo());
+            assert_eq!(e.to_portable(), before);
+            assert_eq!(e.selection(), selected);
+            assert_eq!(e.caret(), scoped_caret);
+            assert!(e.contract_scope());
+            assert_eq!(e.selection(), Selection::None);
+            assert_eq!(e.caret(), origin);
+            assert!(e.redo());
+            assert_eq!(e.root(), fraction);
+            assert_eq!(e.validate(), Ok(()));
+        }
+        let mut e = Editor::new();
+        let target = e.caret().node;
+        e.set_atom(target, NodeKind::Identifier("a𝑥b".into()))
+            .unwrap();
+        e.place_text_caret(target, 1).unwrap();
+        assert_eq!(e.scope_direction(), Direction::Left);
+        e.place_text_caret(target, 3).unwrap();
+        assert_eq!(e.scope_direction(), Direction::Right);
     }
 
     #[test]
@@ -813,6 +1616,128 @@ mod tests {
         assert_eq!(e.caret().node, outer);
         assert!(!e.exit_group_right());
         assert_eq!(e.validate(), Ok(()));
+    }
+
+    #[test]
+    fn paste_edit_group_is_one_undo_and_preserves_stable_ids_across_branching() {
+        let (mut e, _, b, _, mult, _) = sum_product();
+        e.place_text_caret(b, 1).unwrap();
+        e.expand_scope();
+        e.expand_scope();
+        assert_eq!(e.selection(), Selection::Subtree(mult));
+        let before = e.to_portable();
+        let caret = e.caret();
+        let selection = e.selection();
+        let count = e.undo.len();
+        let fraction = e.edit_group(|editor| {
+            let fraction = editor.insert_fraction();
+            let denominator = editor.caret().node;
+            editor
+                .set_atom(denominator, NodeKind::Identifier("v".into()))
+                .unwrap();
+            editor.edit_group(|editor| {
+                editor
+                    .set_atom(denominator, NodeKind::Identifier("value".into()))
+                    .unwrap();
+                editor.insert_power();
+                number(editor, "2");
+                assert!(!editor.undo());
+                assert!(!editor.redo());
+            });
+            fraction
+        });
+        assert_eq!(e.undo.len(), count + 1);
+        let after = e.to_portable();
+        let after_caret = e.caret();
+        assert!(e.undo());
+        assert_eq!(e.to_portable(), before);
+        assert_eq!(e.caret(), caret);
+        assert_eq!(e.selection(), selection);
+        assert_eq!(e.scope_direction(), Direction::Right);
+        assert!(e.redo());
+        assert_eq!(e.to_portable(), after);
+        assert_eq!(e.caret(), after_caret);
+        assert!(e.undo());
+        let next = e.insert_power();
+        assert!(next.index() > fraction.index());
+        assert!(!e.redo());
+        assert_eq!(e.validate(), Ok(()));
+    }
+
+    #[test]
+    fn empty_edit_groups_preserve_redo_and_group_state_recovers_after_panic() {
+        let mut e = Editor::new();
+        number(&mut e, "1");
+        e.insert_fraction();
+        assert!(e.undo());
+        let undo_count = e.undo.len();
+        let redo_count = e.redo.len();
+        let returned = e.edit_group(|editor| {
+            editor.edit_group(|editor| {
+                let root = editor.root();
+                editor.place_text_caret(root, 0).unwrap();
+                assert!(editor.expand_scope());
+                assert!(editor.contract_scope());
+                root
+            })
+        });
+        assert_eq!(returned, e.root());
+        assert_eq!(e.undo.len(), undo_count);
+        assert_eq!(e.redo.len(), redo_count);
+        assert!(e.redo());
+        let before = e.to_portable();
+        let count = e.undo.len();
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            e.edit_group(|editor| {
+                number(editor, "4");
+                panic!("synthetic edit failure");
+            });
+        }));
+        assert!(panicked.is_err());
+        assert_eq!(e.edit_group_depth, 0);
+        assert_eq!(e.undo.len(), count + 1);
+        assert!(e.undo());
+        assert_eq!(e.to_portable(), before);
+        assert_eq!(e.validate(), Ok(()));
+    }
+
+    #[test]
+    fn left_scope_places_existing_expression_on_the_right_of_power_and_infix() {
+        for incoming in [
+            NodeKind::Power,
+            NodeKind::Binary(BinaryOp::Add),
+            NodeKind::Binary(BinaryOp::Multiply),
+        ] {
+            let (mut e, a, b, c, mult, add) = sum_product();
+            e.place_text_caret(b, 0).unwrap();
+            e.expand_scope();
+            e.expand_scope();
+            assert_eq!(e.selection(), Selection::Subtree(mult));
+            assert_eq!(e.scope_direction(), Direction::Left);
+            let before = e.to_portable();
+            let caret = e.caret();
+            let selection = e.selection();
+            let wrapper = match incoming {
+                NodeKind::Power => e.insert_power_infix(),
+                NodeKind::Binary(op) => e.insert_infix(op),
+                _ => unreachable!(),
+            };
+            assert_eq!(e.root(), add);
+            assert_eq!(e.arena().get(add).unwrap().children(), &[a, wrapper]);
+            let operands = e.arena().get(wrapper).unwrap().children();
+            assert_eq!(operands, &[e.caret().node, mult]);
+            assert_eq!(e.arena().get(mult).unwrap().children(), &[b, c]);
+            assert_eq!(e.arena().get(wrapper).unwrap().kind(), &incoming);
+            let after = e.to_portable();
+            assert!(e.undo());
+            assert_eq!(e.to_portable(), before);
+            assert_eq!(e.caret(), caret);
+            assert_eq!(e.selection(), selection);
+            assert_eq!(e.scope_direction(), Direction::Left);
+            assert!(e.redo());
+            assert_eq!(e.to_portable(), after);
+            assert_eq!(e.validate(), Ok(()));
+        }
     }
 
     #[test]

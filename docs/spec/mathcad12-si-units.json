@@ -1,0 +1,4897 @@
+{
+  "schema_version": 1,
+  "original_code_executed": false,
+  "authority": "Independent static constant folding of hash-verified shipped CIL and MPL dimensional signatures",
+  "dimension_order": [
+    "Length",
+    "Mass",
+    "Time",
+    "Current",
+    "Temperature",
+    "Substance",
+    "Luminosity"
+  ],
+  "dimension_divisor": 60000,
+  "sources": [
+    {
+      "evidence_id": "ev_2ef822c8cdf3873a1c829ef26a26aa9c2e13f4c5c6aae03c13c90bbfd0e7f7dc",
+      "artifact": {
+        "path": "C:\\Program Files\\PTC\\Mathcad Prime 12.0.0.1\\mcdstaticunitsystem.dll",
+        "sha256": "5ba19b272cbbeb27c3e171a4bb83d1d14ae8c518cc9271810276d5eee699cb9b",
+        "byte_length": 46064,
+        "format": "pe"
+      },
+      "mvid": "5c2138ec-45cc-477d-a2ba-64a604e33781",
+      "decoded_cil_methods": [
+        {
+          "token": "0x06000001",
+          "raw_il_sha256": "9c2af56d48235acaa7635cc82e60d6d33f5a862f262ed4ea7d96afd9d480b1b6"
+        },
+        {
+          "token": "0x06000003",
+          "raw_il_sha256": "b26617e9b31bf1b4d8810e641d000c2fa0b79837e9c983550f93c649e6d5b337"
+        },
+        {
+          "token": "0x06000004",
+          "raw_il_sha256": "9f47bb3c5e58e892861bfbb244231db21968cb78011065bd4e005310255444b0"
+        },
+        {
+          "token": "0x06000006",
+          "raw_il_sha256": "329159b791be97daffe4a03ff50212b7476738dfa99c79b16790bf4b55f46ff4"
+        },
+        {
+          "token": "0x06000007",
+          "raw_il_sha256": "fd54c376fe1466f66c404d73bffa74a11cab19ca145df67707c5cac06d829524"
+        },
+        {
+          "token": "0x06000008",
+          "raw_il_sha256": "0ddaa5d7d19232a81e302687bd5ab4969f12155edca7c79baf0ea06186e8221d"
+        },
+        {
+          "token": "0x06000009",
+          "raw_il_sha256": "92d7b38128ac68bd7a5e8733144d39ad7e12e8f7eb3087a99ebe10804c58515d"
+        },
+        {
+          "token": "0x0600000a",
+          "raw_il_sha256": "45e6e624f8c38f2026b19859b094510ab76e58cf4d3b519ad4b7390187415356"
+        },
+        {
+          "token": "0x0600000b",
+          "raw_il_sha256": "9daed485375b0216eac9af2f5177941c01e96bfbb5f00fbbefb7223cb66abd77"
+        },
+        {
+          "token": "0x0600000c",
+          "raw_il_sha256": "fc31bf76fdc8e9b34dc2eac56c7b00c42ec64a3e5d0835ad984032e227e2e911"
+        },
+        {
+          "token": "0x0600000d",
+          "raw_il_sha256": "0fd38f6ec4674dee2536736bf02ad149990e4fccfff6b58afc21b9d5c240c878"
+        },
+        {
+          "token": "0x06000011",
+          "raw_il_sha256": "5397c170cb98b40342a9d016f7504fa6120f6b1e9a87e912a69d3542e70f9127"
+        },
+        {
+          "token": "0x06000012",
+          "raw_il_sha256": "9c842f31b7f293b6372fd83b176b415ced85b100821667289b441ab3e5b922da"
+        },
+        {
+          "token": "0x06000013",
+          "raw_il_sha256": "625b239378c482135bb4e83a6f982a5c33ce40b28cab478365506009372103c6"
+        },
+        {
+          "token": "0x06000014",
+          "raw_il_sha256": "446e79334d2500358b508627c187734672dab851a7155145d9dfbe34d2b748b3"
+        },
+        {
+          "token": "0x06000015",
+          "raw_il_sha256": "cfb7cd10ecf14a7e8187f5090fb857482122ecf3bbfa0bd484907b743c72f2dc"
+        }
+      ]
+    },
+    {
+      "evidence_id": "ev_516f379510019ca27af078efe7f8a95c4f78cd4a34dfebaa31d3080a28ab592c",
+      "artifact": {
+        "path": "C:\\Program Files\\PTC\\Mathcad Prime 12.0.0.1\\mcdstaticunitsystemsi.dll",
+        "sha256": "8a3665f49f25c8ca83c614ec5c934d194fab2685fe396b86517d56791a0d2a01",
+        "byte_length": 63472,
+        "format": "pe"
+      },
+      "mvid": "8ea0c61d-7c6f-4cfa-8c55-7ed25f3c6b51",
+      "decoded_cil_methods": [
+        {
+          "token": "0x06000001",
+          "raw_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+        }
+      ]
+    }
+  ],
+  "interface_authentication": {
+    "evidence_id": "ev_3f61c2629ad3dc261f954f42b9a14424ed8e77f0d69a96d284bff5f15d71dd88",
+    "attribute_token": "0x0c000003",
+    "value_sha256": "aed766451ba625196abb9c89f0446cdc01f8e62e13258c069768a7c0a38f4467",
+    "text_sha256": "98a07db124839a9664034d6975be51b82b1ac7ffceb7a78dde9f5c5e5659671e"
+  },
+  "facts": [
+    {
+      "name": "A",
+      "field_name": "mc_A",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000015",
+        "method_token": "0x06000001",
+        "il_offset": 310,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Angstrom",
+      "field_name": "mc_Angstrom",
+      "scale": 1.0000000000000002e-10,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000e3",
+        "method_token": "0x06000001",
+        "il_offset": 5360,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "BTU",
+      "field_name": "mc_BTU",
+      "scale": 1055.05585262,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000e2",
+        "method_token": "0x06000001",
+        "il_offset": 5345,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "BTU15",
+      "field_name": "mc_BTU15",
+      "scale": 1054.8,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000e0",
+        "method_token": "0x06000001",
+        "il_offset": 5315,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Bq",
+      "field_name": "mc_Bq",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000df",
+        "method_token": "0x06000001",
+        "il_offset": 5300,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Btu",
+      "field_name": "mc_Btu",
+      "scale": 1055.05585262,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000e1",
+        "method_token": "0x06000001",
+        "il_offset": 5330,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "C",
+      "field_name": "mc_C",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000014",
+        "method_token": "0x06000001",
+        "il_offset": 295,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "CBTU",
+      "field_name": "mc_CBTU",
+      "scale": 1054.615,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000de",
+        "method_token": "0x06000001",
+        "il_offset": 5285,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "F",
+      "field_name": "mc_F",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000013",
+        "method_token": "0x06000001",
+        "il_offset": 280,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "G",
+      "field_name": "mc_G",
+      "scale": 0.0001,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d9",
+        "method_token": "0x06000001",
+        "il_offset": 5210,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "GHz",
+      "field_name": "mc_GHz",
+      "scale": 1000000000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d8",
+        "method_token": "0x06000001",
+        "il_offset": 5195,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "GN",
+      "field_name": "mc_GN",
+      "scale": 1000000000.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007b",
+        "method_token": "0x06000001",
+        "il_offset": 3475,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "GPa",
+      "field_name": "mc_GPa",
+      "scale": 1000000000.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d7",
+        "method_token": "0x06000001",
+        "il_offset": 5175,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Gy",
+      "field_name": "mc_Gy",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        0.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d6",
+        "method_token": "0x06000001",
+        "il_offset": 5155,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "H",
+      "field_name": "mc_H",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000012",
+        "method_token": "0x06000001",
+        "il_offset": 265,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Hz",
+      "field_name": "mc_Hz",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d5",
+        "method_token": "0x06000001",
+        "il_offset": 5140,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Hza",
+      "field_name": "mc_Hza",
+      "scale": 6.283185307179586,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d4",
+        "method_token": "0x06000001",
+        "il_offset": 5125,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "IBTU",
+      "field_name": "mc_IBTU",
+      "scale": 1054.5,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d3",
+        "method_token": "0x06000001",
+        "il_offset": 5110,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "J",
+      "field_name": "mc_J",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000011",
+        "method_token": "0x06000001",
+        "il_offset": 250,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "K",
+      "field_name": "mc_K",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000010",
+        "method_token": "0x06000001",
+        "il_offset": 235,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "KA",
+      "field_name": "mc_KA",
+      "scale": 1000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d2",
+        "method_token": "0x06000001",
+        "il_offset": 5095,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "KHz",
+      "field_name": "mc_KHz",
+      "scale": 1000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d1",
+        "method_token": "0x06000001",
+        "il_offset": 5075,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "KV",
+      "field_name": "mc_KV",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000d0",
+        "method_token": "0x06000001",
+        "il_offset": 5055,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "KΩ",
+      "field_name": "mc_KΩ",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000cf",
+        "method_token": "0x06000001",
+        "il_offset": 5035,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "L",
+      "field_name": "mc_L",
+      "scale": 0.001,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000f",
+        "method_token": "0x06000001",
+        "il_offset": 220,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "MHz",
+      "field_name": "mc_MHz",
+      "scale": 1000000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ce",
+        "method_token": "0x06000001",
+        "il_offset": 5015,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "MN",
+      "field_name": "mc_MN",
+      "scale": 1000000.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007c",
+        "method_token": "0x06000001",
+        "il_offset": 3495,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "MPa",
+      "field_name": "mc_MPa",
+      "scale": 1000000.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c7",
+        "method_token": "0x06000001",
+        "il_offset": 4855,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "MW",
+      "field_name": "mc_MW",
+      "scale": 1000000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000cc",
+        "method_token": "0x06000001",
+        "il_offset": 4975,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "MΩ",
+      "field_name": "mc_MΩ",
+      "scale": 1000000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000cd",
+        "method_token": "0x06000001",
+        "il_offset": 4995,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "N",
+      "field_name": "mc_N",
+      "scale": 1.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000e",
+        "method_token": "0x06000001",
+        "il_offset": 205,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "N.A",
+      "field_name": "mc_N_2E_A",
+      "scale": 6.02214076e+23,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001d",
+        "method_token": "0x06000001",
+        "il_offset": 1701,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "N·cm",
+      "field_name": "mc_N·cm",
+      "scale": 0.01,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ca",
+        "method_token": "0x06000001",
+        "il_offset": 4930,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "N·m",
+      "field_name": "mc_N·m",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000cb",
+        "method_token": "0x06000001",
+        "il_offset": 4955,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "N·mm",
+      "field_name": "mc_N·mm",
+      "scale": 0.001,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c9",
+        "method_token": "0x06000001",
+        "il_offset": 4900,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Oe",
+      "field_name": "mc_Oe",
+      "scale": 79.57747154594767,
+      "dimension": [
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c8",
+        "method_token": "0x06000001",
+        "il_offset": 4870,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Pa",
+      "field_name": "mc_Pa",
+      "scale": 1.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000d",
+        "method_token": "0x06000001",
+        "il_offset": 190,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "R",
+      "field_name": "mc_R",
+      "scale": 0.5555555555555556,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c6",
+        "method_token": "0x06000001",
+        "il_offset": 4835,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "R.gas",
+      "field_name": "mc_R_2E_gas",
+      "scale": 8.314462618,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        -1.0,
+        -1.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001c",
+        "method_token": "0x06000001",
+        "il_offset": 1686,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "R.∞",
+      "field_name": "mc_R_2E_∞",
+      "scale": 10973731.568157,
+      "dimension": [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001b",
+        "method_token": "0x06000001",
+        "il_offset": 1671,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "S",
+      "field_name": "mc_S",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        -1.0,
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000c",
+        "method_token": "0x06000001",
+        "il_offset": 175,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Smoot",
+      "field_name": "mc_Smoot",
+      "scale": 1.7018,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000030",
+        "method_token": "0x06000001",
+        "il_offset": 2005,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Sv",
+      "field_name": "mc_Sv",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        0.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c4",
+        "method_token": "0x06000001",
+        "il_offset": 4805,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "T",
+      "field_name": "mc_T",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000b",
+        "method_token": "0x06000001",
+        "il_offset": 160,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "TN",
+      "field_name": "mc_TN",
+      "scale": 1000000000000.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007a",
+        "method_token": "0x06000001",
+        "il_offset": 3455,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "V",
+      "field_name": "mc_V",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400000a",
+        "method_token": "0x06000001",
+        "il_offset": 145,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "W",
+      "field_name": "mc_W",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000009",
+        "method_token": "0x06000001",
+        "il_offset": 130,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Wb",
+      "field_name": "mc_Wb",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000008",
+        "method_token": "0x06000001",
+        "il_offset": 115,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "W·hr",
+      "field_name": "mc_W·hr",
+      "scale": 3600.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000093",
+        "method_token": "0x06000001",
+        "il_offset": 3920,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "W·s",
+      "field_name": "mc_W·s",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000094",
+        "method_token": "0x06000001",
+        "il_offset": 3945,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "a.0",
+      "field_name": "mc_a_2E_0",
+      "scale": 5.291772108e-11,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x040000b0",
+        "method_token": "0x06000001",
+        "il_offset": 4450,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "acre",
+      "field_name": "mc_acre",
+      "scale": 4046.856422400001,
+      "dimension": [
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ba",
+        "method_token": "0x06000001",
+        "il_offset": 4610,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "acre·ft",
+      "field_name": "mc_acre·ft",
+      "scale": 1233.4818375475204,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b9",
+        "method_token": "0x06000001",
+        "il_offset": 4595,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "amp",
+      "field_name": "mc_amp",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b8",
+        "method_token": "0x06000001",
+        "il_offset": 4570,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "arcmin",
+      "field_name": "mc_arcmin",
+      "scale": 0.0002908882086657216,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b6",
+        "method_token": "0x06000001",
+        "il_offset": 4540,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "arcsec",
+      "field_name": "mc_arcsec",
+      "scale": 4.84813681109536e-06,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b7",
+        "method_token": "0x06000001",
+        "il_offset": 4555,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "atm",
+      "field_name": "mc_atm",
+      "scale": 101325.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b5",
+        "method_token": "0x06000001",
+        "il_offset": 4525,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "bar",
+      "field_name": "mc_bar",
+      "scale": 100000.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b4",
+        "method_token": "0x06000001",
+        "il_offset": 4510,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "barn",
+      "field_name": "mc_barn",
+      "scale": 1.0000000000000001e-28,
+      "dimension": [
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b3",
+        "method_token": "0x06000001",
+        "il_offset": 4495,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "bhp",
+      "field_name": "mc_bhp",
+      "scale": 9809.5,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b2",
+        "method_token": "0x06000001",
+        "il_offset": 4480,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "bohr",
+      "field_name": "mc_bohr",
+      "scale": 5.291772108e-11,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000b1",
+        "method_token": "0x06000001",
+        "il_offset": 4465,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "c",
+      "field_name": "mc_c",
+      "scale": 299792458.0,
+      "dimension": [
+        1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x040000af",
+        "method_token": "0x06000001",
+        "il_offset": 4435,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cal",
+      "field_name": "mc_cal",
+      "scale": 4.1868,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ae",
+        "method_token": "0x06000001",
+        "il_offset": 4420,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cal15",
+      "field_name": "mc_cal15",
+      "scale": 4.1858,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ad",
+        "method_token": "0x06000001",
+        "il_offset": 4405,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cal20",
+      "field_name": "mc_cal20",
+      "scale": 4.1819,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ac",
+        "method_token": "0x06000001",
+        "il_offset": 4390,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cd",
+      "field_name": "mc_cd",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000006",
+        "method_token": "0x06000001",
+        "il_offset": 85,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cfm",
+      "field_name": "mc_cfm",
+      "scale": 0.0004719474432000001,
+      "dimension": [
+        3.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008c",
+        "method_token": "0x06000001",
+        "il_offset": 3780,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cm",
+      "field_name": "mc_cm",
+      "scale": 0.01,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000ab",
+        "method_token": "0x06000001",
+        "il_offset": 4375,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "coul",
+      "field_name": "mc_coul",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000aa",
+        "method_token": "0x06000001",
+        "il_offset": 4355,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "cubit",
+      "field_name": "mc_cubit",
+      "scale": 0.4572,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a5",
+        "method_token": "0x06000001",
+        "il_offset": 4260,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "day",
+      "field_name": "mc_day",
+      "scale": 86400.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a4",
+        "method_token": "0x06000001",
+        "il_offset": 4245,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "dcal",
+      "field_name": "mc_dcal",
+      "scale": 4185.5,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a3",
+        "method_token": "0x06000001",
+        "il_offset": 4230,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "deg",
+      "field_name": "mc_deg",
+      "scale": 0.017453292519943295,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a2",
+        "method_token": "0x06000001",
+        "il_offset": 4215,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "dpi",
+      "field_name": "mc_dpi",
+      "scale": 39.37007874015748,
+      "dimension": [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000023",
+        "method_token": "0x06000001",
+        "il_offset": 1791,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "dyne",
+      "field_name": "mc_dyne",
+      "scale": 1e-05,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a0",
+        "method_token": "0x06000001",
+        "il_offset": 4185,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "e.c",
+      "field_name": "mc_e_2E_c",
+      "scale": 1.602176634e-19,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x04000022",
+        "method_token": "0x06000001",
+        "il_offset": 1776,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ehp",
+      "field_name": "mc_ehp",
+      "scale": 746.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009f",
+        "method_token": "0x06000001",
+        "il_offset": 4170,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "erg",
+      "field_name": "mc_erg",
+      "scale": 1.0000000000000001e-07,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009e",
+        "method_token": "0x06000001",
+        "il_offset": 4155,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "farad",
+      "field_name": "mc_farad",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009d",
+        "method_token": "0x06000001",
+        "il_offset": 4140,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "fl_oz",
+      "field_name": "mc_fl_5F_oz",
+      "scale": 2.9573529562499998e-05,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009c",
+        "method_token": "0x06000001",
+        "il_offset": 4125,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "fortnight",
+      "field_name": "mc_fortnight",
+      "scale": 1209600.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009b",
+        "method_token": "0x06000001",
+        "il_offset": 4110,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ft",
+      "field_name": "mc_ft",
+      "scale": 0.3048,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400009a",
+        "method_token": "0x06000001",
+        "il_offset": 4095,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ft·kip",
+      "field_name": "mc_ft·kip",
+      "scale": 1355.8179483314004,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000098",
+        "method_token": "0x06000001",
+        "il_offset": 4055,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ft·lbf",
+      "field_name": "mc_ft·lbf",
+      "scale": 1.3558179483314003,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000099",
+        "method_token": "0x06000001",
+        "il_offset": 4080,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "furlong",
+      "field_name": "mc_furlong",
+      "scale": 201.16800000000003,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000091",
+        "method_token": "0x06000001",
+        "il_offset": 3865,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "g",
+      "field_name": "mc_g",
+      "scale": 9.80665,
+      "dimension": [
+        1.0,
+        0.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000090",
+        "method_token": "0x06000001",
+        "il_offset": 3850,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "gal",
+      "field_name": "mc_gal",
+      "scale": 0.0037854117839999997,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008f",
+        "method_token": "0x06000001",
+        "il_offset": 3835,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "galUK",
+      "field_name": "mc_galUK",
+      "scale": 0.004546090000000001,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008e",
+        "method_token": "0x06000001",
+        "il_offset": 3820,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "gauss",
+      "field_name": "mc_gauss",
+      "scale": 0.0001,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008a",
+        "method_token": "0x06000001",
+        "il_offset": 3720,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "gm",
+      "field_name": "mc_gm",
+      "scale": 0.001,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000089",
+        "method_token": "0x06000001",
+        "il_offset": 3705,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "gpm",
+      "field_name": "mc_gpm",
+      "scale": 6.309019639999999e-05,
+      "dimension": [
+        3.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008d",
+        "method_token": "0x06000001",
+        "il_offset": 3805,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "h",
+      "field_name": "mc_h",
+      "scale": 6.62607015e-34,
+      "dimension": [
+        2.0,
+        1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x04000021",
+        "method_token": "0x06000001",
+        "il_offset": 1761,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "hectare",
+      "field_name": "mc_hectare",
+      "scale": 10000.0,
+      "dimension": [
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000088",
+        "method_token": "0x06000001",
+        "il_offset": 3690,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "henry",
+      "field_name": "mc_henry",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000087",
+        "method_token": "0x06000001",
+        "il_offset": 3675,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "hhp",
+      "field_name": "mc_hhp",
+      "scale": 746.043,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000086",
+        "method_token": "0x06000001",
+        "il_offset": 3660,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "hp",
+      "field_name": "mc_hp",
+      "scale": 745.6998715822702,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000085",
+        "method_token": "0x06000001",
+        "il_offset": 3645,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "hpUK",
+      "field_name": "mc_hpUK",
+      "scale": 745.7,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000084",
+        "method_token": "0x06000001",
+        "il_offset": 3630,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "hr",
+      "field_name": "mc_hr",
+      "scale": 3600.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000083",
+        "method_token": "0x06000001",
+        "il_offset": 3615,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "in",
+      "field_name": "mc_in",
+      "scale": 0.0254,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000082",
+        "method_token": "0x06000001",
+        "il_offset": 3600,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "in_Hg",
+      "field_name": "mc_in_5F_Hg",
+      "scale": 3386.38,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000081",
+        "method_token": "0x06000001",
+        "il_offset": 3585,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "in·kip",
+      "field_name": "mc_in·kip",
+      "scale": 112.98482902761668,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000096",
+        "method_token": "0x06000001",
+        "il_offset": 4000,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "in·lbf",
+      "field_name": "mc_in·lbf",
+      "scale": 0.11298482902761668,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000097",
+        "method_token": "0x06000001",
+        "il_offset": 4025,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "in·ozf",
+      "field_name": "mc_in·ozf",
+      "scale": 0.007061551814226043,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000095",
+        "method_token": "0x06000001",
+        "il_offset": 3970,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "joule",
+      "field_name": "mc_joule",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000080",
+        "method_token": "0x06000001",
+        "il_offset": 3570,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "k",
+      "field_name": "mc_k",
+      "scale": 1.380649e-23,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001f",
+        "method_token": "0x06000001",
+        "il_offset": 1731,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kA",
+      "field_name": "mc_kA",
+      "scale": 1000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007f",
+        "method_token": "0x06000001",
+        "il_offset": 3555,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kHz",
+      "field_name": "mc_kHz",
+      "scale": 1000.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007e",
+        "method_token": "0x06000001",
+        "il_offset": 3535,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kN",
+      "field_name": "mc_kN",
+      "scale": 1000.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400007d",
+        "method_token": "0x06000001",
+        "il_offset": 3515,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kN·cm",
+      "field_name": "mc_kN·cm",
+      "scale": 10.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000077",
+        "method_token": "0x06000001",
+        "il_offset": 3390,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kN·m",
+      "field_name": "mc_kN·m",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000078",
+        "method_token": "0x06000001",
+        "il_offset": 3420,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kN·mm",
+      "field_name": "mc_kN·mm",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000076",
+        "method_token": "0x06000001",
+        "il_offset": 3355,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kPa",
+      "field_name": "mc_kPa",
+      "scale": 1000.0,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000069",
+        "method_token": "0x06000001",
+        "il_offset": 3070,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kV",
+      "field_name": "mc_kV",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000075",
+        "method_token": "0x06000001",
+        "il_offset": 3320,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kW",
+      "field_name": "mc_kW",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000074",
+        "method_token": "0x06000001",
+        "il_offset": 3300,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kW·hr",
+      "field_name": "mc_kW·hr",
+      "scale": 3600000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000092",
+        "method_token": "0x06000001",
+        "il_offset": 3895,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "katal",
+      "field_name": "mc_katal",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000072",
+        "method_token": "0x06000001",
+        "il_offset": 3260,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kcal",
+      "field_name": "mc_kcal",
+      "scale": 4186.8,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000071",
+        "method_token": "0x06000001",
+        "il_offset": 3245,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kg",
+      "field_name": "mc_kg",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000005",
+        "method_token": "0x06000001",
+        "il_offset": 70,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kgf",
+      "field_name": "mc_kgf",
+      "scale": 9.80665,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000070",
+        "method_token": "0x06000001",
+        "il_offset": 3225,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kip",
+      "field_name": "mc_kip",
+      "scale": 4448.2216152605,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006f",
+        "method_token": "0x06000001",
+        "il_offset": 3210,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "klf",
+      "field_name": "mc_klf",
+      "scale": 14593.902937206363,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006e",
+        "method_token": "0x06000001",
+        "il_offset": 3190,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "km",
+      "field_name": "mc_km",
+      "scale": 1000.0,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006b",
+        "method_token": "0x06000001",
+        "il_offset": 3105,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "knot",
+      "field_name": "mc_knot",
+      "scale": 0.5144444444444445,
+      "dimension": [
+        1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006a",
+        "method_token": "0x06000001",
+        "il_offset": 3085,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kph",
+      "field_name": "mc_kph",
+      "scale": 0.2777777777777778,
+      "dimension": [
+        1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000068",
+        "method_token": "0x06000001",
+        "il_offset": 3050,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kpi",
+      "field_name": "mc_kpi",
+      "scale": 175126.83524647637,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006d",
+        "method_token": "0x06000001",
+        "il_offset": 3160,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ksf",
+      "field_name": "mc_ksf",
+      "scale": 47880.258980335835,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000067",
+        "method_token": "0x06000001",
+        "il_offset": 3020,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ksi",
+      "field_name": "mc_ksi",
+      "scale": 6894757.293168361,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000066",
+        "method_token": "0x06000001",
+        "il_offset": 2985,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "kΩ",
+      "field_name": "mc_kΩ",
+      "scale": 1000.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000073",
+        "method_token": "0x06000001",
+        "il_offset": 3280,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "l",
+      "field_name": "mc_l",
+      "scale": 0.001,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000061",
+        "method_token": "0x06000001",
+        "il_offset": 2890,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "lb",
+      "field_name": "mc_lb",
+      "scale": 0.45359237,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000065",
+        "method_token": "0x06000001",
+        "il_offset": 2950,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "lbf",
+      "field_name": "mc_lbf",
+      "scale": 4.4482216152605,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000063",
+        "method_token": "0x06000001",
+        "il_offset": 2920,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "lbm",
+      "field_name": "mc_lbm",
+      "scale": 0.45359237,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000064",
+        "method_token": "0x06000001",
+        "il_offset": 2935,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "liter",
+      "field_name": "mc_liter",
+      "scale": 0.001,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000062",
+        "method_token": "0x06000001",
+        "il_offset": 2905,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "lm",
+      "field_name": "mc_lm",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000060",
+        "method_token": "0x06000001",
+        "il_offset": 2875,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "lx",
+      "field_name": "mc_lx",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000004",
+        "method_token": "0x06000001",
+        "il_offset": 55,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "m",
+      "field_name": "mc_m",
+      "scale": 1.0,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000003",
+        "method_token": "0x06000001",
+        "il_offset": 40,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "m.u",
+      "field_name": "mc_m_2E_u",
+      "scale": 1.66053906892e-27,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001e",
+        "method_token": "0x06000001",
+        "il_offset": 1716,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mA",
+      "field_name": "mc_mA",
+      "scale": 0.001,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005f",
+        "method_token": "0x06000001",
+        "il_offset": 2860,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mBTU",
+      "field_name": "mc_mBTU",
+      "scale": 1055.8700000000001,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005e",
+        "method_token": "0x06000001",
+        "il_offset": 2840,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mC",
+      "field_name": "mc_mC",
+      "scale": 0.001,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a9",
+        "method_token": "0x06000001",
+        "il_offset": 4340,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mH",
+      "field_name": "mc_mH",
+      "scale": 0.001,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005d",
+        "method_token": "0x06000001",
+        "il_offset": 2825,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mL",
+      "field_name": "mc_mL",
+      "scale": 1e-06,
+      "dimension": [
+        3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005c",
+        "method_token": "0x06000001",
+        "il_offset": 2805,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mV",
+      "field_name": "mc_mV",
+      "scale": 0.001,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005b",
+        "method_token": "0x06000001",
+        "il_offset": 2785,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mW",
+      "field_name": "mc_mW",
+      "scale": 0.001,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000057",
+        "method_token": "0x06000001",
+        "il_offset": 2705,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mcal",
+      "field_name": "mc_mcal",
+      "scale": 4.19002,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000053",
+        "method_token": "0x06000001",
+        "il_offset": 2625,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mg",
+      "field_name": "mc_mg",
+      "scale": 1e-06,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000052",
+        "method_token": "0x06000001",
+        "il_offset": 2610,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mgd",
+      "field_name": "mc_mgd",
+      "scale": 0.04381263638888889,
+      "dimension": [
+        3.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400008b",
+        "method_token": "0x06000001",
+        "il_offset": 3750,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mho",
+      "field_name": "mc_mho",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        -1.0,
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000051",
+        "method_token": "0x06000001",
+        "il_offset": 2590,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mhp",
+      "field_name": "mc_mhp",
+      "scale": 735.49875,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000050",
+        "method_token": "0x06000001",
+        "il_offset": 2575,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mi",
+      "field_name": "mc_mi",
+      "scale": 1609.3440000000003,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004e",
+        "method_token": "0x06000001",
+        "il_offset": 2545,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "micron",
+      "field_name": "mc_micron",
+      "scale": 1e-06,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004f",
+        "method_token": "0x06000001",
+        "il_offset": 2560,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mil",
+      "field_name": "mc_mil",
+      "scale": 2.54e-05,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004d",
+        "method_token": "0x06000001",
+        "il_offset": 2530,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mile",
+      "field_name": "mc_mile",
+      "scale": 1609.3440000000003,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004c",
+        "method_token": "0x06000001",
+        "il_offset": 2515,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "min",
+      "field_name": "mc_min",
+      "scale": 60.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004b",
+        "method_token": "0x06000001",
+        "il_offset": 2500,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mm",
+      "field_name": "mc_mm",
+      "scale": 0.001,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400004a",
+        "method_token": "0x06000001",
+        "il_offset": 2485,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mol",
+      "field_name": "mc_mol",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000049",
+        "method_token": "0x06000001",
+        "il_offset": 2465,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mole",
+      "field_name": "mc_mole",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000002",
+        "method_token": "0x06000001",
+        "il_offset": 25,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "mph",
+      "field_name": "mc_mph",
+      "scale": 0.4470400000000001,
+      "dimension": [
+        1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000048",
+        "method_token": "0x06000001",
+        "il_offset": 2450,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ms",
+      "field_name": "mc_ms",
+      "scale": 0.001,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000047",
+        "method_token": "0x06000001",
+        "il_offset": 2425,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nA",
+      "field_name": "mc_nA",
+      "scale": 1e-09,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c2",
+        "method_token": "0x06000001",
+        "il_offset": 4770,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nC",
+      "field_name": "mc_nC",
+      "scale": 1e-09,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a7",
+        "method_token": "0x06000001",
+        "il_offset": 4300,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nF",
+      "field_name": "mc_nF",
+      "scale": 1e-09,
+      "dimension": [
+        -2.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000045",
+        "method_token": "0x06000001",
+        "il_offset": 2390,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nV",
+      "field_name": "mc_nV",
+      "scale": 1e-09,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000059",
+        "method_token": "0x06000001",
+        "il_offset": 2745,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nW",
+      "field_name": "mc_nW",
+      "scale": 1e-09,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000055",
+        "method_token": "0x06000001",
+        "il_offset": 2665,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "newton",
+      "field_name": "mc_newton",
+      "scale": 1.0,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000046",
+        "method_token": "0x06000001",
+        "il_offset": 2405,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nm",
+      "field_name": "mc_nm",
+      "scale": 1e-09,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000044",
+        "method_token": "0x06000001",
+        "il_offset": 2370,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "nmi",
+      "field_name": "mc_nmi",
+      "scale": 1852.0,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000043",
+        "method_token": "0x06000001",
+        "il_offset": 2350,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ns",
+      "field_name": "mc_ns",
+      "scale": 1e-09,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000bc",
+        "method_token": "0x06000001",
+        "il_offset": 4650,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "oersted",
+      "field_name": "mc_oersted",
+      "scale": 79.57747154594767,
+      "dimension": [
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000042",
+        "method_token": "0x06000001",
+        "il_offset": 2335,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ohm",
+      "field_name": "mc_ohm",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000041",
+        "method_token": "0x06000001",
+        "il_offset": 2320,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "oz",
+      "field_name": "mc_oz",
+      "scale": 0.028349523125,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000040",
+        "method_token": "0x06000001",
+        "il_offset": 2305,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ozf",
+      "field_name": "mc_ozf",
+      "scale": 0.2780138509537812,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003f",
+        "method_token": "0x06000001",
+        "il_offset": 2290,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pA",
+      "field_name": "mc_pA",
+      "scale": 1e-12,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c1",
+        "method_token": "0x06000001",
+        "il_offset": 4750,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pC",
+      "field_name": "mc_pC",
+      "scale": 1e-12,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a6",
+        "method_token": "0x06000001",
+        "il_offset": 4280,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pF",
+      "field_name": "mc_pF",
+      "scale": 1e-12,
+      "dimension": [
+        -2.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003e",
+        "method_token": "0x06000001",
+        "il_offset": 2275,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pV",
+      "field_name": "mc_pV",
+      "scale": 1e-12,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000058",
+        "method_token": "0x06000001",
+        "il_offset": 2725,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pW",
+      "field_name": "mc_pW",
+      "scale": 1e-12,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000054",
+        "method_token": "0x06000001",
+        "il_offset": 2645,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pcf",
+      "field_name": "mc_pcf",
+      "scale": 157.08746384624618,
+      "dimension": [
+        -2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003d",
+        "method_token": "0x06000001",
+        "il_offset": 2255,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "pci",
+      "field_name": "mc_pci",
+      "scale": 271447.1375263134,
+      "dimension": [
+        -2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003c",
+        "method_token": "0x06000001",
+        "il_offset": 2225,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "plf",
+      "field_name": "mc_plf",
+      "scale": 14.593902937206362,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400006c",
+        "method_token": "0x06000001",
+        "il_offset": 3130,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "poise",
+      "field_name": "mc_poise",
+      "scale": 0.1,
+      "dimension": [
+        -1.0,
+        1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003b",
+        "method_token": "0x06000001",
+        "il_offset": 2195,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ps",
+      "field_name": "mc_ps",
+      "scale": 1e-12,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000bb",
+        "method_token": "0x06000001",
+        "il_offset": 4630,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "psf",
+      "field_name": "mc_psf",
+      "scale": 47.88025898033584,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000039",
+        "method_token": "0x06000001",
+        "il_offset": 2165,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "psi",
+      "field_name": "mc_psi",
+      "scale": 6894.757293168361,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400003a",
+        "method_token": "0x06000001",
+        "il_offset": 2180,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "rad",
+      "field_name": "mc_rad",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000038",
+        "method_token": "0x06000001",
+        "il_offset": 2135,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "rev",
+      "field_name": "mc_rev",
+      "scale": 6.283185307179586,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000037",
+        "method_token": "0x06000001",
+        "il_offset": 2120,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "rpm",
+      "field_name": "mc_rpm",
+      "scale": 0.10471975511965977,
+      "dimension": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000036",
+        "method_token": "0x06000001",
+        "il_offset": 2105,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "s",
+      "field_name": "mc_s",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000001",
+        "method_token": "0x06000001",
+        "il_offset": 10,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "sec",
+      "field_name": "mc_sec",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000035",
+        "method_token": "0x06000001",
+        "il_offset": 2080,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "siemens",
+      "field_name": "mc_siemens",
+      "scale": 1.0,
+      "dimension": [
+        -2.0,
+        -1.0,
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000034",
+        "method_token": "0x06000001",
+        "il_offset": 2065,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "slug",
+      "field_name": "mc_slug",
+      "scale": 14.5939029372064,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000033",
+        "method_token": "0x06000001",
+        "il_offset": 2050,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "sr",
+      "field_name": "mc_sr",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000032",
+        "method_token": "0x06000001",
+        "il_offset": 2035,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "stokes",
+      "field_name": "mc_stokes",
+      "scale": 0.0001,
+      "dimension": [
+        2.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000031",
+        "method_token": "0x06000001",
+        "il_offset": 2020,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tBTU",
+      "field_name": "mc_tBTU",
+      "scale": 1054.35,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002f",
+        "method_token": "0x06000001",
+        "il_offset": 1990,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tcal",
+      "field_name": "mc_tcal",
+      "scale": 4.184,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002e",
+        "method_token": "0x06000001",
+        "il_offset": 1975,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tesla",
+      "field_name": "mc_tesla",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002d",
+        "method_token": "0x06000001",
+        "il_offset": 1960,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ton",
+      "field_name": "mc_ton",
+      "scale": 907.18474,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002c",
+        "method_token": "0x06000001",
+        "il_offset": 1945,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tonf",
+      "field_name": "mc_tonf",
+      "scale": 8896.443230521,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002b",
+        "method_token": "0x06000001",
+        "il_offset": 1930,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tonne",
+      "field_name": "mc_tonne",
+      "scale": 1000.0,
+      "dimension": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400002a",
+        "method_token": "0x06000001",
+        "il_offset": 1896,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "tonnef",
+      "field_name": "mc_tonnef",
+      "scale": 9806.65,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000079",
+        "method_token": "0x06000001",
+        "il_offset": 3435,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "torr",
+      "field_name": "mc_torr",
+      "scale": 133.32236842105263,
+      "dimension": [
+        -1.0,
+        1.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000029",
+        "method_token": "0x06000001",
+        "il_offset": 1881,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "volt",
+      "field_name": "mc_volt",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000028",
+        "method_token": "0x06000001",
+        "il_offset": 1866,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "watt",
+      "field_name": "mc_watt",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000027",
+        "method_token": "0x06000001",
+        "il_offset": 1851,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "weber",
+      "field_name": "mc_weber",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000026",
+        "method_token": "0x06000001",
+        "il_offset": 1836,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "yd",
+      "field_name": "mc_yd",
+      "scale": 0.9144000000000001,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000025",
+        "method_token": "0x06000001",
+        "il_offset": 1821,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "yr",
+      "field_name": "mc_yr",
+      "scale": 31556925.9747,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000024",
+        "method_token": "0x06000001",
+        "il_offset": 1806,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "°",
+      "field_name": "mc_°",
+      "scale": 0.017453292519943295,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a1",
+        "method_token": "0x06000001",
+        "il_offset": 4200,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "°R",
+      "field_name": "mc_°R",
+      "scale": 0.5555555555555556,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c5",
+        "method_token": "0x06000001",
+        "il_offset": 4820,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Δ°C",
+      "field_name": "mc_Δ°C",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000dd",
+        "method_token": "0x06000001",
+        "il_offset": 5270,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Δ°F",
+      "field_name": "mc_Δ°F",
+      "scale": 0.5555555555555556,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000dc",
+        "method_token": "0x06000001",
+        "il_offset": 5255,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Δ℃",
+      "field_name": "mc_Δ℃",
+      "scale": 1.0,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000db",
+        "method_token": "0x06000001",
+        "il_offset": 5240,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Δ℉",
+      "field_name": "mc_Δ℉",
+      "scale": 0.5555555555555556,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000da",
+        "method_token": "0x06000001",
+        "il_offset": 5225,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Φ.0",
+      "field_name": "mc_Φ_2E_0",
+      "scale": 2.067833848e-15,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x04000019",
+        "method_token": "0x06000001",
+        "il_offset": 1641,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "Ω",
+      "field_name": "mc_Ω",
+      "scale": 1.0,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000007",
+        "method_token": "0x06000001",
+        "il_offset": 100,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "α",
+      "field_name": "mc_α",
+      "scale": 0.0072973525643,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x0400001a",
+        "method_token": "0x06000001",
+        "il_offset": 1656,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ε.0",
+      "field_name": "mc_ε_2E_0",
+      "scale": 8.8541878188e-12,
+      "dimension": [
+        -3.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x040000e4",
+        "method_token": "0x06000001",
+        "il_offset": 5375,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μ.0",
+      "field_name": "mc_μ_2E_0",
+      "scale": 1.25663706127e-06,
+      "dimension": [
+        1.0,
+        1.0,
+        -2.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x040000e5",
+        "method_token": "0x06000001",
+        "il_offset": 5390,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μA",
+      "field_name": "mc_μA",
+      "scale": 1e-06,
+      "dimension": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c3",
+        "method_token": "0x06000001",
+        "il_offset": 4790,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μC",
+      "field_name": "mc_μC",
+      "scale": 1e-06,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000a8",
+        "method_token": "0x06000001",
+        "il_offset": 4320,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μF",
+      "field_name": "mc_μF",
+      "scale": 1e-06,
+      "dimension": [
+        -2.0,
+        -1.0,
+        4.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000c0",
+        "method_token": "0x06000001",
+        "il_offset": 4730,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μH",
+      "field_name": "mc_μH",
+      "scale": 1e-06,
+      "dimension": [
+        2.0,
+        1.0,
+        -2.0,
+        -2.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000bf",
+        "method_token": "0x06000001",
+        "il_offset": 4710,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μV",
+      "field_name": "mc_μV",
+      "scale": 1e-06,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x0400005a",
+        "method_token": "0x06000001",
+        "il_offset": 2765,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μW",
+      "field_name": "mc_μW",
+      "scale": 1e-06,
+      "dimension": [
+        2.0,
+        1.0,
+        -3.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x04000056",
+        "method_token": "0x06000001",
+        "il_offset": 2685,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μm",
+      "field_name": "mc_μm",
+      "scale": 1e-06,
+      "dimension": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000be",
+        "method_token": "0x06000001",
+        "il_offset": 4690,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "μs",
+      "field_name": "mc_μs",
+      "scale": 1e-06,
+      "dimension": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "unit",
+      "assignment": {
+        "field_token": "0x040000bd",
+        "method_token": "0x06000001",
+        "il_offset": 4670,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "σ",
+      "field_name": "mc_σ",
+      "scale": 5.670374419e-08,
+      "dimension": [
+        0.0,
+        1.0,
+        -3.0,
+        0.0,
+        -4.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x04000018",
+        "method_token": "0x06000001",
+        "il_offset": 1626,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    },
+    {
+      "name": "ℏ",
+      "field_name": "mc_ℏ",
+      "scale": 1.054571817e-34,
+      "dimension": [
+        2.0,
+        1.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "category": "physical_constant",
+      "assignment": {
+        "field_token": "0x04000020",
+        "method_token": "0x06000001",
+        "il_offset": 1746,
+        "method_il_sha256": "ef8954ea5b78a57ce90e2dcb5f0a067af9278398e8b274d3cbfe523b7a50bd32"
+      }
+    }
+  ],
+  "excluded": [
+    {
+      "name": "¤",
+      "reason": "Eight-dimensional Money type cannot be represented by seven-dimensional Quantity"
+    }
+  ],
+  "limitations": [
+    "No affine temperature conversion; delta temperature units only",
+    "No Money dimension",
+    "No full label inference; physical constants kept separate",
+    "No target CLR or original program execution",
+    "Prefix expansion is owned by the caller"
+  ]
+}

@@ -1,9 +1,10 @@
 //! A bounded structural bridge, not a Mathcad file converter.
 //!
-//! Explicit identifier labels survive editing. Newly typed `Identifier` nodes
-//! remain unlabelled in stored fragments; `worksheet_xml` assigns a limited,
-//! independent label policy using earlier definitions and the prototype catalog.
-//! This does not implement Prime's contextual/wildcard label inference.
+//! Explicit identifier labels and contextual display metadata survive editing.
+//! `worksheet_xml` applies proven structural label constraints, then a bounded,
+//! independent lookup policy using visible definitions and the prototype catalog.
+//! Cached contextual labels do not become explicit user choices. This does not
+//! implement Prime's complete contextual/wildcard label resolution.
 //! Unsupported attributes or structures return an error so callers retain raw XML.
 
 use mathcraft_editor::{BinaryOp, NodeKind, PortableTree};
@@ -14,6 +15,72 @@ const ML: &str = "http://schemas.mathsoft.com/math50";
 const WS: &str = "http://schemas.mathsoft.com/worksheet50";
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
 const MAX_XML: usize = 8 * 1024 * 1024;
+const XAML: &str = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+const PTC: &str = "clr-namespace:Ptc.Wpf;assembly=Ptc.Core";
+
+/// Decode only the shipped identifier representation whose metadata the editor
+/// can retain. This reads XAML as inert XML, never as executable markup.
+type IdentifierParts = (String, Option<String>, Option<bool>, Option<String>);
+pub(crate) fn identifier_parts(node: Node<'_, '_>) -> Result<IdentifierParts, String> {
+    attributes(
+        node,
+        &[
+            ("labels", None),
+            ("space", Some(XML)),
+            ("label-is-contextual", None),
+        ],
+    )?;
+    if node
+        .attribute((XML, "space"))
+        .is_some_and(|x| x != "preserve")
+    {
+        return Err("Unsupported identifier whitespace policy".into());
+    }
+    let contextual = node
+        .attribute("label-is-contextual")
+        .map(|x| match x {
+            "true" | "1" => Ok(true),
+            "false" | "0" => Ok(false),
+            _ => Err("Invalid contextual flag".to_string()),
+        })
+        .transpose()?;
+    let labels = node.attribute("labels").map(str::to_string);
+    if node.children().all(|n| n.is_text()) {
+        return Ok((node.text().unwrap_or("").into(), labels, contextual, None));
+    }
+    let content = elements(node)?;
+    if content.len() != 1 || !content[0].has_tag_name((XAML, "Span")) {
+        return Err("Unsupported structured identifier".into());
+    }
+    let span = content[0];
+    attributes(span, &[])?;
+    let mut name = String::new();
+    let mut subscript = None;
+    for child in span.children() {
+        if child.is_text() && subscript.is_none() {
+            name.push_str(child.text().unwrap_or(""));
+        } else if child.has_tag_name((PTC, "Subscript")) && subscript.is_none() {
+            attributes(child, &[])?;
+            if child.children().any(|n| !n.is_text()) {
+                return Err("Unsupported subscript markup".into());
+            }
+            subscript = Some(child.text().unwrap_or("").to_string());
+        } else {
+            return Err("Unsupported identifier span content".into());
+        }
+    }
+    if subscript.is_none() {
+        return Err("Unsupported span without literal subscript".into());
+    }
+    Ok((name, labels, contextual, subscript))
+}
+
+pub(crate) fn identifier_identity(name: &str, subscript: Option<&str>) -> String {
+    match subscript {
+        Some(sub) => format!("{name}\u{1f}{sub}"),
+        None => name.into(),
+    }
+}
 
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
@@ -59,28 +126,29 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
     }
     let result = match node.tag_name().name() {
         "id" => {
-            attributes(node, &[("labels", None), ("space", Some(XML))])?;
-            if node
-                .attribute((XML, "space"))
-                .is_some_and(|value| value != "preserve")
-            {
-                return Err("Unsupported identifier whitespace policy".into());
-            }
-            if node.children().any(|n| !n.is_text()) {
-                return Err("Structured identifier or comment requires raw preservation".into());
-            }
-            let name = node.text().unwrap_or("").to_string();
-            let kind = match node.attribute("labels") {
-                Some(labels) => NodeKind::AnnotatedIdentifier {
+            let (name, labels, contextual, subscript) = identifier_parts(node)?;
+            let kind = match (labels, contextual, subscript) {
+                (Some(labels), None, None) => NodeKind::AnnotatedIdentifier { name, labels },
+                (None, None, None) => NodeKind::Identifier(name),
+                (Some(labels), contextual, subscript) => NodeKind::NativeIdentifier {
                     name,
-                    labels: labels.into(),
+                    labels,
+                    contextual,
+                    subscript,
                 },
-                None => NodeKind::Identifier(name),
+                _ => return Err("Unlabelled native identifier requires raw preservation".into()),
             };
             tree(kind, vec![])
         }
-        "real" => {
-            attributes(node, &[])?;
+        "real" | "imag" => {
+            attributes(
+                node,
+                if math(node, "imag") {
+                    &[("symbol", None)]
+                } else {
+                    &[]
+                },
+            )?;
             if node.children().any(|n| !n.is_text()) {
                 return Err("Structured numeric literal requires raw preservation".into());
             }
@@ -89,7 +157,21 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
             if !value.is_finite() {
                 return Err("Nonfinite literal is outside this editor subset".into());
             }
-            tree(NodeKind::Number(text.into()), vec![])
+            tree(
+                if math(node, "imag") {
+                    match node.attribute("symbol") {
+                        Some(symbol @ ("i" | "j")) => NodeKind::ImaginarySymbol {
+                            value: text.into(),
+                            symbol: symbol.into(),
+                        },
+                        Some(_) => return Err("Unknown imaginary symbol".into()),
+                        None => NodeKind::Imaginary(text.into()),
+                    }
+                } else {
+                    NodeKind::Number(text.into())
+                },
+                vec![],
+            )
         }
         "placeholder" => {
             attributes(node, &[])?;
@@ -112,8 +194,8 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
             }
             attributes(node, &[])?;
             let nodes = elements(node)?;
-            if nodes.len() != 2 || !math(nodes[0], "id") {
-                return Err("Only an identifier definition can be structurally edited".into());
+            if nodes.len() != 2 || !(math(nodes[0], "id") || math(nodes[0], "function")) {
+                return Err("Unsupported definition target".into());
             }
             tree(
                 NodeKind::Binary(BinaryOp::Define),
@@ -124,7 +206,9 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
             )
         }
         "eval" => {
-            if depth != 0 {
+            if depth != 0
+                && !(depth == 1 && node.parent_element().is_some_and(|p| math(p, "define")))
+            {
                 return Err("Nested evaluation requires raw preservation".into());
             }
             attributes(node, &[])?;
@@ -145,10 +229,28 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
         "apply" => {
             attributes(node, &[])?;
             let nodes = elements(node)?;
-            if nodes.len() != 3 || nodes[0].tag_name().namespace() != Some(ML) {
+            if nodes.is_empty() || nodes[0].tag_name().namespace() != Some(ML) {
                 return Err("Unsupported operator/arity".into());
             }
             let op = nodes[0];
+            if math(op, "id") {
+                let arguments = if nodes.len() == 2 && math(nodes[1], "sequence") {
+                    attributes(nodes[1], &[])?;
+                    elements(nodes[1])?
+                } else {
+                    nodes[1..].to_vec()
+                };
+                let mut children = vec![parse(op, depth + 1)?];
+                for arg in &arguments {
+                    children.push(parse(*arg, depth + 1)?);
+                }
+                return Ok(tree(
+                    NodeKind::Call {
+                        argument_count: arguments.len(),
+                    },
+                    children,
+                ));
+            }
             if !elements(op)?.is_empty() {
                 return Err("Operator carries unknown content".into());
             }
@@ -156,7 +258,33 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
                 "plus" => NodeKind::Binary(BinaryOp::Add),
                 "minus" => NodeKind::Binary(BinaryOp::Subtract),
                 "mult" => NodeKind::Binary(BinaryOp::Multiply),
+                "scale" => NodeKind::Binary(BinaryOp::Scale),
                 "pow" => NodeKind::Power,
+                "neg" => NodeKind::UnaryNeg,
+                "absval" => NodeKind::Absolute,
+                "nthRoot" => NodeKind::Root,
+                "indexer" => {
+                    let indices = if nodes.len() == 3 && math(nodes[2], "sequence") {
+                        attributes(nodes[2], &[])?;
+                        elements(nodes[2])?
+                    } else {
+                        nodes.get(2..).unwrap_or(&[]).to_vec()
+                    };
+                    if !(1..=2).contains(&indices.len()) || nodes.len() < 3 {
+                        return Err("Unsupported index arity".into());
+                    }
+                    let mut children = vec![parse(nodes[1], depth + 1)?];
+                    for i in &indices {
+                        children.push(parse(*i, depth + 1)?);
+                    }
+                    attributes(op, &[])?;
+                    return Ok(tree(
+                        NodeKind::Index {
+                            indices: indices.len(),
+                        },
+                        children,
+                    ));
+                }
                 "div" => {
                     attributes(op, &[("inline", None)])?;
                     match op.attribute("inline") {
@@ -170,9 +298,95 @@ fn parse(node: Node<'_, '_>, depth: usize) -> Result<PortableTree, String> {
             if !math(op, "div") {
                 attributes(op, &[])?;
             }
+            let arity = if matches!(kind, NodeKind::UnaryNeg | NodeKind::Absolute) {
+                1
+            } else {
+                2
+            };
+            if nodes.len() != arity + 1 {
+                return Err("Unsupported operator arity".into());
+            }
             tree(
                 kind,
-                vec![parse(nodes[1], depth + 1)?, parse(nodes[2], depth + 1)?],
+                nodes[1..]
+                    .iter()
+                    .map(|n| parse(*n, depth + 1))
+                    .collect::<Result<_, _>>()?,
+            )
+        }
+        "function" => {
+            attributes(node, &[])?;
+            let nodes = elements(node)?;
+            if nodes.len() != 2 || !math(nodes[0], "id") || !math(nodes[1], "boundVars") {
+                return Err("Unsupported function declaration".into());
+            }
+            attributes(nodes[1], &[])?;
+            let params = elements(nodes[1])?;
+            if params.iter().any(|p| !math(*p, "id")) {
+                return Err("Unsupported function parameter".into());
+            }
+            let mut children = vec![parse(nodes[0], depth + 1)?];
+            for p in &params {
+                children.push(parse(*p, depth + 1)?);
+            }
+            tree(
+                NodeKind::Function {
+                    parameter_count: params.len(),
+                },
+                children,
+            )
+        }
+        "matrix" => {
+            attributes(node, &[("rows", None), ("cols", None)])?;
+            let rows: usize = node
+                .attribute("rows")
+                .unwrap_or("")
+                .parse()
+                .map_err(|_| "Invalid matrix rows")?;
+            let cols: usize = node
+                .attribute("cols")
+                .unwrap_or("")
+                .parse()
+                .map_err(|_| "Invalid matrix cols")?;
+            let nodes = elements(node)?;
+            if rows == 0
+                || cols == 0
+                || rows.checked_mul(cols) != Some(nodes.len())
+                || nodes.len() > 16384
+            {
+                return Err("Invalid matrix size".into());
+            }
+            let mut row_major = Vec::with_capacity(nodes.len());
+            for row in 0..rows {
+                for col in 0..cols {
+                    row_major.push(parse(nodes[col * rows + row], depth + 1)?);
+                }
+            }
+            tree(NodeKind::Matrix { rows, cols }, row_major)
+        }
+        "range" => {
+            attributes(node, &[])?;
+            let parts = elements(node)?;
+            if parts.len() != 2 {
+                return Err("Unsupported range arity".into());
+            }
+            let (has_step, mut nodes) = if math(parts[0], "sequence") {
+                attributes(parts[0], &[])?;
+                let pair = elements(parts[0])?;
+                if pair.len() != 2 {
+                    return Err("Unsupported range start/second".into());
+                }
+                (true, pair)
+            } else {
+                (false, vec![parts[0]])
+            };
+            nodes.push(parts[1]);
+            tree(
+                NodeKind::Range { has_step },
+                nodes
+                    .iter()
+                    .map(|n| parse(*n, depth + 1))
+                    .collect::<Result<_, _>>()?,
             )
         }
         name => return Err(format!("Unsupported MathML {name}; retain raw XML")),
@@ -202,7 +416,14 @@ pub fn tree_from_mathml(xml: &str) -> Result<PortableTree, String> {
         } else {
             attributes(root, &[])?;
         }
-        let children = elements(root)?;
+        let mut children = elements(root)?;
+        if root.has_tag_name((WS, "math")) {
+            // The owning document retains the original wrapper and these inert
+            // presentation siblings. This bridge only edits its expression.
+            children.retain(|n| {
+                !n.has_tag_name((WS, "resultFormat")) && !n.has_tag_name((WS, "formattingOverride"))
+            });
+        }
         if children.len() != 1 {
             return Err("Expected one expression in namespace wrapper".into());
         }
@@ -234,6 +455,28 @@ fn serialize(node: &PortableTree, root: bool, depth: usize) -> Result<String, St
             escape(labels),
             escape(name)
         ),
+        NodeKind::NativeIdentifier {
+            name,
+            labels,
+            contextual,
+            subscript,
+        } => {
+            let contextual = contextual
+                .map(|x| format!(" label-is-contextual=\"{x}\""))
+                .unwrap_or_default();
+            let body = match subscript {
+                Some(sub) => format!(
+                    "<p:Span xmlns:p=\"{XAML}\">{}<ptc:Subscript xmlns:ptc=\"{PTC}\">{}</ptc:Subscript></p:Span>",
+                    escape(name),
+                    escape(sub)
+                ),
+                None => escape(name),
+            };
+            format!(
+                "<ml:id{ns} labels=\"{}\"{contextual} xml:space=\"preserve\">{body}</ml:id>",
+                escape(labels)
+            )
+        }
         NodeKind::Number(number) => {
             let value: f64 = number.parse().map_err(|_| "Invalid number literal")?;
             if !value.is_finite() {
@@ -241,12 +484,91 @@ fn serialize(node: &PortableTree, root: bool, depth: usize) -> Result<String, St
             }
             format!("<ml:real{ns}>{}</ml:real>", escape(number))
         }
+        NodeKind::Imaginary(number) | NodeKind::ImaginarySymbol { value: number, .. } => {
+            if !number.parse::<f64>().is_ok_and(f64::is_finite) {
+                return Err("Invalid imaginary literal".into());
+            }
+            let symbol = if let NodeKind::ImaginarySymbol { symbol, .. } = &node.kind {
+                if symbol != "i" && symbol != "j" {
+                    return Err("Unsupported imaginary symbol".into());
+                }
+                format!(" symbol=\"{}\"", escape(symbol))
+            } else {
+                String::new()
+            };
+            format!("<ml:imag{ns}{symbol}>{}</ml:imag>", escape(number))
+        }
         NodeKind::Group => format!("<ml:parens{ns}>{}</ml:parens>", child(0)?),
+        NodeKind::UnaryNeg => format!("<ml:apply{ns}><ml:neg/>{}</ml:apply>", child(0)?),
+        NodeKind::Absolute => format!("<ml:apply{ns}><ml:absval/>{}</ml:apply>", child(0)?),
+        NodeKind::Root => format!(
+            "<ml:apply{ns}><ml:nthRoot/>{}{}</ml:apply>",
+            child(0)?,
+            child(1)?
+        ),
+        NodeKind::Call { argument_count } => {
+            let args = (1..=*argument_count)
+                .map(child)
+                .collect::<Result<Vec<_>, _>>()?
+                .join("");
+            let args = if *argument_count == 1 {
+                args
+            } else {
+                format!("<ml:sequence>{args}</ml:sequence>")
+            };
+            format!("<ml:apply{ns}>{}{args}</ml:apply>", child(0)?)
+        }
+        NodeKind::Function { parameter_count } => {
+            let params = (1..=*parameter_count)
+                .map(child)
+                .collect::<Result<Vec<_>, _>>()?
+                .join("");
+            format!(
+                "<ml:function{ns}>{}<ml:boundVars>{params}</ml:boundVars></ml:function>",
+                child(0)?
+            )
+        }
+        NodeKind::Matrix { rows, cols } => {
+            let mut content = String::new();
+            for col in 0..*cols {
+                for row in 0..*rows {
+                    content.push_str(&child(row * cols + col)?);
+                }
+            }
+            format!("<ml:matrix{ns} rows=\"{rows}\" cols=\"{cols}\">{content}</ml:matrix>")
+        }
+        NodeKind::Range { has_step } => {
+            if *has_step {
+                format!(
+                    "<ml:range{ns}><ml:sequence>{}{}</ml:sequence>{}</ml:range>",
+                    child(0)?,
+                    child(1)?,
+                    child(2)?
+                )
+            } else {
+                format!("<ml:range{ns}>{}{}</ml:range>", child(0)?, child(1)?)
+            }
+        }
+        NodeKind::Index { indices } => {
+            let index = (1..=*indices)
+                .map(child)
+                .collect::<Result<Vec<_>, _>>()?
+                .join("");
+            let index = if *indices == 1 {
+                index
+            } else {
+                format!("<ml:sequence>{index}</ml:sequence>")
+            };
+            format!("<ml:apply{ns}><ml:indexer/>{}{index}</ml:apply>", child(0)?)
+        }
         NodeKind::Binary(BinaryOp::Define) => {
             if depth != 0
                 || !matches!(
                     node.children[0].kind,
-                    NodeKind::Identifier(_) | NodeKind::AnnotatedIdentifier { .. }
+                    NodeKind::Identifier(_)
+                        | NodeKind::AnnotatedIdentifier { .. }
+                        | NodeKind::NativeIdentifier { .. }
+                        | NodeKind::Function { .. }
                 )
             {
                 return Err("Only top-level identifier definitions are supported".into());
@@ -254,7 +576,7 @@ fn serialize(node: &PortableTree, root: bool, depth: usize) -> Result<String, St
             format!("<ml:define{ns}>{}{}</ml:define>", child(0)?, child(1)?)
         }
         NodeKind::Binary(BinaryOp::Evaluate) => {
-            if depth != 0 {
+            if depth > 1 {
                 return Err("Nested evaluation needs raw preservation".into());
             }
             format!(
@@ -268,6 +590,7 @@ fn serialize(node: &PortableTree, root: bool, depth: usize) -> Result<String, St
                 NodeKind::Binary(BinaryOp::Add) => "plus",
                 NodeKind::Binary(BinaryOp::Subtract) => "minus",
                 NodeKind::Binary(BinaryOp::Multiply) => "mult",
+                NodeKind::Binary(BinaryOp::Scale) => "scale",
                 NodeKind::Binary(BinaryOp::InlineDivide) => "div inline=\"true\"",
                 NodeKind::Fraction => "div",
                 NodeKind::Power => "pow",
@@ -288,6 +611,23 @@ fn serialize(node: &PortableTree, root: bool, depth: usize) -> Result<String, St
 pub fn tree_to_mathml(tree: &PortableTree) -> Result<String, String> {
     tree.validate()
         .map_err(|e| format!("Invalid structural tree: {e:?}"))?;
+    fn context(node: &PortableTree, allow_eval: bool, root: bool) -> Result<(), String> {
+        if matches!(node.kind, NodeKind::Binary(BinaryOp::Evaluate)) && !allow_eval {
+            return Err("Evaluation is only supported at the region root or definition RHS".into());
+        }
+        if matches!(node.kind, NodeKind::Binary(BinaryOp::Define)) && !root {
+            return Err("Nested definitions require raw preservation".into());
+        }
+        for (i, child) in node.children.iter().enumerate() {
+            context(
+                child,
+                matches!(node.kind, NodeKind::Binary(BinaryOp::Define)) && i == 1,
+                false,
+            )?;
+        }
+        Ok(())
+    }
+    context(tree, true, true)?;
     serialize(tree, true, 0)
 }
 
@@ -295,19 +635,91 @@ fn inferred_label(name: &str, definitions: &HashMap<String, String>) -> String {
     if let Some(label) = definitions.get(name) {
         return label.clone();
     }
-    if name == "ORIGIN" {
+    if system_identifier(name) {
         return "SYSTEM".into();
     }
-    if name == "π" {
+    if matches!(name, "π" | "e" | "γ" | "%") {
         return "CONSTANT".into();
     }
     if mathcraft_core::unit(name).is_some() {
         return "UNIT".into();
     }
-    if matches!(name, "sin" | "cos" | "tan" | "ln" | "exp" | "sqrt" | "abs") {
+    if mathcraft_core::units::constant_lookup(name).is_some() {
+        return "CONSTANT".into();
+    }
+    if crate::scalars::is_builtin(name)
+        || crate::arrays::is_builtin(name)
+        || crate::statistics::is_builtin(name)
+        || crate::numerics::is_builtin(name)
+    {
         return "FUNCTION".into();
     }
+    if name == "root" {
+        return "KEYWORD".into();
+    }
     "VARIABLE".into()
+}
+
+fn system_identifier(name: &str) -> bool {
+    matches!(
+        name,
+        "ORIGIN" | "TOL" | "CTOL" | "PRNCOLWIDTH" | "PRNPRECISION" | "CWD" | "Seed"
+    ) || name
+        .strip_prefix("in")
+        .is_some_and(|n| n.len() == 1 && n.as_bytes()[0].is_ascii_digit())
+}
+
+fn declaration_label(id: Node<'_, '_>) -> Result<String, String> {
+    let (name, labels, contextual, subscript) = identifier_parts(id)?;
+    Ok(
+        if let Some(label) = labels.filter(|_| contextual != Some(true)) {
+            label
+        } else if subscript.is_none()
+            && system_identifier(&name)
+            && id
+                .parent_element()
+                .is_some_and(|parent| math(parent, "define") || math(parent, "globalDefine"))
+        {
+            "SYSTEM".into()
+        } else {
+            "VARIABLE".into()
+        },
+    )
+}
+
+// Descriptor-table constraints apply to an entire child subtree. Index operands
+// interrupt this inheritance: Prime's ForceUnlabeled... keeps them unresolved.
+// Here they continue through bounded lookup, rather than inheriting UNIT.
+fn structural_label(id: Node<'_, '_>) -> Option<&'static str> {
+    let mut child = id;
+    while let Some(parent) = child.parent_element() {
+        if math(parent, "apply") {
+            let children: Vec<_> = parent.children().filter(Node::is_element).collect();
+            if children
+                .first()
+                .is_some_and(|op| math(*op, "indexer") || math(*op, "row") || math(*op, "col"))
+                && children
+                    .iter()
+                    .position(|n| *n == child)
+                    .is_some_and(|i| i >= 2)
+            {
+                return None;
+            }
+        }
+        if math(parent, "unitOverride") {
+            return Some("UNIT");
+        }
+        if math(parent, "boundVars") {
+            return Some("VARIABLE");
+        }
+        if (math(parent, "define") || math(parent, "globalDefine"))
+            && parent.children().find(Node::is_element) == Some(child)
+        {
+            return Some("VARIABLE");
+        }
+        child = parent;
+    }
+    None
 }
 
 fn label_fragment(xml: &str, definitions: &mut HashMap<String, String>) -> Result<String, String> {
@@ -322,52 +734,77 @@ fn label_fragment(xml: &str, definitions: &mut HashMap<String, String>) -> Resul
     let root = roots[0];
     let definition = if math(root, "define") || math(root, "globalDefine") {
         let children: Vec<_> = root.children().filter(Node::is_element).collect();
-        children.first().copied().filter(|n| math(*n, "id"))
+        children.first().copied().and_then(|n| {
+            if math(n, "id") {
+                Some(n)
+            } else if math(n, "function") {
+                n.children().find(|x| math(*x, "id"))
+            } else {
+                None
+            }
+        })
     } else {
         None
     };
+    let mut locals = definitions.clone();
+    for bound in root.descendants().filter(|n| math(*n, "boundVars")) {
+        for parameter in bound.children().filter(|n| math(*n, "id")) {
+            let (name, labels, contextual, sub) = identifier_parts(parameter)?;
+            locals.insert(
+                identifier_identity(&name, sub.as_deref()),
+                if contextual == Some(true) {
+                    None
+                } else {
+                    labels
+                }
+                .unwrap_or_else(|| "VARIABLE".into()),
+            );
+        }
+    }
     let mut patches = Vec::new();
     for id in root.descendants().filter(|n| math(*n, "id")) {
-        if id.attribute("labels").is_some() {
+        let (name, labels, contextual, subscript) = identifier_parts(id)?;
+        if labels.is_some() && contextual != Some(true) {
             continue;
         }
-        if id.children().any(|n| !n.is_text()) {
-            return Err("Automatic labels for structured identifiers are unsupported".into());
-        }
-        let name = id.text().unwrap_or("");
+        let identity = identifier_identity(&name, subscript.as_deref());
         let label = if Some(id) == definition {
-            if name == "ORIGIN" {
-                "SYSTEM".into()
-            } else {
-                "VARIABLE".into()
-            }
+            declaration_label(id)?
+        } else if let Some(label) = structural_label(id) {
+            label.into()
+        } else if id.parent().is_some_and(|parent| {
+            math(parent, "apply") && parent.children().find(Node::is_element) == Some(id)
+        }) && !locals.contains_key(&identity)
+            && (crate::scalars::is_builtin(&identity)
+                || crate::arrays::is_builtin(&identity)
+                || crate::statistics::is_builtin(&identity)
+                || crate::numerics::is_builtin(&identity))
+        {
+            "FUNCTION".into()
         } else {
-            inferred_label(name, definitions)
+            inferred_label(&identity, &locals)
         };
-        let start = id.range().start;
-        let tag_end = wrapped[start..]
-            .find(|c: char| c.is_whitespace() || c == '>' || c == '/')
-            .ok_or("Invalid identifier tag")?
-            + start;
-        patches.push((tag_end, format!(" labels=\"{}\"", escape(&label))));
+        let node = tree(
+            NodeKind::NativeIdentifier {
+                name,
+                labels: label,
+                contextual: None,
+                subscript,
+            },
+            vec![],
+        );
+        patches.push((id.range(), serialize(&node, false, 0)?));
     }
     if let Some(id) = definition {
-        let name = id.text().unwrap_or("").to_string();
-        let label = id
-            .attribute("labels")
-            .map(str::to_string)
-            .unwrap_or_else(|| {
-                if name == "ORIGIN" {
-                    "SYSTEM".into()
-                } else {
-                    "VARIABLE".into()
-                }
-            });
-        definitions.insert(name, label);
+        let (name, _, _, subscript) = identifier_parts(id)?;
+        definitions.insert(
+            identifier_identity(&name, subscript.as_deref()),
+            declaration_label(id)?,
+        );
     }
     let mut output = wrapped;
-    for (at, text) in patches.into_iter().rev() {
-        output.insert_str(at, &text);
+    for (range, text) in patches.into_iter().rev() {
+        output.replace_range(range, &text);
     }
     let start = output.find('>').ok_or("Invalid context")? + 1;
     let end = output.rfind("</context>").ok_or("Invalid context")?;
@@ -377,6 +814,8 @@ fn label_fragment(xml: &str, definitions: &mut HashMap<String, String>) -> Resul
 /// Build calculation-only worksheet XML from explicitly positioned statements.
 /// Regions retain their supplied IDs and order. The limited automatic label
 /// policy runs in geometric order; it never changes explicit imported labels.
+/// Contextual labels are cached display feedback, so only this calculation copy
+/// resolves them again. The stored expression and its metadata stay unchanged.
 pub fn worksheet_xml(regions: &[(u64, f64, f64, String)]) -> Result<String, String> {
     if regions.len() > 10_000 {
         return Err("Region budget exceeded".into());
@@ -408,14 +847,21 @@ pub fn worksheet_xml(regions: &[(u64, f64, f64, String)]) -> Result<String, Stri
             .children()
             .filter(|n| math(*n, "globalDefine"))
         {
-            if let Some(id) = global
-                .children()
-                .find(Node::is_element)
-                .filter(|n| math(*n, "id"))
-            {
-                let name = id.text().unwrap_or("").to_string();
-                let label = id.attribute("labels").unwrap_or("VARIABLE").to_string();
-                definitions.insert(name, label);
+            if let Some(target) = global.children().find(Node::is_element) {
+                let id = if math(target, "id") {
+                    Some(target)
+                } else if math(target, "function") {
+                    target.children().find(|n| math(*n, "id"))
+                } else {
+                    None
+                };
+                if let Some(id) = id {
+                    let (name, _, _, subscript) = identifier_parts(id)?;
+                    definitions.insert(
+                        identifier_identity(&name, subscript.as_deref()),
+                        declaration_label(id)?,
+                    );
+                }
             }
         }
     }
@@ -492,10 +938,9 @@ mod tests {
     #[test]
     fn unknown_fragments_are_not_flattened() {
         for source in [
-            "<ml:id labels=\"VARIABLE\" label-is-contextual=\"true\">x</ml:id>",
             "<ml:id labels=\"VARIABLE\">x<ml:subscript>0</ml:subscript></ml:id>",
-            "<ml:apply><ml:scale/><ml:real>1</ml:real><ml:id labels=\"UNIT\">m</ml:id></ml:apply>",
-            "<ml:imag>1</ml:imag>",
+            "<ml:id labels=\"VARIABLE\" arbitrary=\"yes\">x</ml:id>",
+            "<ml:imag symbol=\"arbitrary\">1</ml:imag>",
             "<ml:real arbitrary=\"yes\">1</ml:real>",
         ] {
             assert!(tree_from_mathml(source).is_err(), "{source}");

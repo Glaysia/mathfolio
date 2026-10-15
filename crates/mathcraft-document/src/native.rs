@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::{
     collections::HashSet,
     fs::{File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Cursor, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
@@ -139,9 +139,20 @@ impl NativePackage {
     /// Reads and validates bounded package contents without extraction or execution.
     /// ZIP64, multi-volume, encrypted and unsupported compression are rejected.
     pub fn open(path: &Path) -> NativeResult<Self> {
-        let mut file = File::open(path).map_err(|e| e.to_string())?;
-        preflight(&mut file)?;
-        let mut zip = ZipArchive::new(file).map_err(|e| e.to_string())?;
+        Self::read(
+            File::open(path).map_err(|e| e.to_string())?,
+            path.canonicalize().map_err(|e| e.to_string())?,
+        )
+    }
+
+    /// Inspects a preserved source archive entirely in memory.
+    pub fn from_bytes(bytes: &[u8]) -> NativeResult<Self> {
+        Self::read(Cursor::new(bytes), PathBuf::new())
+    }
+
+    fn read<R: Read + Seek>(mut reader: R, source: PathBuf) -> NativeResult<Self> {
+        preflight(&mut reader)?;
+        let mut zip = ZipArchive::new(reader).map_err(|e| e.to_string())?;
         let archive_comment = zip.comment().to_vec();
         let mut parts = Vec::with_capacity(zip.len());
         let mut names = HashSet::new();
@@ -206,7 +217,7 @@ impl NativePackage {
             });
         }
         Ok(Self {
-            source: path.canonicalize().map_err(|e| e.to_string())?,
+            source,
             parts,
             worksheet_part: worksheet_part.ok_or("No worksheet50 worksheet part found")?,
             archive_comment,
@@ -215,6 +226,37 @@ impl NativePackage {
 
     pub fn parts(&self) -> &[NativePart] {
         &self.parts
+    }
+
+    /// Export-only mutation: inspect the original separately before changing a part.
+    pub(crate) fn set_part(&mut self, name: &str, bytes: Vec<u8>) -> NativeResult<()> {
+        if bytes.len() as u64 > MAX_PART_BYTES {
+            return Err("Exported part exceeds size limit".into());
+        }
+        if is_xml_part(name) {
+            let text = xml_text(&bytes)?;
+            parse_xml(&text)?;
+        }
+        let old = self.original_part(name).map_or(0, |b| b.len());
+        let total: usize = self.parts.iter().map(|p| p.bytes.len()).sum();
+        if total - old + bytes.len() > MAX_TOTAL_BYTES as usize {
+            return Err("Exported package exceeds total size limit".into());
+        }
+        if let Some(part) = self.parts.iter_mut().find(|p| p.name == name) {
+            part.bytes = bytes;
+        } else {
+            if self.parts.len() >= MAX_MEMBERS {
+                return Err("Exported package exceeds member limit".into());
+            }
+            self.parts.push(NativePart {
+                name: name.into(),
+                compression: CompressionMethod::Deflated,
+                bytes,
+                modified: None,
+                unix_mode: None,
+            });
+        }
+        Ok(())
     }
 
     pub fn original_part(&self, name: &str) -> Option<&[u8]> {
@@ -383,7 +425,7 @@ fn is_xml_part(name: &str) -> bool {
     n.ends_with(".xml") || n.ends_with(".rels")
 }
 
-fn xml_text(bytes: &[u8]) -> NativeResult<String> {
+pub(crate) fn xml_text(bytes: &[u8]) -> NativeResult<String> {
     if bytes.len() > MAX_XML_BYTES {
         return Err("XML part exceeds byte limit".into());
     }
@@ -573,8 +615,8 @@ fn collect_regions(
 
 /// Inspect the central directory *before* ZipArchive's name map can collapse
 /// duplicate members or allocate from an untrusted member count.
-fn preflight(file: &mut File) -> NativeResult<()> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
+fn preflight<R: Read + Seek>(file: &mut R) -> NativeResult<()> {
+    let length = file.seek(SeekFrom::End(0)).map_err(|e| e.to_string())?;
     if !(22..=MAX_ARCHIVE_BYTES).contains(&length) {
         return Err("ZIP archive size outside supported limits".into());
     }
