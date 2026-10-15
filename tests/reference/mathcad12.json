@@ -1,0 +1,1327 @@
+{
+  "schema_version": 1,
+  "product": "PTC Mathcad Express Prime",
+  "version": "12.0.0.1",
+  "scope": "Synthetic top-level worksheets; saved region/result IDs; values, error tags and redefinition flags. Not full product conformance.",
+  "numeric_tolerance": {
+    "absolute": 1e-12,
+    "relative": 1e-08
+  },
+  "cases": [
+    {
+      "id": "arithmetic",
+      "question": "Basic explicit arithmetic AST",
+      "input_sha256": "e06cd91e0e18eab138700876991bdb2fc60f8ed9f0815d7e7c4a1ae1fd9c72b8",
+      "output_sha256": "a84383c08e6292e315c7730b165e66068c6ae833bd9eb54d684627f9b685635a",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:real>2</ml:real><ml:real>3</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"70.99666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:real>2</ml:real><ml:real>3</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 5.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "power-right",
+      "question": "Right-nested power AST",
+      "input_sha256": "bfb2187cc97461521bf31621f7e507254c1524f9d748bf41624c1bd67ca22857",
+      "output_sha256": "124079c050a9f9363c0af8ac074729bbee3a448682d26037ed64b72fe398cb2a",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:real>2</ml:real><ml:apply><ml:pow /><ml:real>3</ml:real><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"76.11\" actualHeight=\"28.900000000000002\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:real>2</ml:real><ml:apply><ml:pow /><ml:real>3</ml:real><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 512.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "negative-square",
+      "question": "Negation of a square AST",
+      "input_sha256": "b4f009ea6536834f05ecae02142800b0b6d3c7738002435e6ac987406934140f",
+      "output_sha256": "569b667581369a8f7c3eca210676c629c0c46dc3943c2b42416f8c2a1def16ba",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:neg /><ml:apply><ml:pow /><ml:real>2</ml:real><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"78.32\" actualHeight=\"27.620000000000005\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:neg /><ml:apply><ml:pow /><ml:real>2</ml:real><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": -4.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "negative-base-square",
+      "question": "Square of a negative base AST",
+      "input_sha256": "bebba60516eacabf7cf6023d4219bd9ed1db750207a3dfe668e1103a1f915bbb",
+      "output_sha256": "0761052eee68ca9d3ac975af59a9fa3e4c06cc82fd4f4f4d8139d453988014dc",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:apply><ml:neg /><ml:real>2</ml:real></ml:apply><ml:real>2</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"79.83000000000001\" actualHeight=\"27.18\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:parens><ml:real>-2</ml:real></ml:parens><ml:real>2</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 4.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "zero-divide",
+      "question": "Division by zero error",
+      "input_sha256": "69c2a721e0112182672ddd848ce615adaddf78808f1e4d72561434f4f7f840c1",
+      "output_sha256": "92672775dbc0ae27d0d5006172ad00354ccea49fbc8c2c5e5b8ca400f2e65e05",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:div /><ml:real>1</ml:real><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"52.846666666666664\" actualHeight=\"47.2\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:div /><ml:real>1</ml:real><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "divide_by_zero",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "zero-power-zero",
+      "question": "Zero to zero power",
+      "input_sha256": "b0e64e1376a64be6ee9abc58cae7debdf32166cb5a51a5c0e287a58736641a97",
+      "output_sha256": "995a9c04c5486e7261626c34b6517583ab9206fca7b2a92ce74200ec30db4b56",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:real>0</ml:real><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"56.82000000000001\" actualHeight=\"27.620000000000005\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:real>0</ml:real><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 1.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "negative-root",
+      "question": "Square root of negative real",
+      "input_sha256": "473389de5879749a75d4b59dabe82fd84bfb91aa986fd2c671574cbb812f2d53",
+      "output_sha256": "590efca1122132204f12a6cefcd69cef08dac499ced70397dd5ebf6f1d94c5cc",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:nthRoot /><ml:placeholder /><ml:real>-1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"78.47266697963079\" actualHeight=\"31.845333527326588\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:nthRoot /><ml:placeholder /><ml:real>-1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 0.0,
+            "imag": 1.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "imaginary-square",
+      "question": "Imaginary constant spelling",
+      "input_sha256": "9058aef228bb345f6d0e962118980304e2133b0cf0a4a56b9b66782bde9ea116",
+      "output_sha256": "ef03662e0f95ad7da2e3cb2b8855aa96f58425829a475df4d4e853cf1c156921",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">i</ml:id><ml:real>2</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"53.97333333333333\" actualHeight=\"27.752000000000002\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:pow /><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">i</ml:id><ml:real>2</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_i#CONSTANT#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "complex-abs",
+      "question": "Magnitude of 3+4i",
+      "input_sha256": "6d18878323e903cabcc56ec837ee526d7362ae8213575fc52b58c40df79fe7f8",
+      "output_sha256": "0ea86ab32885a6a339a81b15cae5aecf0efe80e09c6f67cefeddd51df3b100cc",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:absval /><ml:apply><ml:plus /><ml:real>3</ml:real><ml:apply><ml:mult /><ml:real>4</ml:real><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">i</ml:id></ml:apply></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"93.81333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:absval /><ml:apply><ml:plus /><ml:real>3</ml:real><ml:apply><ml:mult /><ml:real>4</ml:real><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">i</ml:id></ml:apply></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_i#CONSTANT#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "sin-pi-half",
+      "question": "Dimensionless trigonometry",
+      "input_sha256": "3249f23f4b00f7ff05e52804ef84c6a8b7da5f6b382283ac5cc13e624dd0442b",
+      "output_sha256": "10ddf64ecbed43dc2fb8bf56e135209edda2985ac8f0219ea473bab0ce3a88d5",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:div /><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">π</ml:id><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"89.18\" actualHeight=\"47.2\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:div /><ml:id labels=\"CONSTANT\" xml:space=\"preserve\">π</ml:id><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 1.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "log-negative",
+      "question": "Complex natural log",
+      "input_sha256": "82e5b1434092c097364153fb5492750bbb0b47bd0a58d24125b576c6751feabd",
+      "output_sha256": "cd8c4dff745517591d171d0b5eae60120f89206189b134ab78dcbfbe04ec9b0e",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">ln</ml:id><ml:real>-1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"119.14333333333335\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">ln</ml:id><ml:real>-1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 0.0,
+            "imag": 3.141592653589793
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "missing-variable",
+      "question": "Unbound identifier error",
+      "input_sha256": "3a3893cd516684b6e186e522106cd3f53dc83448fba2f5e242164f18ba7b85cc",
+      "output_sha256": "bfe33a102ab1a285d4c0745c71fab7ad0ca5853aebbea7441a94bf28216cd9ac",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">probe_missing</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"138.96333333333334\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">probe_missing</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_probe_5F_missing#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "forward-local",
+      "question": "Local definition after query",
+      "input_sha256": "b413301c00b73c5e0ee1edeb99c33f5fa146d47452701aea5fd6a7154610b4bf",
+      "output_sha256": "9252d83cbe1cdc0be900659b96c0f616287ba477cd23974ce84cd8161d0f4c0b",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"48.19333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_a#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "normal-local",
+      "question": "Local definition before query",
+      "input_sha256": "7d099f6da8fcc80475b3c3496c9c1c94c43def974c512f33f77d9024c2767895",
+      "output_sha256": "f7c8eadba7ad0f3f7a7aeef1af86cc35837e13bbe8bd3d23c5819f45e6fe2514",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "xml-reversed",
+      "question": "XML order reversed; definition physically above query",
+      "input_sha256": "7cef8e382cee7cfc0c6a443a320bd68b490dcdd4e9f94feff58e029d9e5992e8",
+      "output_sha256": "6377060be12b39ad84a6f7ec351593c2f9f986118fbb8b5267a309d8188a13a1",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "geometry-reversed",
+      "question": "XML order puts definition first but it is physically below",
+      "input_sha256": "4093affd193b87e33b493ae1cdfb9f3cfecdda3593af3d14448fcfb65dcc5a16",
+      "output_sha256": "b2fb38eeee48fdbbe809cfc4b112683caa801c019c94e36f7f0473497ed6b0b1",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"48.19333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_a#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "same-y-left-definition",
+      "question": "Equal Y: definition on left",
+      "input_sha256": "05ed041c2a0dd5ee95d677061a4be9c578f18b1cba740e3d3b4c553555227771",
+      "output_sha256": "4b7b885da95a0249bd0ad5da21321c92ae2cc68752ba66668c69b1cb57bd0f08",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"350\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"345.6\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 345.6,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "same-y-right-definition",
+      "question": "Equal Y: definition on right",
+      "input_sha256": "b67fabf3f66df5f51f7493744aec9c01f713df0033d7db4cb47cfd6c9dd85418",
+      "output_sha256": "fd3fdefb9599e89b72b41dada8196af685543771df4cd86e0eed676099812c3a",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"350\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"48.19333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"345.6\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_a#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 345.6,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "equal-position",
+      "question": "Two regions at identical X/Y",
+      "input_sha256": "5d5db7e9637ca4ef6f20dc1e7f7d033cce0430a61ed7dd52ad2d7b3334c8bcd1",
+      "output_sha256": "17747f10791b1d6917e1c9a0aa32141ca904212a26f8004ee500b2257314e87d",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "near-equal-y",
+      "question": "Y differs by 1e-8 DIP, left/right opposite",
+      "input_sha256": "76d79a23a56e72c6676eaeffaeba7027dd8af01a553e4ef4565893defc1518d9",
+      "output_sha256": "eade3768c7ab10533f42d9591a651c4887f9242d6ef299702260708efd3a898d",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"350\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"20.00000001\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"48.19333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"345.6\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>7</ml:real></ml:define></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_a#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 345.6,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "redefinition",
+      "question": "Queries around two definitions",
+      "input_sha256": "3b924b2c081a44050dce4a79a5f379e7b4931381b4789b2abbbe90fa301c0b9a",
+      "output_sha256": "f04cc7ed97e0401474a7fddfddadf8d0d4d656659c0cfc5049c261618df9074e",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>2</ml:real></ml:define></math></region><region region-id=\"3\" left=\"20\" top=\"215\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"3\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"2\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>2</ml:real></ml:define></math></region><region region-id=\"3\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"211.20000000000005\" left=\"19.200000000000003\"><math resultRef=\"3\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 1.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": true
+        },
+        {
+          "region_id": "3",
+          "result_ref": "3",
+          "left": 19.200000000000003,
+          "top": 211.20000000000005,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 2.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "self-redefinition",
+      "question": "Definition reads previous version of itself",
+      "input_sha256": "98712c70908177d5d8a468efccd281e6cf6e8b0dbf3b2bb1ec92592d1fa2fb9b",
+      "output_sha256": "0d67b116cbc5d2cce35cb317a7316a5538f8fda0a7c57db9488ca7788d2c74e8",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:apply><ml:plus /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:apply></ml:define></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"63.903333333333336\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:apply><ml:plus /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:apply></ml:define></math></region><region region-id=\"2\" actualWidth=\"48.413333333333334\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": true
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 2.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "failed-redefinition",
+      "question": "Invalid redefinition versus prior value",
+      "input_sha256": "58838d8fef288203cab37db5f26998290af82da25fd07d4047d814e7615408f5",
+      "output_sha256": "80d16db61c7a53b5ff003356c9eb9bda2f6b2f8a177f479f6548f67e3647c322",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">probe_missing</ml:id></ml:define></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"131.94333333333333\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">probe_missing</ml:id></ml:define></math></region><region region-id=\"2\" actualWidth=\"48.19333333333333\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_probe_5F_missing#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable",
+              "previous_error_id": "0"
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "global-forward",
+      "question": "Global definition below query",
+      "input_sha256": "a5b129c773659e78bf93ab4e9d2d075af93f26bd3631d7696c1a99b5d7ca6aa2",
+      "output_sha256": "6833a4b5b5229de7ab94c04f06255f8587d48f8d394eebefcdfdd81500a97e91",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:globalDefine><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>7</ml:real></ml:globalDefine></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"48.236666666666665\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"1\" actualWidth=\"38.68\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:globalDefine><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>7</ml:real></ml:globalDefine></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "global-local-shadow",
+      "question": "Local and global definition interaction",
+      "input_sha256": "5aeb3eb357df698708b179dd21141cee41c02a4d98395ab9a4df6c8640c60561",
+      "output_sha256": "bcccb6edd8fd731f13491367d4e756ab0723f7e13cc301fe4a37d618686a73f2",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:globalDefine><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>7</ml:real></ml:globalDefine></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>8</ml:real></ml:define></math></region><region region-id=\"3\" left=\"20\" top=\"215\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"3\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"38.68\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:globalDefine><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>7</ml:real></ml:globalDefine></math></region><region region-id=\"1\" actualWidth=\"48.236666666666665\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region><region region-id=\"2\" actualWidth=\"40.85\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:real>8</ml:real></ml:define></math></region><region region-id=\"3\" actualWidth=\"48.236666666666665\" actualHeight=\"25.6\" top=\"211.20000000000005\" left=\"19.200000000000003\"><math resultRef=\"3\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">g</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "normal_and_global_definitions",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "3",
+          "result_ref": "3",
+          "left": 19.200000000000003,
+          "top": 211.20000000000005,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 7.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "function-capture",
+      "question": "Function external variable binding before redefinition",
+      "input_sha256": "6a180d5c41c24f9b9f14f8442820cfc6fe3fcc91b61564bd6c17f034d9b91b91",
+      "output_sha256": "c37493fdbb0d7d7f6996d9740fd41f2dc5c10a92695c833d70c06fa025de86d3",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>2</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:function><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:boundVars><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:boundVars></ml:function><ml:apply><ml:mult /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:apply></ml:define></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>3</ml:real></ml:define></math></region><region region-id=\"3\" left=\"20\" top=\"215\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"3\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:real>4</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>2</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"77.91\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:function><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:boundVars><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:boundVars></ml:function><ml:apply><ml:mult /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:apply></ml:define></math></region><region region-id=\"2\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>3</ml:real></ml:define></math></region><region region-id=\"3\" actualWidth=\"67.35333333333334\" actualHeight=\"25.6\" top=\"211.20000000000005\" left=\"19.200000000000003\"><math resultRef=\"3\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:real>4</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": true
+        },
+        {
+          "region_id": "3",
+          "result_ref": "3",
+          "left": 19.200000000000003,
+          "top": 211.20000000000005,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 8.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "function-forward-reference",
+      "question": "Function body refers to a later definition",
+      "input_sha256": "b2ac7503facf9be89d35f70418d258f0fe375ebf38313daa0709f3fdc28a78e8",
+      "output_sha256": "4e06403e66051139fa05048846799ef4151c311e984878b5efbbc8695df24cc2",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:function><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:boundVars><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:boundVars></ml:function><ml:apply><ml:mult /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:apply></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>3</ml:real></ml:define></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:real>4</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"77.91\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:function><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:boundVars><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:boundVars></ml:function><ml:apply><ml:mult /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">x</ml:id></ml:apply></ml:define></math></region><region region-id=\"1\" actualWidth=\"41.02666666666667\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">a</ml:id><ml:real>3</ml:real></ml:define></math></region><region region-id=\"2\" actualWidth=\"67.13333333333334\" actualHeight=\"25.6\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">f</ml:id><ml:real>4</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable\tdoc_mc_a#VARIABLE#wild\t",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_variable",
+              "previous_error_id": "0"
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "units-add",
+      "question": "Addition with compatible prefixed units",
+      "input_sha256": "88779ba5c8cac95839c633a7bbc59b7f3018e81e1c111dd3a1a248ea99747a07",
+      "output_sha256": "7bb32421bf3fd2191e8fbfaea5eccbfb2fbf172cd0c42863394ba75394ba1a61",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>100</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">cm</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">cm</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"165.60000000000002\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>100</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">cm</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">cm</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 200.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "units-mismatch",
+      "question": "Addition with incompatible dimensions",
+      "input_sha256": "943640bf821cbb09650796a45025bcbfe225423167af3e835dd24968d1fc3c6b",
+      "output_sha256": "ef5b04790ed4173d900fc2ade3b95bef05766f9d3ef79964aad408da5576f8e2",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">s</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"102.00333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:plus /><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">s</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_dimensions\tLength\tTime",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "units-root",
+      "question": "Square root of squared unit",
+      "input_sha256": "b395cacae498aee5874760a704ed4751b6819deea7ecb39269528c1fd890b2ff",
+      "output_sha256": "7380d57f0b0d4ddf6f2ff23a45b786deaddc53b10669f41fb9413243d7656b6a",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:nthRoot /><ml:placeholder /><ml:apply><ml:pow /><ml:apply><ml:scale /><ml:real>2</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"112.9926669796308\" actualHeight=\"32.71433352732659\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:nthRoot /><ml:placeholder /><ml:apply><ml:pow /><ml:parens><ml:apply><ml:scale /><ml:real>2</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply></ml:parens><ml:real>2</ml:real></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 2.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "units-ohm",
+      "question": "Voltage/current dimension reduction",
+      "input_sha256": "372784beee780b9002b74511c77970cddb4d2165efcd838f4022832cb224de93",
+      "output_sha256": "80404f157e8f922c44b14cde6c57641fb43ce21177356742f142805ca6fd62c2",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:div /><ml:apply><ml:scale /><ml:real>12</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">V</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>2</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">A</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">Ω</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"85.09333333333333\" actualHeight=\"47.2\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:div /><ml:apply><ml:scale /><ml:real>12</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">V</ml:id></ml:apply><ml:apply><ml:scale /><ml:real>2</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">A</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:id labels=\"UNIT\" xml:space=\"preserve\">Ω</ml:id></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 6.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "sin-degrees",
+      "question": "Degree conversion in trig",
+      "input_sha256": "9c24e527e515a821b38ef3f46204556dfcef703594d5a4c6baccabb696c31cab",
+      "output_sha256": "ea8a334d2deb8f166a28cfedcd512d3099575c99c1dce854e6f6ab622fe810df",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:scale /><ml:real>90</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">deg</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"119.82666666666668\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:scale /><ml:real>90</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">deg</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 1.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "sin-dimensional",
+      "question": "Dimensional argument to sine",
+      "input_sha256": "aaf6064b80bcb80e21087131057693854e179d502fc8cf18a2fcb4cc635bfc79",
+      "output_sha256": "f8c6832899f937c7eec3eb3eb9c97ddd28a403342c3addf15a8e2a1cb331883b",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"100.87333333333333\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:apply><ml:id labels=\"FUNCTION\" xml:space=\"preserve\">sin</ml:id><ml:apply><ml:scale /><ml:real>1</ml:real><ml:id labels=\"UNIT\" xml:space=\"preserve\">m</ml:id></ml:apply></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [
+            {
+              "code": "bad%_dimensions%_unitless\tUnitless\tLength",
+              "previous_error_id": null
+            }
+          ],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "origin-default",
+      "question": "Default ORIGIN value",
+      "input_sha256": "95e6d2e988fc0303ee6a2c6937a77293ff5b072df6b7b59fdbe64915b42267fe",
+      "output_sha256": "9277019e7e2cd6417384a87453ecfa781cde1b3ae576b3b292737387f73b6568",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"100.82\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 0.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "origin-redefined",
+      "question": "ORIGIN can be redefined",
+      "input_sha256": "44c074ef971bbcc0724737d99ba0bd7253768ec331b8ac40fe3305a1522202a5",
+      "output_sha256": "76ad69439b162567f0affc752bbe63d28ebf0ade48a4bd400a1e6367672c3ca9",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"93.43333333333335\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"100.82\" actualHeight=\"25.6\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 1.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "matrix-literal",
+      "question": "Column matrix result serialization",
+      "input_sha256": "b77cb81fda392a064ab6fc6cd86d70dd2a5150f02d02e8e560c2ad517a8476d1",
+      "output_sha256": "2abbb3709b30c13e859f8532268af2e8e2661aaad8811aa1d24a39abb4063c55",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:eval><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"94.37333333333333\" actualHeight=\"44.2\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:eval><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": {
+            "kind": "matrix",
+            "rows": 2,
+            "cols": 1,
+            "elements": [
+              {
+                "kind": "scalar",
+                "real": 10.0,
+                "imag": 0.0
+              },
+              {
+                "kind": "scalar",
+                "real": 20.0,
+                "imag": 0.0
+              }
+            ]
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "matrix-index",
+      "question": "Matrix index with default ORIGIN",
+      "input_sha256": "22b89bfdf87950c46456e889bc089626dd6e52676dbc09907fb8f515efe998f9",
+      "output_sha256": "b1645061b3f4e04f10bb7b994aba303010e16e515bf59c021e6fd8377ef6d16a",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:eval><ml:apply><ml:indexer /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"64.15333333333334\" actualHeight=\"44.2\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix></ml:define></math></region><region region-id=\"1\" actualWidth=\"61.54333333333334\" actualHeight=\"36.800000000000004\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:eval><ml:apply><ml:indexer /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:real>0</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 10.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    },
+    {
+      "id": "matrix-index-origin1",
+      "question": "Matrix index after setting ORIGIN=1",
+      "input_sha256": "53ee994c109c640cab70a1992f3812784aa397a215e200d60f7a63b10e77e0ed",
+      "output_sha256": "83605b53f9d1d288a2f4370479f9616d1495b728e27894a41f1055acd2ed48dd",
+      "input_worksheet_xml": "<worksheet xmlns=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" msg-id=\"NoMessage\"><regions><region region-id=\"0\" left=\"20\" top=\"20\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" left=\"20\" top=\"85\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix></ml:define></math></region><region region-id=\"2\" left=\"20\" top=\"150\" actualWidth=\"200\" actualHeight=\"30\"><math resultRef=\"2\"><ml:eval><ml:apply><ml:indexer /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:real>1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "saved_worksheet_xml": "<worksheet msg-id=\"NoMessage\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ve=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:ws=\"http://schemas.mathsoft.com/worksheet50\" xmlns:ml=\"http://schemas.mathsoft.com/math50\" xmlns:u=\"http://schemas.mathsoft.com/units10\" xmlns:p=\"http://schemas.mathsoft.com/provenance10\" xmlns=\"http://schemas.mathsoft.com/worksheet50\"><regions><region region-id=\"0\" actualWidth=\"93.43333333333335\" actualHeight=\"25.6\" top=\"19.200000000000003\" left=\"19.200000000000003\"><math resultRef=\"0\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">ORIGIN</ml:id><ml:real>1</ml:real></ml:define></math></region><region region-id=\"1\" actualWidth=\"64.15333333333334\" actualHeight=\"44.2\" top=\"76.80000000000001\" left=\"19.200000000000003\"><math resultRef=\"1\"><ml:define><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:matrix rows=\"2\" cols=\"1\"><ml:real>10</ml:real><ml:real>20</ml:real></ml:matrix></ml:define></math></region><region region-id=\"2\" actualWidth=\"61.54333333333334\" actualHeight=\"36.800000000000004\" top=\"153.60000000000002\" left=\"19.200000000000003\"><math resultRef=\"2\"><ml:eval><ml:apply><ml:indexer /><ml:id labels=\"VARIABLE\" xml:space=\"preserve\">v</ml:id><ml:real>1</ml:real></ml:apply><ml:unitOverride><ml:placeholder /></ml:unitOverride></ml:eval></math></region></regions></worksheet>",
+      "presentation_xml": "<ns0:presentation xmlns:ns0=\"http://schemas.ptc.com/mathcad/settings/presentation10\"><ns0:pageModel paper-code=\"Letter\" grid-size=\"Standard\" /></ns0:presentation>",
+      "presentation_sha256": "45c3637e5f8a8d022860f0cdf77cbf4ec778bc7fd37aaeec3fefb5e66446d7b6",
+      "expected": [
+        {
+          "region_id": "0",
+          "result_ref": "0",
+          "left": 19.200000000000003,
+          "top": 19.200000000000003,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "1",
+          "result_ref": "1",
+          "left": 19.200000000000003,
+          "top": 76.80000000000001,
+          "status": "Synchronized",
+          "value": null,
+          "errors": [],
+          "redefinition_warning": false
+        },
+        {
+          "region_id": "2",
+          "result_ref": "2",
+          "left": 19.200000000000003,
+          "top": 153.60000000000002,
+          "status": "Synchronized",
+          "value": {
+            "kind": "scalar",
+            "real": 20.0,
+            "imag": 0.0
+          },
+          "errors": [],
+          "redefinition_warning": false
+        }
+      ]
+    }
+  ]
+}

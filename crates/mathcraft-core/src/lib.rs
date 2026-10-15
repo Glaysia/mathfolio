@@ -1,7 +1,7 @@
 //! Independent prototype semantics. Mathcad compatibility requires separate evidence.
 use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, sync::Arc};
 
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -74,7 +74,7 @@ impl Quantity {
         if !self.is_scalar() && rhs.value.im != 0.0 {
             return Err("A dimensional quantity needs a real exponent".into());
         }
-        if self.value.norm() == 0.0 && (rhs.value.re <= 0.0 || rhs.value.im != 0.0) {
+        if self.value.norm() == 0.0 && (rhs.value.re < 0.0 || rhs.value.im != 0.0) {
             return Err("Undefined power of zero".into());
         }
         let value = if self.value.im == 0.0
@@ -398,7 +398,13 @@ impl Parser {
 #[derive(Clone, Default)]
 pub struct Environment {
     pub variables: HashMap<String, Quantity>,
-    functions: HashMap<String, (Vec<String>, Expr)>,
+    functions: HashMap<String, Function>,
+}
+#[derive(Clone)]
+struct Function {
+    parameters: Vec<String>,
+    body: Expr,
+    definition_environment: Arc<Environment>,
 }
 impl Environment {
     pub fn evaluate(&self, source: &str) -> Result<Quantity> {
@@ -451,12 +457,17 @@ impl Environment {
                     .iter()
                     .map(|a| self.eval(a, locals, depth + 1))
                     .collect::<Result<Vec<_>>>()?;
-                if let Some((params, body)) = self.functions.get(name) {
-                    if params.len() != values.len() {
-                        return Err(format!("{name} expects {} arguments", params.len()));
+                if let Some(function) = self.functions.get(name) {
+                    if function.parameters.len() != values.len() {
+                        return Err(format!(
+                            "{name} expects {} arguments",
+                            function.parameters.len()
+                        ));
                     }
-                    let scope = params.iter().cloned().zip(values).collect();
-                    return self.eval(body, &scope, depth + 1);
+                    let scope = function.parameters.iter().cloned().zip(values).collect();
+                    return function
+                        .definition_environment
+                        .eval(&function.body, &scope, depth + 1);
                 }
                 if values.len() != 1 {
                     return Err(format!("{name} expects one argument"));
@@ -540,8 +551,12 @@ impl Environment {
                 if unique.len() != parameters.len() {
                     return Err("Duplicate function parameters".into());
                 }
-                self.functions
-                    .insert(name.clone(), (parameters, parse(rhs)?));
+                let function = Function {
+                    parameters,
+                    body: parse(rhs)?,
+                    definition_environment: Arc::new(self.clone()),
+                };
+                self.functions.insert(name.clone(), function);
                 return Ok(Some(LineValue {
                     value: None,
                     text: format!("{lhs} defined"),
@@ -622,6 +637,16 @@ mod tests {
         assert_eq!(e.evaluate("f(4)").unwrap().value.re, 48.);
         assert!(e.line("g(x,x) := x").is_err());
         assert!(e.evaluate("future+1").is_err());
+    }
+    #[test]
+    fn original_reference_definition_time_binding_and_zero_power() {
+        // Fresh Prime 12 references: function-capture and zero-power-zero.
+        let mut e = Environment::default();
+        e.line("a := 2").unwrap();
+        e.line("f(x) := a*x").unwrap();
+        e.line("a := 3").unwrap();
+        assert_eq!(e.evaluate("f(4)").unwrap().value.re, 8.);
+        assert_eq!(e.evaluate("0^0").unwrap().value.re, 1.);
     }
     #[test]
     fn engineering_complex_arithmetic() {

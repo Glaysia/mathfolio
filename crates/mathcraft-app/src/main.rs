@@ -3,6 +3,8 @@ use mathcraft_core::{Environment, Quantity};
 use mathcraft_document::{Row, Worksheet};
 use std::path::PathBuf;
 
+mod formula;
+
 const BLUE: Color32 = Color32::from_rgb(34, 84, 155);
 const GREEN: Color32 = Color32::from_rgb(27, 112, 86);
 const RED: Color32 = Color32::from_rgb(174, 55, 62);
@@ -84,6 +86,8 @@ struct MathcraftApp {
     frames: usize,
     capture: Option<PathBuf>,
     capture_sent: bool,
+    structure_visible: bool,
+    structure_editor: mathcraft_editor::Editor,
 }
 impl MathcraftApp {
     fn new() -> Self {
@@ -103,6 +107,8 @@ impl MathcraftApp {
             frames: 0,
             capture: None,
             capture_sent: false,
+            structure_visible: false,
+            structure_editor: mathcraft_editor::Editor::new(),
         }
     }
     fn remember(&mut self, previous: Worksheet) {
@@ -329,6 +335,11 @@ impl eframe::App for MathcraftApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         ctx.input_mut(|i| {
+            // The structural widget owns its own undo/redo and is not saved by
+            // the legacy worksheet's shortcuts.
+            if self.structure_visible {
+                return;
+            }
             if i.consume_key(egui::Modifiers::COMMAND, egui::Key::S) {
                 self.save(false);
             }
@@ -361,6 +372,9 @@ impl eframe::App for MathcraftApp {
                 }
                 if ui.button("Save as").clicked() {
                     self.save(true);
+                }
+                if ui.button("2D formula").clicked() {
+                    self.structure_visible = true;
                 }
                 ui.separator();
                 if ui
@@ -450,6 +464,19 @@ impl eframe::App for MathcraftApp {
             if let Some((a,b))=movement&& b<self.worksheet.rows.len() {self.worksheet.rows.swap(a,b);changed=true;}
             if changed {self.remember(before);ctx.request_repaint();}
         });
+        if self.structure_visible {
+            egui::Window::new("Structural formula editor")
+                .open(&mut self.structure_visible)
+                .default_size([560., 280.])
+                .show(&ctx, |ui| {
+                    ui.label("Click the formula to type. / fraction · ^ power · Space select · Tab next slot");
+                    ui.small("Editing preview · separate from the worksheet; changes here are not saved.");
+                    ui.add_space(20.);
+                    ui.push_id("structural-formula-preview", |ui| {
+                        formula::formula_ui(ui, &mut self.structure_editor);
+                    });
+                });
+        }
         if self.pending.is_some() {
             egui::Window::new("Unsaved changes")
                 .collapsible(false)

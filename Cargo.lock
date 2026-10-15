@@ -1204,6 +1204,7 @@ dependencies = [
  "image",
  "mathcraft-core",
  "mathcraft-document",
+ "mathcraft-editor",
  "rfd",
 ]
 
@@ -1211,8 +1212,20 @@ dependencies = [
 name = "mathcraft-cli"
 version = "0.1.0"
 dependencies = [
+ "mathcraft-compat",
  "mathcraft-core",
  "mathcraft-document",
+ "serde_json",
+]
+
+[[package]]
+name = "mathcraft-compat"
+version = "0.1.0"
+dependencies = [
+ "mathcraft-core",
+ "num-complex",
+ "roxmltree",
+ "serde",
  "serde_json",
 ]
 
@@ -1235,6 +1248,10 @@ dependencies = [
  "serde_json",
  "zip",
 ]
+
+[[package]]
+name = "mathcraft-editor"
+version = "0.1.0"
 
 [[package]]
 name = "memchr"

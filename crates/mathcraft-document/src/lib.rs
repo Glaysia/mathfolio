@@ -6,6 +6,7 @@ use std::{
 };
 
 mod mcdx;
+pub mod native;
 pub use mcdx::import_mcdx;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

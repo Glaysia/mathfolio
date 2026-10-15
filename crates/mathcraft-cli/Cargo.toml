@@ -8,4 +8,5 @@ publish.workspace = true
 [dependencies]
 mathcraft-core.workspace = true
 mathcraft-document.workspace = true
+mathcraft-compat.workspace = true
 serde_json.workspace = true

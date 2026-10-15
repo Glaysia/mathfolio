@@ -9,6 +9,7 @@ publish.workspace = true
 eframe.workspace = true
 mathcraft-core.workspace = true
 mathcraft-document.workspace = true
+mathcraft-editor = { path = "../mathcraft-editor" }
 rfd.workspace = true
 egui_plot.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
