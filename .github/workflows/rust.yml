@@ -1,0 +1,31 @@
+name: Rust
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux GUI prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libegl1-mesa-dev libudev-dev libssl-dev
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Check on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/check.ps1
+      - name: Check on Linux
+        if: runner.os == 'Linux'
+        run: bash scripts/check.sh

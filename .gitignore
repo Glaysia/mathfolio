@@ -15,3 +15,4 @@ Thumbs.db
 !.env.example
 *.key
 *.pem
+*.code-workspace

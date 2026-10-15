@@ -7,11 +7,11 @@
 | 개발 PC | 현재 Windows PC |
 | 개발 경로 | `C:\Users\harry\Projects\mathcraft` |
 | Git | 2.52.0.windows.1 |
-| Windows Cargo | 현재 PATH에서 찾지 못함 |
+| Windows Cargo | 1.99.0 설치 완료, MSVC 링커 설치 대기 |
 | Linux 대상 | SSH 별칭 `peets`, hostname `5950xlinux` |
 | Linux OS | `/etc/os-release`: Ubuntu 26.04.1 LTS |
 | KDE | `/usr/bin/plasmashell` 존재. GUI 세션 실행 검증 전 |
-| Linux Rust | 비대화형 SSH의 PATH 및 기본 ~/.cargo/bin/cargo에서 찾지 못함 |
+| Linux Rust | Rust/Cargo 1.99.0 설치 완료, CLI/GUI 빌드 및 CLI 실행 확인 |
 | Linux REA/Node/npm | 비대화형 SSH PATH에서 찾지 못함 |
 | 분석 VM | `ssh vm`: 호스트 이름 해석 실패. 설치 제품과 REA 상태 미검증 |
 | GitHub | gh 활성 계정 Glaysia, 저장된 토큰 무효. 원격 생성/push 미수행 |

@@ -38,7 +38,7 @@ Mathcad에서 관찰한 워크시트 편집·계산 동작을 Rust로 독립 구
 
 ## 3. Rust 구조와 기술 검증
 
-Cargo workspace를 다음 경계로 구성한다. 아래 이름은 구현 시 만들 예정이며 현재 코드는 없다.
+Cargo workspace를 다음 경계로 구성한다. 현재 `mathcraft-cli`와 `mathcraft-app`의 개발용 골격을 추가했으며 나머지는 기능 명세 확보 후 만든다.
 
 - `mathcraft-core`: 수식 AST, 값/차원 타입, 계산기, 심볼과 의존성. GUI와 OS에서 독립.
 - `mathcraft-document`: 워크시트 영역, 배치, 문서 버전, 저장/복원.
@@ -80,7 +80,7 @@ GUI는 Rust 네이티브 후보인 egui/eframe을 우선 평가한다. 확정 �
 
 1. 분석용 Mathcad 설치 환경의 실제 접속 방법 확인.
 2. GitHub 인증 복구 후 기본 비공개 `mathcraft` 원격 저장소 생성 및 push. 현재는 로컬 Git 저장소만 생성 가능하다.
-3. 이 PC에 Rust/MSVC 개발 환경 준비, peets의 Rust 빌드 환경 준비.
+3. Rust 1.99.0은 양쪽에 설치 완료. peets 빌드 검증 완료, Windows MSVC 관리자 설치 및 빌드 검증 진행.
 4. 원본 워크시트 기준 사례를 만들고 M0 진행.
 
 ## 참고
