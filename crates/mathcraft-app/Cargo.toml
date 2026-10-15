@@ -7,3 +7,8 @@ publish.workspace = true
 
 [dependencies]
 eframe.workspace = true
+mathcraft-core.workspace = true
+mathcraft-document.workspace = true
+rfd.workspace = true
+egui_plot.workspace = true
+image = { version = "0.25", default-features = false, features = ["png"] }

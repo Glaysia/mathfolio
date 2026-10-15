@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "title": "Resonant circuit · engineering worksheet",
+  "rows": [
+    {
+      "input": "An independent Rust calculation prototype. Edit any expression to recalculate below.",
+      "note": true,
+      "imported": null
+    },
+    {
+      "input": "f := 360 kHz -> kHz",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "omega := 2*pi*f -> rad/s",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "L := 15 uH -> uH",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "C := 1/(omega^2*L) -> nF",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "R := 50 ohm -> ohm",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "Z := R + i*(omega*L - 1/(omega*C)) -> ohm",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "abs(Z) -> ohm",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "period := 1/f -> us",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "Functions, complex values and dimensional checks",
+      "note": true,
+      "imported": null
+    },
+    {
+      "input": "response(x) := sin(x)*exp(-0.15*x)",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "response(pi/2)",
+      "note": false,
+      "imported": null
+    },
+    {
+      "input": "distance := 3 m + 20 cm -> cm",
+      "note": false,
+      "imported": null
+    }
+  ]
+}

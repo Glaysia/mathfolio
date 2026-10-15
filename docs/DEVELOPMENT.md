@@ -6,7 +6,7 @@
 - 도구: rustfmt, Clippy, rust-analyzer
 - Windows 타깃: `x86_64-pc-windows-msvc`
 - Linux 타깃: `x86_64-unknown-linux-gnu`
-- GUI 검증 후보: eframe 0.36.2, Glow 렌더러, X11/Wayland 기능 활성화
+- GUI: eframe 0.36.2, Windows WGPU / Linux Glow, X11/Wayland 기능 활성화
 - `Cargo.lock`을 추적하며 검증 명령은 `--locked`로 실행한다.
 
 ## Windows
@@ -59,9 +59,9 @@ cargo run -p mathcraft-app --locked
 | 전체 workspace fmt / Clippy | 통과 | 통과 |
 | CLI 및 GUI 빌드 | 통과 | 통과 |
 | CLI 실행 | 통과 | 통과 |
-| GUI 화면 / IME / 클립보드 | 미검증 | 미검증: KDE 사용자 GUI 세션 없음 |
+| GUI 화면 / IME / 클립보드 | 화면·한글 메모 표시 확인, IME·클립보드 미검증 | 미검증: KDE 사용자 GUI 세션 없음 |
 
-현재 골격에 자동 테스트 사례는 없다. `cargo test`는 두 바이너리의 테스트 하네스 빌드와 실행만 확인했다. 원본 동작 사례를 확보한 뒤 계산 코어에 의미 있는 테스트를 추가한다.
+자동 테스트 13개로 코어 연산·차원·함수·오류·한도, MCDX 변환·DTD 거부, 문서 저장·재열기·갱신을 확인했다. 새 Mathcad 실행과 비교한 테스트는 아직 아니다. [프로토타입 검증 범위](PROTOTYPE.md)를 참고한다.
 
 CI는 Windows 및 Ubuntu 24.04의 검사 구성을 추가했다. 아직 원격에 push하지 않아 CI 실행 결과는 없다. Kubuntu 26.04 실기 검증은 CI와 별도로 유지한다.
 

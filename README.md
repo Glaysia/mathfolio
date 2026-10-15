@@ -5,9 +5,13 @@ Mathcad의 워크시트 편집과 계산 동작을 분석하고 Rust로 독립 �
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: Rust 개발 환경 준비 및 Cargo workspace 구성. CLI와 텍스트 입력 GUI 골격을 추가했으며 계산 엔진과 문서 저장은 아직 구현하지 않음.
+- 현재 단계: 복소수·단위 계산 코어, 워크시트 GUI, 그래프, 자체 문서 저장 및 MCDX 부분 가져오기 프로토타입.
 
 [개발 계획](docs/PLAN.md) · [환경 조사](docs/ENVIRONMENT.md) · [분석 기록 양식](docs/OBSERVATION_TEMPLATE.md)
+
+[REA 분석 환경](docs/REA.md) · [Mathcad Prime 12 최초 분석 결과](docs/analysis/0001-initial-inspection.md)
+
+[프로토타입 사용법과 검증 범위](docs/PROTOTYPE.md)
 
 ## 개발 실행
 
@@ -22,8 +26,8 @@ cargo run -p mathcraft-app --locked
 
 ## 다음 작업
 
-1. Mathcad가 설치된 분석 환경 연결, 실제 제품 버전과 실행 파일 확인.
+1. 확인한 Mathcad 설치 모듈에서 계산 엔진과 의존성 처리 경로 추적.
 2. 최소 워크시트 기준 사례를 원본에서 실행해 입출력과 화면을 기록.
-3. 기준 사례에 맞춰 Rust 계산 코어부터 구현.
+3. 프로토타입의 평가 순서·정밀도를 원본 실행 결과로 검증하고 미지원 기능 확장.
 
 설치 프로그램과 원본 제품 바이너리는 Git 추적에서 제외한다.

@@ -14,7 +14,9 @@
 | KDE | `/usr/bin/plasmashell` 존재. GUI 세션 실행 검증 전 |
 | Linux Rust | Rust/Cargo 1.99.0 설치 완료, CLI/GUI 빌드 및 CLI 실행 확인 |
 | Linux REA/Node/npm | 비대화형 SSH PATH에서 찾지 못함 |
-| 분석 VM | `ssh vm`: 호스트 이름 해석 실패. 설치 제품과 REA 상태 미검증 |
+| Mathcad 분석 대상 | 이 PC의 `C:\Program Files\PTC\Mathcad Prime 12.0.0.1`, 실제 모듈 정적 검사 시작 |
+| 로컬 REA | 6.5.0 설치 및 Codex MCP 등록 완료, 현재 세션은 CLI 사용 |
+| 로컬 네이티브 분석 도구 | Ghidra 12.1.4 / JDK 21.0.12.1+1 사전 검사 통과. Windows 혼합 DLL 제한 있음 |
 | GitHub | gh 활성 계정 Glaysia, 저장된 토큰 무효. 원격 생성/push 미수행 |
 
 ## 설치 파일
