@@ -1,6 +1,13 @@
 //! Prime's recovered type styles with independently licensed cross-platform faces.
 //! Font shapes use STIX Two, not the proprietary Mathcad font. See assets/fonts/stix.
 use eframe::egui::{self, Color32, FontFamily, FontId};
+mod paint_opacity;
+mod render_quality;
+pub(crate) use paint_opacity::paint_galley;
+pub(crate) use paint_opacity::paint_galley_override;
+pub(crate) use render_quality::{
+    FontCacheKey, font_cache_key, layout_job, layout_no_wrap, with_worksheet_zoom,
+};
 
 pub(crate) const MATH_SIZE: f32 = 11. * 96. / 72.;
 pub(crate) const INK: Color32 = Color32::BLACK;

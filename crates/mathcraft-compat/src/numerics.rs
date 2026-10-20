@@ -46,8 +46,13 @@ fn binder(node: Node<'_, '_>) -> Result<Symbol> {
     if !is_math(node, "id") {
         return Err(Fault::unsupported("Numerical binder must be an identifier"));
     }
-    let (name, label, _, subscript) =
+    let (name, label, contextual, subscript) =
         super::editor_bridge::identifier_parts(node).map_err(Fault::unsupported)?;
+    if matches!(label.as_deref(), Some("*" | "NONE")) || contextual == Some(true) {
+        return Err(Fault::unsupported(
+            "Automatic identifier labelling is not implemented",
+        ));
+    }
     let label = label.unwrap_or_else(|| "VARIABLE".into());
     if label != "VARIABLE" {
         return Err(Fault::unsupported(
@@ -326,6 +331,7 @@ impl Drop for Guard {
     }
 }
 fn consume() -> Result<()> {
+    super::check_cancelled()?;
     BUDGET.with(|budget| {
         let (depth, remaining) = budget.get();
         if remaining == 0 {

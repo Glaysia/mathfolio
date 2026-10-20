@@ -139,6 +139,7 @@ impl Polynomial {
         Self(BTreeMap::from([(vec![(name, 1)], Rational::ONE)]))
     }
     fn add(mut self, other: Self) -> Result<Self> {
+        super::check_cancelled()?;
         for (monomial, coefficient) in other.0 {
             let sum = self
                 .0
@@ -179,6 +180,7 @@ impl Polynomial {
         }
         let mut result = Self::constant(Rational::ZERO);
         for (a, ca) in &self.0 {
+            super::check_cancelled()?;
             for (b, cb) in &other.0 {
                 let mut m = a.iter().cloned().collect::<BTreeMap<_, _>>();
                 for (name, power) in b {
@@ -234,6 +236,20 @@ impl Polynomial {
                     c.mul(Rational::new(power as i128, 1)?)?,
                 )])))?;
             }
+        }
+        Ok(result)
+    }
+    fn substitute(self, name: &str, value: Rational) -> Result<Self> {
+        let mut result = Self::constant(Rational::ZERO);
+        for (mut monomial, mut coefficient) in self.0 {
+            if let Some(index) = monomial.iter().position(|(candidate, _)| candidate == name) {
+                let power = monomial[index].1;
+                monomial.remove(index);
+                for _ in 0..power {
+                    coefficient = coefficient.mul(value)?;
+                }
+            }
+            result = result.add(Self(BTreeMap::from([(monomial, coefficient)])))?;
         }
         Ok(result)
     }
@@ -352,7 +368,17 @@ fn polynomial(node: Node<'_, '_>, depth: usize) -> Result<Polynomial> {
             if operator.tag_name().namespace() != Some(ML) || !children(*operator).is_empty() {
                 return Err(bad("Symbolic operator structure"));
             }
-            check_attributes(*operator, &[])?;
+            if operator.tag_name().name() == "limit" {
+                check_attributes(*operator, &["direction"])?;
+                if operator
+                    .attribute("direction")
+                    .is_some_and(|direction| !matches!(direction, "left" | "right"))
+                {
+                    return Err(bad("Invalid symbolic limit direction"));
+                }
+            } else {
+                check_attributes(*operator, &[])?;
+            }
             match (operator.tag_name().name(), args) {
                 ("neg", [a]) => polynomial(*a, depth + 1)?.scale(Rational::ONE.neg()),
                 ("plus", [a, b]) => polynomial(*a, depth + 1)?.add(polynomial(*b, depth + 1)?),
@@ -409,6 +435,24 @@ fn polynomial(node: Node<'_, '_>, depth: usize) -> Result<Polynomial> {
                         p = p.derivative(&name)?;
                     }
                     Ok(p)
+                }
+                ("limit", [lambda, value]) => {
+                    check_attributes(*lambda, &[])?;
+                    let lambda_parts = children(*lambda);
+                    if !is_math(*lambda, "lambda")
+                        || lambda_parts.len() != 2
+                        || !is_math(lambda_parts[0], "boundVars")
+                    {
+                        return Err(bad("Symbolic limit lambda structure"));
+                    }
+                    check_attributes(lambda_parts[0], &[])?;
+                    let bound = children(lambda_parts[0]);
+                    if bound.len() != 1 {
+                        return Err(bad("One symbolic limit variable required"));
+                    }
+                    let name = identifier(bound[0])?;
+                    let point = polynomial(*value, depth + 1)?.scalar()?;
+                    polynomial(lambda_parts[1], depth + 1)?.substitute(&name, point)
                 }
                 _ => Err(bad("Unsupported symbolic polynomial operator or arity")),
             }
@@ -498,18 +542,35 @@ pub(crate) fn parse(node: Node<'_, '_>, depth: usize) -> Result<SymbolicEvaluati
     }
     // Retain source names even when canonical cancellation removes a term, so
     // unsupported existing worksheet values cannot silently disappear.
-    fn names(node: Node<'_, '_>, out: &mut BTreeSet<String>) -> Result<()> {
+    fn names(
+        node: Node<'_, '_>,
+        bound: &BTreeSet<String>,
+        out: &mut BTreeSet<String>,
+    ) -> Result<()> {
         if is_math(node, "id") {
-            out.insert(identifier(node)?);
+            let name = identifier(node)?;
+            if !bound.contains(&name) {
+                out.insert(name);
+            }
+        } else if is_math(node, "lambda") {
+            let parts = children(node);
+            if parts.len() != 2 || !is_math(parts[0], "boundVars") {
+                return Err(bad("Symbolic lambda structure"));
+            }
+            let mut nested = bound.clone();
+            for variable in children(parts[0]) {
+                nested.insert(identifier(variable)?);
+            }
+            names(parts[1], &nested, out)?;
         } else {
             for child in children(node) {
-                names(child, out)?;
+                names(child, bound, out)?;
             }
         }
         Ok(())
     }
     let mut source_names = BTreeSet::new();
-    names(first, &mut source_names)?;
+    names(first, &BTreeSet::new(), &mut source_names)?;
     Ok(SymbolicEvaluation {
         polynomial: p,
         commands,

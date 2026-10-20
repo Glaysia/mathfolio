@@ -30,6 +30,9 @@ impl PageGeometry {
     pub fn body_width(self) -> f32 {
         (self.width - self.margins[0] - self.margins[2]).max(self.grid)
     }
+    pub(crate) fn body_height_exact(self) -> f64 {
+        self.body_height_dips
+    }
     pub fn body_height(self) -> f32 {
         self.body_height_dips as f32
     }
@@ -89,6 +92,9 @@ impl PageGeometry {
 }
 
 pub(crate) fn standard_margins(doc: &CanvasDocument) -> [f32; 4] {
+    if let Some(setup) = &doc.page_setup {
+        return setup.margins.map(|v| v as f32);
+    }
     let us = (doc.width - 816.).abs() < 0.1 && (doc.height - 1056.).abs() < 0.1
         || (doc.width - 1056.).abs() < 0.1 && (doc.height - 816.).abs() < 0.1;
     [if us { 96. } else { METRIC_MARGIN }; 4]
@@ -100,20 +106,50 @@ pub(crate) fn source_settings(source: &str) -> Option<(Vec2, [f32; 4])> {
     let model = xml
         .descendants()
         .find(|n| n.tag_name().name() == "pageModel")?;
-    let (mut width, mut height, margin) = match model.attribute("paper-code")? {
-        "A4" => (21. * 96. / 2.54, 29.7 * 96. / 2.54, METRIC_MARGIN),
-        "Letter" => (816., 1056., 96.),
-        _ => return None,
+    let paper = mathcraft_document::canvas::PaperSize::from_code(model.attribute("paper-code")?)?;
+    let [width, height] = paper.size(model.attribute("orientation") == Some("Landscape"));
+    let margin = if matches!(
+        paper,
+        mathcraft_document::canvas::PaperSize::Letter
+            | mathcraft_document::canvas::PaperSize::Legal
+            | mathcraft_document::canvas::PaperSize::Ledger
+    ) {
+        96.
+    } else {
+        METRIC_MARGIN
     };
-    if model.attribute("orientation") == Some("Landscape") {
-        std::mem::swap(&mut width, &mut height);
-    }
     let factor = match model.attribute("margin-type") {
         Some("Narrow") => 0.5,
         Some("Wide") => 2.,
         _ => 1.,
     };
-    Some((vec2(width, height), [margin * factor; 4]))
+    let margins = match model.attribute("margin-type") {
+        Some("Custom") => parse_margins(model.attribute("page-margin")?)?,
+        Some("Legacy") => [115.2; 4],
+        _ => [margin * factor; 4],
+    };
+    if margins.iter().any(|v| !v.is_finite() || *v < 0.)
+        || f64::from(margins[0] + margins[2]) >= width
+        || f64::from(margins[1] + margins[3]) >= height
+    {
+        return None;
+    }
+    Some((vec2(width as f32, height as f32), margins))
+}
+
+fn parse_margins(text: &str) -> Option<[f32; 4]> {
+    let values = text
+        .split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|v| !v.is_empty())
+        .map(str::parse::<f32>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    match values.as_slice() {
+        [all] => Some([*all; 4]),
+        [horizontal, vertical] => Some([*horizontal, *vertical, *horizontal, *vertical]),
+        [left, top, right, bottom] => Some([*left, *top, *right, *bottom]),
+        _ => None,
+    }
 }
 
 pub(crate) fn view_settings(source: &str) -> (bool, bool) {
@@ -154,6 +190,31 @@ mod tests {
                 < 0.001
         );
     }
+    #[test]
+    fn custom_paper_margins_match_native_invariant_thickness_and_legacy_rule() {
+        for (value, expected) in [
+            ("12", [12.; 4]),
+            ("12,24", [12., 24., 12., 24.]),
+            ("1,2,3,4", [1., 2., 3., 4.]),
+        ] {
+            let source = format!(
+                "<presentation><pageModel paper-code=\"Legal\" orientation=\"Landscape\" margin-type=\"Custom\" page-margin=\"{value}\"/></presentation>"
+            );
+            let (size, margins) = source_settings(&source).unwrap();
+            assert_eq!(size, vec2(1344., 816.));
+            assert_eq!(margins, expected);
+        }
+        for value in ["-1", "NaN", "1,2,3", "10000"] {
+            assert!(source_settings(&format!("<p><pageModel paper-code=\"A4\" margin-type=\"Custom\" page-margin=\"{value}\"/></p>")).is_none());
+        }
+        assert_eq!(
+            source_settings("<p><pageModel paper-code=\"A4\" margin-type=\"Legacy\"/></p>")
+                .unwrap()
+                .1,
+            [115.2; 4]
+        );
+    }
+
     #[test]
     fn saved_page_settings_keep_orientation_margins_and_screen_grid_state() {
         let source = r#"<presentation><pageModel paper-code="Letter" orientation="Landscape" margin-type="Narrow" show-grid="false" useMajorGridLines="true"/></presentation>"#;

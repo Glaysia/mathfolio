@@ -6,6 +6,210 @@ use num_complex::Complex64;
 const MAX_ELEMENTS: usize = 16_384;
 const MAX_PRODUCTS: usize = 8_388_608;
 
+/// Numeric indexed assignment grows to include the addressed cell. Keep the
+/// original zero-fill dimension even after cells acquire heterogeneous units.
+/// An imported mixed matrix has no recovered fill basis; overwriting existing
+/// cells is safe, but expanding that representation is explicitly unsupported.
+pub(crate) struct IndexedArray {
+    rows: usize,
+    cols: usize,
+    elements: Vec<Quantity>,
+    zero_dimension: Option<[f64; 7]>,
+}
+impl IndexedArray {
+    pub(crate) fn new(value: Option<Value>, known_dimension: Option<[f64; 7]>) -> Result<Self> {
+        if let Some(value @ Value::Matrix { .. }) = value {
+            array(&value)?;
+            let Value::Matrix {
+                rows,
+                cols,
+                elements,
+            } = value
+            else {
+                unreachable!()
+            };
+            let zero_dimension = known_dimension.or_else(|| {
+                elements
+                    .first()
+                    .filter(|first| elements.iter().all(|q| q.dimension == first.dimension))
+                    .map(|q| q.dimension)
+            });
+            Ok(Self {
+                rows,
+                cols,
+                elements,
+                zero_dimension,
+            })
+        } else {
+            Ok(Self {
+                rows: 0,
+                cols: 0,
+                elements: vec![],
+                zero_dimension: None,
+            })
+        }
+    }
+    pub(crate) fn put(&mut self, indices: &[usize], value: Quantity) -> Result<()> {
+        let value = finite(value)?;
+        let (row, col) = match indices {
+            [row] if self.cols <= 1 => (*row, 0),
+            [col] if self.rows == 1 => (0, *col),
+            [_] => {
+                return Err(Fault::unsupported(
+                    "A single assignment index requires a vector",
+                ));
+            }
+            [row, col] => (*row, *col),
+            _ => {
+                return Err(Fault::unsupported(
+                    "Indexed definitions require one or two indices",
+                ));
+            }
+        };
+        let rows = self.rows.max(
+            row.checked_add(1)
+                .ok_or_else(|| Fault::unsupported("Array size overflow"))?,
+        );
+        let cols = self.cols.max(
+            col.checked_add(1)
+                .ok_or_else(|| Fault::unsupported("Array size overflow"))?,
+        );
+        let count = rows
+            .checked_mul(cols)
+            .filter(|count| *count <= MAX_ELEMENTS)
+            .ok_or_else(|| Fault::unsupported("Indexed array element budget exceeded"))?;
+        if self.elements.is_empty() {
+            self.zero_dimension = Some(value.dimension);
+        }
+        if rows != self.rows || cols != self.cols {
+            let dimension=self.zero_dimension.ok_or_else(||Fault::unsupported("Expansion of an imported mixed-unit array needs an established zero-fill dimension"))?;
+            let zero = Quantity {
+                value: num_complex::Complex64::new(0., 0.),
+                dimension,
+            };
+            if cols == self.cols {
+                self.elements.resize(count, zero);
+            } else {
+                let mut expanded = vec![zero; count];
+                for r in 0..self.rows {
+                    expanded[r * cols..r * cols + self.cols]
+                        .copy_from_slice(&self.elements[r * self.cols..(r + 1) * self.cols]);
+                }
+                self.elements = expanded;
+            }
+            self.rows = rows;
+            self.cols = cols;
+        }
+        self.elements[row * self.cols + col] = value;
+        Ok(())
+    }
+    pub(crate) fn finish(self) -> (Value, Option<[f64; 7]>) {
+        (
+            Value::Matrix {
+                rows: self.rows,
+                cols: self.cols,
+                elements: self.elements,
+            },
+            self.zero_dimension,
+        )
+    }
+
+    /// The shipped MatVal setters copy a prefix block and retain the rest of
+    /// the destination. Column assignment accepts only a column vector;
+    /// setrow delegates to setblock, so a matrix RHS spans successive rows.
+    pub(crate) fn put_slice(
+        &mut self,
+        column: bool,
+        offset: usize,
+        value: &Value,
+        known_dimension: Option<[f64; 7]>,
+    ) -> Result<()> {
+        let scalar_element;
+        let (height, width, elements) = match value {
+            Value::Scalar { quantity } => {
+                scalar_element = [finite(*quantity)?];
+                (1, 1, scalar_element.as_slice())
+            }
+            _ => array(value)?,
+        };
+        if column && width != 1 {
+            return Err(Fault::unsupported(
+                "Column assignment requires a column vector or scalar",
+            ));
+        }
+        let (top, left) = if column { (0, offset) } else { (offset, 0) };
+        let rows = self.rows.max(
+            top.checked_add(height)
+                .ok_or_else(|| Fault::unsupported("Array size overflow"))?,
+        );
+        let cols = self.cols.max(
+            left.checked_add(width)
+                .ok_or_else(|| Fault::unsupported("Array size overflow"))?,
+        );
+        let count = rows
+            .checked_mul(cols)
+            .filter(|count| *count <= MAX_ELEMENTS)
+            .ok_or_else(|| Fault::unsupported("Indexed array element budget exceeded"))?;
+        if self.elements.is_empty() {
+            self.zero_dimension = known_dimension.or_else(|| {
+                elements
+                    .first()
+                    .filter(|first| elements.iter().all(|q| q.dimension == first.dimension))
+                    .map(|q| q.dimension)
+            });
+        }
+        if rows != self.rows || cols != self.cols {
+            let fills_every_cell = top == 0 && left == 0 && rows == height && cols == width;
+            let dimension = match self.zero_dimension {
+                Some(dimension) => dimension,
+                None if fills_every_cell => [0.; 7], // All allocation cells are overwritten below.
+                None => {
+                    return Err(Fault::unsupported(
+                        "Expansion of a mixed-unit array needs an established zero-fill dimension",
+                    ));
+                }
+            };
+            let mut expanded = vec![
+                Quantity {
+                    value: Complex64::new(0., 0.),
+                    dimension
+                };
+                count
+            ];
+            for row in 0..self.rows {
+                super::check_cancelled()?;
+                expanded[row * cols..row * cols + self.cols]
+                    .copy_from_slice(&self.elements[row * self.cols..(row + 1) * self.cols]);
+            }
+            self.elements = expanded;
+            self.rows = rows;
+            self.cols = cols;
+        }
+        for row in 0..height {
+            super::check_cancelled()?;
+            let start = (top + row) * self.cols + left;
+            self.elements[start..start + width]
+                .copy_from_slice(&elements[row * width..(row + 1) * width]);
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn index_offset(index: Quantity, origin: Quantity) -> Result<usize> {
+    if !index.is_scalar()
+        || index.value.im != 0.
+        || !index.value.re.is_finite()
+        || index.value.re.fract() != 0.
+    {
+        return Err(Fault::unsupported("Non-integer/unit-bearing matrix index"));
+    }
+    let offset = index.value.re - origin.value.re;
+    if offset < 0. || offset >= MAX_ELEMENTS as f64 {
+        return Err(Fault::unsupported("Matrix index outside implemented range"));
+    }
+    Ok(offset as usize)
+}
+
 fn core(error: String) -> Fault {
     if error.contains("dimension") {
         Fault::new("bad%_dimensions", error)
@@ -16,6 +220,7 @@ fn core(error: String) -> Fault {
     }
 }
 fn finite(q: Quantity) -> Result<Quantity> {
+    super::check_cancelled()?;
     if q.value.re.is_finite() && q.value.im.is_finite() && q.dimension.iter().all(|d| d.is_finite())
     {
         Ok(q)
@@ -245,6 +450,7 @@ fn determinant(v: &Value) -> Result<Value> {
     let (n, mut a, dimension) = uniform_square(v)?;
     let mut result = Complex64::new(1., 0.);
     for k in 0..n {
+        super::check_cancelled()?;
         let p = pivot(&a, n, k);
         if a[p * n + k].norm() == 0. {
             result = Complex64::new(0., 0.);
@@ -278,6 +484,7 @@ fn inverse(v: &Value) -> Result<Value> {
         inv[i * n + i] = Complex64::new(1., 0.);
     }
     for k in 0..n {
+        super::check_cancelled()?;
         let p = pivot(&a, n, k);
         if a[p * n + k].norm() == 0. {
             return Err(Fault::unsupported("Singular matrix has no inverse"));
@@ -314,6 +521,284 @@ fn inverse(v: &Value) -> Result<Value> {
                 dimension: dimension.map(|d| -d),
             })
             .collect(),
+    )
+}
+
+/// Solve A*x=b for square or overdetermined full-column-rank systems.
+///
+/// Prime routes square systems to *gesv and rectangular systems to *gelss.
+/// This independent implementation uses reorthogonalized modified Gram-Schmidt
+/// followed by triangular back substitution. It preserves the observed b/a
+/// physical dimension without claiming LAPACK bit-for-bit parity.
+fn lsolve(a: &Value, b: &Value) -> Result<Value> {
+    let (rows, cols, a) = compatible(a)?;
+    let (b_rows, rhs_cols, b) = compatible(b)?;
+    if rows != b_rows {
+        return Err(Fault::unsupported(
+            "lsolve requires equal row counts for coefficient and right-hand matrices",
+        ));
+    }
+    if rows < cols {
+        return Err(Fault::unsupported(
+            "Underdetermined lsolve systems are outside the implemented subset",
+        ));
+    }
+    if rows
+        .checked_mul(cols)
+        .and_then(|work| work.checked_mul(cols.saturating_add(rhs_cols).saturating_add(2)))
+        .is_none_or(|work| work > MAX_PRODUCTS)
+    {
+        return Err(Fault::unsupported("lsolve work budget exceeded"));
+    }
+
+    let mut q = vec![Complex64::new(0., 0.); rows * cols];
+    let mut r = vec![Complex64::new(0., 0.); cols * cols];
+    let mut maximum_column_norm = 0_f64;
+    for column in 0..cols {
+        super::check_cancelled()?;
+        let mut norm = 0_f64;
+        for row in 0..rows {
+            norm = norm.hypot(a[row * cols + column].value.norm());
+        }
+        maximum_column_norm = maximum_column_norm.max(norm);
+    }
+    let rank_threshold = f64::EPSILON * 64. * rows.max(cols) as f64 * maximum_column_norm;
+
+    for column in 0..cols {
+        super::check_cancelled()?;
+        let mut work = (0..rows)
+            .map(|row| a[row * cols + column].value)
+            .collect::<Vec<_>>();
+        // A second pass substantially reduces loss of orthogonality while
+        // retaining a small, deterministic implementation.
+        for _ in 0..2 {
+            for previous in 0..column {
+                let projection = (0..rows)
+                    .map(|row| q[row * cols + previous].conj() * work[row])
+                    .sum::<Complex64>();
+                r[previous * cols + column] += projection;
+                for row in 0..rows {
+                    work[row] -= q[row * cols + previous] * projection;
+                }
+            }
+        }
+        let norm = work
+            .iter()
+            .fold(0_f64, |norm, value| norm.hypot(value.norm()));
+        if !norm.is_finite() || norm <= rank_threshold {
+            return Err(Fault::unsupported(
+                "lsolve coefficient matrix does not have full column rank",
+            ));
+        }
+        r[column * cols + column] = Complex64::new(norm, 0.);
+        for row in 0..rows {
+            q[row * cols + column] = work[row] / norm;
+        }
+    }
+
+    let mut projected = vec![Complex64::new(0., 0.); cols * rhs_cols];
+    for row in 0..cols {
+        for rhs in 0..rhs_cols {
+            projected[row * rhs_cols + rhs] = (0..rows)
+                .map(|source| q[source * cols + row].conj() * b[source * rhs_cols + rhs].value)
+                .sum();
+        }
+    }
+    let mut solution = vec![Complex64::new(0., 0.); cols * rhs_cols];
+    for rhs in 0..rhs_cols {
+        for row in (0..cols).rev() {
+            let tail = (row + 1..cols)
+                .map(|column| r[row * cols + column] * solution[column * rhs_cols + rhs])
+                .sum::<Complex64>();
+            solution[row * rhs_cols + rhs] =
+                (projected[row * rhs_cols + rhs] - tail) / r[row * cols + row];
+        }
+    }
+    let dimension = std::array::from_fn(|index| b[0].dimension[index] - a[0].dimension[index]);
+    matrix(
+        cols,
+        rhs_cols,
+        solution
+            .into_iter()
+            .map(|value| Quantity { value, dimension })
+            .collect(),
+    )
+}
+
+/// Diagonalize a finite real symmetric matrix with cyclic Jacobi rotations.
+///
+/// Prime's static wrapper selects the LAPACK symmetric path only when every
+/// mirrored pair is exactly equal. This independent implementation preserves
+/// that boundary and returns descending eigenvalues with matching eigenvector
+/// columns. General real and complex matrices remain outside this subset.
+struct SymmetricEigensystem {
+    size: usize,
+    values: Vec<f64>,
+    vectors: Vec<f64>,
+    dimension: [f64; 7],
+}
+
+fn real_symmetric_eigendecomposition(value: &Value) -> Result<SymmetricEigensystem> {
+    let (n, complex, dimension) = uniform_square(value)?;
+    if n > 32 {
+        return Err(Fault::unsupported(
+            "Symmetric eigendecomposition currently limited to 32 by 32 matrices",
+        ));
+    }
+    if complex.iter().any(|value| value.im != 0.) {
+        return Err(Fault::unsupported(
+            "Complex Hermitian and general eigendecomposition is not implemented",
+        ));
+    }
+    let mut matrix = complex.iter().map(|value| value.re).collect::<Vec<_>>();
+    for row in 0..n {
+        for column in row + 1..n {
+            if matrix[row * n + column] != matrix[column * n + row] {
+                return Err(Fault::unsupported(
+                    "General nonsymmetric eigendecomposition is not implemented",
+                ));
+            }
+        }
+    }
+
+    let input_scale = matrix.iter().map(|value| value.abs()).fold(0., f64::max);
+    let mut vectors = vec![0.; n * n];
+    for diagonal in 0..n {
+        vectors[diagonal * n + diagonal] = 1.;
+    }
+    if input_scale == 0. {
+        return Ok(SymmetricEigensystem {
+            size: n,
+            values: vec![0.; n],
+            vectors,
+            dimension,
+        });
+    }
+    for value in &mut matrix {
+        *value /= input_scale;
+    }
+    let original = matrix.clone();
+    let tolerance = f64::EPSILON * 64. * n as f64;
+    for _ in 0..64 {
+        super::check_cancelled()?;
+        let mut changed = false;
+        for p in 0..n {
+            for q in p + 1..n {
+                let apq = matrix[p * n + q];
+                if apq.abs() <= tolerance {
+                    continue;
+                }
+                changed = true;
+                let app = matrix[p * n + p];
+                let aqq = matrix[q * n + q];
+                let tau = (aqq - app) / (2. * apq);
+                let tangent = if tau >= 0. { 1. } else { -1. } / (tau.abs() + tau.hypot(1.));
+                let cosine = 1. / (1. + tangent * tangent).sqrt();
+                let sine = tangent * cosine;
+                for k in 0..n {
+                    if k != p && k != q {
+                        let akp = matrix[k * n + p];
+                        let akq = matrix[k * n + q];
+                        let p_new = cosine * akp - sine * akq;
+                        let q_new = sine * akp + cosine * akq;
+                        matrix[k * n + p] = p_new;
+                        matrix[p * n + k] = p_new;
+                        matrix[k * n + q] = q_new;
+                        matrix[q * n + k] = q_new;
+                    }
+                    let vkp = vectors[k * n + p];
+                    let vkq = vectors[k * n + q];
+                    vectors[k * n + p] = cosine * vkp - sine * vkq;
+                    vectors[k * n + q] = sine * vkp + cosine * vkq;
+                }
+                matrix[p * n + p] = app - tangent * apq;
+                matrix[q * n + q] = aqq + tangent * apq;
+                matrix[p * n + q] = 0.;
+                matrix[q * n + p] = 0.;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    let mut maximum_off_diagonal = 0_f64;
+    for row in 0..n {
+        for column in row + 1..n {
+            maximum_off_diagonal = maximum_off_diagonal.max(matrix[row * n + column].abs());
+        }
+    }
+    if maximum_off_diagonal > tolerance {
+        return Err(Fault::unsupported(
+            "Symmetric eigendecomposition did not converge",
+        ));
+    }
+
+    let mut order = (0..n).collect::<Vec<_>>();
+    order.sort_by(|&left, &right| matrix[right * n + right].total_cmp(&matrix[left * n + left]));
+    let eigenvalues = order
+        .iter()
+        .map(|&source| matrix[source * n + source] * input_scale)
+        .collect::<Vec<_>>();
+    let mut sorted_vectors = Vec::with_capacity(n * n);
+    for row in 0..n {
+        for &source in &order {
+            sorted_vectors.push(vectors[row * n + source]);
+        }
+    }
+
+    // Refuse a plausible-looking result when the bounded independent solver
+    // has not produced eigenpairs with a small normalized residual.
+    let residual_limit = f64::EPSILON * 1024. * n as f64;
+    for (column, &eigenvalue) in eigenvalues.iter().enumerate() {
+        let normalized_eigenvalue = eigenvalue / input_scale;
+        let residual = (0..n)
+            .map(|row| {
+                let applied = (0..n)
+                    .map(|k| original[row * n + k] * sorted_vectors[k * n + column])
+                    .sum::<f64>();
+                (applied - normalized_eigenvalue * sorted_vectors[row * n + column]).abs()
+            })
+            .fold(0., f64::max);
+        if !residual.is_finite() || residual > residual_limit {
+            return Err(Fault::unsupported(
+                "Symmetric eigendecomposition residual check failed",
+            ));
+        }
+    }
+    Ok(SymmetricEigensystem {
+        size: n,
+        values: eigenvalues,
+        vectors: sorted_vectors,
+        dimension,
+    })
+}
+
+fn eigenvalues(value: &Value) -> Result<Value> {
+    let SymmetricEigensystem {
+        size,
+        values,
+        dimension,
+        ..
+    } = real_symmetric_eigendecomposition(value)?;
+    matrix(
+        size,
+        1,
+        values
+            .into_iter()
+            .map(|value| Quantity {
+                value: Complex64::new(value, 0.),
+                dimension,
+            })
+            .collect(),
+    )
+}
+
+fn eigenvectors(value: &Value) -> Result<Value> {
+    let SymmetricEigensystem { size, vectors, .. } = real_symmetric_eigendecomposition(value)?;
+    matrix(
+        size,
+        size,
+        vectors.into_iter().map(Quantity::scalar).collect(),
     )
 }
 fn identity(n: usize) -> Result<Value> {
@@ -359,6 +844,7 @@ fn power(left: &Value, right: &Value) -> Result<Value> {
     };
     let mut exponent = exponent.unsigned_abs();
     while exponent > 0 {
+        super::check_cancelled()?;
         if exponent & 1 != 0 {
             result = multiply(&result, &base, false)?;
         }
@@ -439,6 +925,7 @@ fn spectral_norm(n: usize, e: &[Quantity]) -> Result<f64> {
         }
     }
     for _ in 0..64 {
+        super::check_cancelled()?;
         let scale = (0..size)
             .map(|i| gram[i * size + i].abs())
             .fold(0., f64::max);
@@ -490,6 +977,17 @@ fn spectral_norm(n: usize, e: &[Quantity]) -> Result<f64> {
 
 pub fn unary(op: &str, value: &Value) -> Result<Value> {
     match op {
+        // Original Percent applies Efi.Matrix.mult(x, 0.01); Degree lowers to
+        // op_mult(x, mc_deg). Both preserve each cell's complex value and units.
+        "percent" | "degree_op" => unary_map(value, |q| {
+            let factor = if op == "percent" {
+                0.01
+            } else {
+                std::f64::consts::PI / 180.
+            };
+            finite(q)?;
+            finite(q.multiply(Quantity::scalar(factor), false).map_err(core)?)
+        }),
         "neg" => unary_map(value, |mut q| {
             q.value = -q.value;
             finite(q)
@@ -535,6 +1033,176 @@ pub fn unary(op: &str, value: &Value) -> Result<Value> {
     }
 }
 
+/// Original EfiMatrix.values.op_polar checks real scalar/column-vector angles
+/// and nonnegative real magnitudes, then uses ordinary multiplication:
+/// magnitude * exp(i * angle). An arrow outside this operation instead maps
+/// scalar applications, so two vectors do not have the same semantics there.
+pub fn polar(magnitude: &Value, angle: &Value) -> Result<Value> {
+    let real = |q: Quantity, nonnegative: bool| {
+        finite(q)?;
+        if !q.is_scalar() {
+            return Err(Fault::new(
+                "bad%_dimensions%_unitless",
+                "Polar operands must be dimensionless",
+            ));
+        }
+        if q.value.im != 0. {
+            return Err(Fault::new(
+                "invalid_argument",
+                "Polar operands must be real",
+            ));
+        }
+        if nonnegative && q.value.re < 0. {
+            return Err(Fault::new(
+                "invalid_argument",
+                "Polar magnitude must be non-negative",
+            ));
+        }
+        Ok(q)
+    };
+    // Native check_real_v visits the angle's cells before the vector guard.
+    match angle {
+        Value::Scalar { quantity } => {
+            real(*quantity, false)?;
+        }
+        _ => {
+            let (_, cols, cells) = array(angle)?;
+            for q in cells {
+                real(*q, false)?;
+            }
+            if cols != 1 {
+                return Err(Fault::new(
+                    "invalid_argument",
+                    "Polar angle must be a scalar or column vector",
+                ));
+            }
+        }
+    }
+    match magnitude {
+        Value::Scalar { quantity } => {
+            real(*quantity, true)?;
+        }
+        _ => {
+            let (_, _, cells) = array(magnitude)?;
+            for q in cells {
+                real(*q, true)?;
+            }
+        }
+    }
+    let phasor = unary_map(angle, |q| {
+        let value = Complex64::new(0., q.value.re).exp();
+        finite(Quantity {
+            value,
+            ..Quantity::scalar(0.)
+        })
+    })?;
+    binary("mult", magnitude, &phasor)
+}
+
+/// Native row/column operators preserve the selected cells' units and complex
+/// values, and return a vector with the corresponding orientation. This is not
+/// a named function alias: its index depends on SYSTEM ORIGIN.
+pub fn row_or_column(op: &str, value: &Value, index: Quantity, origin: Quantity) -> Result<Value> {
+    let (rows, cols, elements) = array(value)?;
+    let offset = index_offset(index, origin)?;
+    match op {
+        "matrow" if offset < rows => matrix(
+            1,
+            cols,
+            elements[offset * cols..(offset + 1) * cols].to_vec(),
+        ),
+        "matcol" if offset < cols => matrix(
+            rows,
+            1,
+            (0..rows).map(|row| elements[row * cols + offset]).collect(),
+        ),
+        "matrow" | "matcol" => Err(Fault::unsupported(
+            "Matrix row/column index outside implemented range",
+        )),
+        _ => Err(Fault::unsupported(format!(
+            "Unknown row/column operator {op}"
+        ))),
+    }
+}
+
+/// The native cross-product contract is two uniform, three-element column
+/// vectors. Complex multiplication is bilinear, without conjugating an input.
+pub fn cross_product(left: &Value, right: &Value) -> Result<Value> {
+    let (lr, lc, a) = compatible(left)?;
+    let (rr, rc, b) = compatible(right)?;
+    if (lr, lc) != (3, 1) || (rr, rc) != (3, 1) {
+        return Err(Fault::unsupported(
+            "Cross product requires two three-element column vectors",
+        ));
+    }
+    let mut result = Vec::with_capacity(3);
+    for (i, j) in [(1, 2), (2, 0), (0, 1)] {
+        super::check_cancelled()?;
+        let positive = a[i].multiply(b[j], false).map_err(core)?;
+        let negative = a[j].multiply(b[i], false).map_err(core)?;
+        result.push(finite(positive.add(negative, true).map_err(core)?)?);
+    }
+    matrix(3, 1, result)
+}
+
+/// Apply one already identified operation to scalar cells. The caller walks
+/// the expression and supplies the operation; evaluating a matrix operation
+/// first and mapping its result would have different semantics.
+pub(crate) fn vectorize(
+    arguments: &[Value],
+    mut operation: impl FnMut(&[Value]) -> Result<Value>,
+) -> Result<Value> {
+    let mut shape = None;
+    for value in arguments {
+        match value {
+            Value::Scalar { quantity } => {
+                finite(*quantity)?;
+            }
+            Value::Matrix { .. } => {
+                let (rows, cols, _) = array(value)?;
+                if shape.is_some_and(|old| old != (rows, cols)) {
+                    return Err(Fault::unsupported(
+                        "Vectorized arrays must have identical rows and columns",
+                    ));
+                }
+                shape = Some((rows, cols));
+            }
+            _ => {
+                return Err(Fault::unsupported(
+                    "Vectorization requires numeric scalars or matrices; nested/range values are not supported",
+                ));
+            }
+        }
+    }
+    let Some((rows, cols)) = shape else {
+        return operation(arguments);
+    };
+    let mut point = vec![Value::scalar(Quantity::scalar(0.)); arguments.len()];
+    let mut result = Vec::with_capacity(rows * cols);
+    // The original MatVal.vectorize visits columns, then rows. Preserve that
+    // operation/error order while storing the independent result row-major.
+    result.resize(rows * cols, Quantity::scalar(0.));
+    for col in 0..cols {
+        for row in 0..rows {
+            super::check_cancelled()?;
+            let index = row * cols + col;
+            for (slot, argument) in point.iter_mut().zip(arguments) {
+                let quantity = match argument {
+                    Value::Scalar { quantity } => *quantity,
+                    Value::Matrix { elements, .. } => elements[index],
+                    _ => unreachable!(),
+                };
+                *slot = Value::scalar(quantity);
+            }
+            let value = operation(&point)?;
+            result[index] = finite(value.as_quantity().map_err(|_| {
+                Fault::unsupported("Vectorized operation returned a nested/non-scalar result")
+            })?)?;
+        }
+    }
+    matrix(rows, cols, result)
+}
+
 pub fn is_builtin(name: &str) -> bool {
     matches!(
         name,
@@ -555,6 +1223,9 @@ pub fn is_builtin(name: &str) -> bool {
             | "normi"
             | "diag"
             | "tr"
+            | "lsolve"
+            | "eigenvals"
+            | "eigenvecs"
     )
 }
 
@@ -601,6 +1272,9 @@ pub fn call(name: &str, args: &[Value], origin: Quantity) -> Result<Value> {
             determinant(v)
         }
         ("inverse", [v]) => inverse(v),
+        ("lsolve", [a, b]) => lsolve(a, b),
+        ("eigenvals", [v]) => eigenvalues(v),
+        ("eigenvecs", [v]) => eigenvectors(v),
         (kind @ ("norm" | "norm1" | "norm2" | "norme" | "normi"), [v]) => norm(v, kind),
         ("augment" | "stack", vs) if !vs.is_empty() => join(vs, name == "augment"),
         ("submatrix", [v, ir, jr, ic, jc]) => submatrix(
@@ -737,4 +1411,36 @@ fn submatrix(v: &Value, bounds: [Quantity; 4], origin: Quantity) -> Result<Value
         }
     }
     matrix(rows, cols, result)
+}
+
+#[cfg(test)]
+mod vectorization_tests {
+    use super::*;
+    #[test]
+    fn vectorized_callbacks_use_native_column_order_and_mid_map_stop_never_publishes_partial_output()
+     {
+        let input = Value::Matrix {
+            rows: 2,
+            cols: 2,
+            elements: [1., 2., 3., 4.].map(Quantity::scalar).to_vec(),
+        };
+        let before = input.numeric_json();
+        let control = crate::CalculationControl::default();
+        let mut visited = Vec::new();
+        let stopped = control.run(|| {
+            vectorize(std::slice::from_ref(&input), |point| {
+                visited.push(point[0].as_quantity()?.value.re);
+                if visited.len() == 2 {
+                    control.cancel();
+                }
+                Ok(point[0].clone())
+            })
+        });
+        assert!(stopped.unwrap_err().is_cancelled());
+        assert_eq!(visited, [1., 3.]);
+        assert_eq!(input.numeric_json(), before);
+        let completed =
+            vectorize(std::slice::from_ref(&input), |point| Ok(point[0].clone())).unwrap();
+        assert_eq!(completed.numeric_json(), before);
+    }
 }

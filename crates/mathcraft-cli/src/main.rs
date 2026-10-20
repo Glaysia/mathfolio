@@ -60,6 +60,7 @@ fn run() -> Result<(), String> {
                             tree.kind,
                             mathcraft_editor::NodeKind::Binary(
                                 mathcraft_editor::BinaryOp::Define
+                                    | mathcraft_editor::BinaryOp::GlobalDefine
                                     | mathcraft_editor::BinaryOp::Evaluate
                             )
                         ) =>
@@ -149,10 +150,14 @@ fn run() -> Result<(), String> {
             let grid = mathcraft_compat::PlacementGrid::from_presentation(
                 presentation.trim_start_matches('\u{feff}'),
             )?;
-            let rows = mathcraft_compat::evaluate_worksheet_with_grid(
-                &package.worksheet_xml()?,
-                Some(grid),
-            )?;
+            let mut calculator = mathcraft_compat::WorksheetCalculator::default();
+            calculator.set_strings_use_origin(
+                mathcraft_document::native_calculation::strings_use_origin(&package)?,
+            );
+            calculator.update(&package.worksheet_xml()?, Some(grid))?;
+            let rows = calculator
+                .calculate(mathcraft_compat::CalculationRequest::Worksheet)?
+                .rows;
             let errors = rows.iter().filter(|r| r.error.is_some()).count();
             println!("{}",serde_json::to_string_pretty(&serde_json::json!({
                 "rows":rows,"errors":errors,"note":"Fresh independent Rust execution of a limited MathML subset; saved caches are not used."

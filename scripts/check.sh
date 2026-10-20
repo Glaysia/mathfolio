@@ -7,4 +7,5 @@ fi
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
+cargo test -p egui-winit --lib --locked
 cargo build --workspace --locked

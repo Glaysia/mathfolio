@@ -12,5 +12,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 cargo test --workspace --locked
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+cargo test -p egui-winit --lib --locked
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 cargo build --workspace --locked
 exit $LASTEXITCODE

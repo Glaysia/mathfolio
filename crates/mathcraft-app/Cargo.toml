@@ -20,4 +20,21 @@ rfd.workspace = true
 egui_plot.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
 serde_json.workspace = true
+serde.workspace = true
+sha2 = "0.10"
 roxmltree.workspace = true
+skrifa = "0.44"
+harfrust = "0.12"
+flate2 = "1"
+
+[dev-dependencies]
+zip.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+eframe = { workspace = true, features = ["wgpu"] }
+
+[target.'cfg(not(windows))'.dependencies]
+eframe = { workspace = true, features = ["glow"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

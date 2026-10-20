@@ -168,6 +168,14 @@
       "evidence_id": "ev_70e6e9fc8cc029fe391f1420c5259fa2355970b0da9d7c5194a0eaa1813d4c67",
       "attribute_token": "0x0c000003",
       "attribute_sha256": "181281bc23f504e7431f05c69bf112eeb9cf8dd7255b04c51df151679ffd7229"
+    },
+    {
+      "module": "efiaffine",
+      "sha256": "301664074ff4497aaebde9ffca0ae5bc7b6c4cb2b5a2990abd4b852f6fb25979",
+      "mvid": "b7b5fd8f-355a-4db2-95c0-8a97e430d6d2",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75",
+      "attribute_token": "0x0c000003",
+      "attribute_sha256": "d253cfb397651e5c446443c0bad3c645a8a32d6eea2b7d510bf00e162213a1bb"
     }
   ],
   "bindings": [
@@ -11950,6 +11958,84 @@
       "dimension_variables": [],
       "target": "[efiwavelets_]Efi.Wavelets::wpti",
       "evidence_id": "ev_70e6e9fc8cc029fe391f1420c5259fa2355970b0da9d7c5194a0eaa1813d4c67"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc_DMS",
+      "kind": "function",
+      "name": "DMS",
+      "engine_arity": 3,
+      "optional_arguments": true,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::DMS",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc__2F_DMS",
+      "kind": "function",
+      "name": "_2F_DMS",
+      "engine_arity": 1,
+      "optional_arguments": false,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::DMS_inverse",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc_FIF",
+      "kind": "function",
+      "name": "FIF",
+      "engine_arity": 3,
+      "optional_arguments": true,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::FIF",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc__2F_FIF",
+      "kind": "function",
+      "name": "_2F_FIF",
+      "engine_arity": 1,
+      "optional_arguments": false,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::FIF_inverse",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc_hhmmss",
+      "kind": "function",
+      "name": "hhmmss",
+      "engine_arity": 3,
+      "optional_arguments": true,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::HMS",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
+    },
+    {
+      "module": "efiaffine",
+      "binding": "mc__2F_hhmmss",
+      "kind": "function",
+      "name": "_2F_hhmmss",
+      "engine_arity": 1,
+      "optional_arguments": false,
+      "variadic": false,
+      "origin_argument": false,
+      "dimension_variables": [],
+      "target": "[efimatrix_]Efi.Affine::HMS_inverse",
+      "evidence_id": "ev_3f13b1f7832b6c2672e420855bd0fdb79c6b9b0a6fc2b45fc664b97cad97fe75"
     }
   ]
 }

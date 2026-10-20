@@ -1,7 +1,16 @@
+#[cfg(all(test, target_os = "windows"))]
+mod graphics_adapter_probe;
 use eframe::egui;
+mod calculation_worker;
 mod formula;
+#[cfg(test)]
+#[path = "worksheet_ui/frame_profile.rs"]
+mod frame_profile;
+mod native_presentation;
 mod page;
+mod page_fields;
 mod plots;
+mod printing;
 mod result_display;
 mod ribbon;
 mod typography;
@@ -12,11 +21,10 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Mathcraft",
         eframe::NativeOptions {
-            renderer: if cfg!(target_os = "windows") {
-                eframe::Renderer::Wgpu
-            } else {
-                eframe::Renderer::Glow
-            },
+            #[cfg(target_os = "windows")]
+            renderer: eframe::Renderer::Wgpu,
+            #[cfg(not(target_os = "windows"))]
+            renderer: eframe::Renderer::Glow,
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([1180., 900.])
                 .with_min_inner_size([850., 600.]),
@@ -35,6 +43,7 @@ fn main() -> eframe::Result {
             if let Some(i) = args.iter().position(|a| a == "--capture") {
                 app.capture = args.get(i + 1).map(Into::into);
             }
+            app.enable_background_calculation(cc.egui_ctx.clone());
             Ok(Box::new(app))
         }),
     )
@@ -97,5 +106,6 @@ fn configure(ctx: &egui::Context) {
         }
     }
     typography::install(&mut fonts);
+    native_presentation::install_fonts(&mut fonts);
     ctx.set_fonts(fonts);
 }

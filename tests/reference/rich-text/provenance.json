@@ -1,0 +1,26 @@
+{
+  "scope": "Read-only original user-document text fixtures; no target runtime or GUI",
+  "original_provenance": "artifacts/rea/rich-text-source-next-20261019/fixtures/provenance.json",
+  "files": [
+    {
+      "path": "tests/reference/rich-text/sample-01.xaml",
+      "sha256": "f024b20ce857ef024cffa4e5e03dd21ebac83c354f3c9eaca2eacc1246e4b653",
+      "artifact_origin": "artifacts/rea/rich-text-source-next-20261019/fixtures/sample-01.xaml"
+    },
+    {
+      "path": "tests/reference/rich-text/sample-02.xaml",
+      "sha256": "fa36fb5670217ba3d5617b3cdb8d74b4df84ff10d838d83c809170a9a6ada0bb",
+      "artifact_origin": "artifacts/rea/rich-text-source-next-20261019/fixtures/sample-02.xaml"
+    },
+    {
+      "path": "tests/reference/rich-text/sample-01.XamlPackage",
+      "sha256": "e174bf7a70e8bc397682c436878c866c7aa7c4796c8e3e83989f2081eba3be2a",
+      "artifact_origin": "artifacts/rea/rich-text-source-next-20261019/fixtures/sample-01.XamlPackage"
+    },
+    {
+      "path": "tests/reference/rich-text/lcc-standard-presentation.xml",
+      "sha256": "822eae16b27ab7e650f6904aeaaa7384b9496aed5343c4386deee7007436cb43",
+      "artifact_origin": "artifacts/rea/rich-text-source-next-20261019/fixtures/lcc-standard-presentation.xml"
+    }
+  ]
+}

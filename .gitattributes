@@ -9,3 +9,7 @@ assets/fonts/stix/*.ttf binary
 assets/fonts/stix/OFL.txt text eol=lf whitespace=-blank-at-eol
 assets/fonts/stix/SOURCE.json text eol=lf
 .gitattributes text eol=lf
+# Native text fixtures retain original bytes, including CRLF and UTF-8 BOM.
+tests/reference/rich-text/*.xml -text whitespace=cr-at-eol
+tests/reference/rich-text/*.xaml -text whitespace=cr-at-eol
+tests/reference/rich-text/*.XamlPackage binary

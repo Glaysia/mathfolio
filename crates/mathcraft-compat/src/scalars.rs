@@ -32,6 +32,7 @@ pub fn core_error(error: String) -> Fault {
 }
 
 fn finite(q: Quantity) -> Result<Quantity> {
+    super::check_cancelled()?;
     if q.value.re.is_finite() && q.value.im.is_finite() {
         Ok(q)
     } else {
@@ -365,7 +366,8 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value> {
             "IsScalar" => matches!(value, Value::Scalar { .. }),
             "IsArray" => matches!(value, Value::Matrix { .. }),
             "IsRange" => matches!(value, Value::Range { .. }),
-            // String/NaN values are not produced by this engine yet.
+            "IsString" => matches!(value, Value::String { .. }),
+            // NaN values are not produced by this engine.
             _ => false,
         };
         return Ok(Value::scalar(Quantity::scalar(if yes { 1. } else { 0. })));

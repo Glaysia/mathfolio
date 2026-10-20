@@ -1,116 +1,110 @@
 # Mathcraft 개발 계획
 
-작성일: 2026-10-15
+**현재 우선순위 — 2026-10-20:** 기능 구현을 UI 개편 전 체크포인트로 보존한다. 사용자의 최신 완성도 평가는 80%이며, 다음 작업은 [현대적인 UI와 단축키 안내 개선](UI-MODERNIZATION.md)이다. **기존 단축키는 변경하지 않는다.** [CLI·MCP·skill 연동](AGENT-INTEGRATION.md)은 후속 계획으로만 기록한다.
 
-현재 실행 우선순위: GUI·스크린샷·원본 앱 실행 없이 REA로 Mathcad의 작성 경험을 구성하는 명령·상태 전이를 확인하고 Rust로 재구성한다. [작성 경험 기준](DESIGN.md)에 시나리오·근거·구현을 연결하고, 계산 지원 범위는 [ENGINE.md](ENGINE.md)에 기록한다.
+**UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
+
+**XY 첫 수식 후속:** [0181 계약](analysis/0181-xy-typed-expression-contract.md)·[0182 통합](analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
+
+
+기존 기능의 채택 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md) r222까지 기록되어 있다. 이전 cohort·metadata/fmt 실패 이력은 원문 receipt로 보존한다.
+
+갱신: 2026-10-20. 현재 구현 판정은 [원본 기능별 통합 목록](FEATURES.md)을 단일 기준으로 사용한다.
 
 ## 목표와 범위
 
-Mathcad에서 관찰한 워크시트 편집·계산 동작을 Rust로 독립 구현한다. 개발은 현재 Windows PC에서 수행하고 Windows와 Kubuntu 26.04에서 실행한다. Linux 실기 검증 대상은 `ssh peets`다. macOS 지원은 보장하지 않지만 코어에 Win32 의존성을 넣지 않는다.
+Mathcad Prime의 워크시트·구조 수식 편집·계산·문서 동작을 Rust로 독립 구현한다. UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하고, 기존 수식 편집 의미와 단축키를 유지한다. 제품의 가치는 수식과 결과를 같은 종이에서 작성하고 수정하는 사용성에 있다. REA로 이 흐름의 명령·상태·저장 표현을 확인하며, 계산 함수 수만으로 완료를 판정하지 않는다.
 
-목표는 오픈소스 Mathcad다. 자유 배치 워크시트, 구조를 직접 편집하는 2D 수식 커서, 라벨별 심볼, 위치·scope 기반 계산 순서, 단위·배열·고급 계산, MCDX 문서 왕복 동작을 호환성 요구로 삼는다. 단순한 문자열 계산기·그래프 앱은 이 목표의 완료물이 아니다. 단계별 구현의 지원 범위와 미확인 차이는 명시하며, 제한된 표본 통과를 제품 전체 호환으로 부르지 않는다.
-
-제품 가치는 작성과 수정의 사용성에 있다. REA는 이 사용성을 이루는 편집 모드, 커서·선택, 문맥 명령과 피드백의 이유를 파악하는 수단이다. 함수 개수만 늘리는 것을 진척의 중심으로 삼지 않고 실제 작성 흐름을 우선 구현한다.
+개발은 현재 Windows PC에서 진행한다. 필수 실행 환경은 Windows와 Kubuntu 26.04이며 Linux 검증 대상은 `ssh peets`다. macOS는 우선 검증 대상에서 제외하되 코어의 플랫폼 종속성은 최소화한다.
 
 Rust 독립 앱 완성 후 Obsidian 플러그인과 VS Code 확장 내장은 별도 프로젝트로 진행한다.
 
-## 20% 작업 단계 — 기본 공학 계산서
+Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행 표본으로 존재와 의미를 확인한다. 불명확한 내부 경로를 추정해 호환 기능으로 부르지 않는다. 새 UI와 단축키 안내, 후속 AI 연동은 사용자 지시에 따른 Mathcraft 제품 설계로 구분한다. 원본 코드·리소스·글꼴은 제품에 복제하지 않는다.
 
-이 수치는 전체 제품의 계측된 호환율이 아니라 개발 규모의 거친 추정이다. 이번 단계는 아래 작성 흐름을 구현·검증하는 범위로 고정했다.
+## 현재 상태
 
-- [x] 영역별 글꼴 크기, 일반/소수/과학/공학 결과 형식과 소수 자릿수 변경.
-- [x] 결과의 단위·분수·지수·행렬을 읽기 전용 수학 구조로 조판하고 계산값과 표시 반올림 분리.
-- [x] 명시 레이블 변경과 Undo, 실제 식별자/행렬 커서에 맞는 리본 활성화.
-- [x] 행렬 행·열 삽입/삭제와 Shift+Enter/Shift+Space, 안정 ID·커서·단일 Undo 유지.
-- [x] 워크시트의 함수·범위·벡터를 사용하는 XY 도표, 축 식 편집·크기 조절·확대/이동.
-- [x] 서식·도표의 .mathcraft 저장/재열기·영역 복사, 정의 수정/Undo 후 도표 재계산.
-- [x] 지원 수식 서식의 MCDX import/export와 원본 기타 설정 보존.
-- [x] 검토용 examples/engineering-worksheet.mathcraft 및 수치·배치·그래프 정답 회귀 검사.
+[FEATURES.md](FEATURES.md)에 원본 기능 단위의 구현됨·부분 구현·미구현, 지원 경로, 원본 근거와 남은 차이를 모았다. 기존 87개는 분야 요약으로 내리고 세부 항목 555행을 설치 근거 216파일에 연결했다. 내부 바인딩 874행·단위/상수 227개와 중복 합산하지 않는다. 다음은 작업 묶음이며 완료율이 아니다.
 
-아직 전체 작성 UX, 부분 피연산자 선택, 프로그램·풀이블록의 화면 입력, 도표의 MCDX 내보내기, 인쇄/PDF, 실제 OS IME·클립보드와 원본 외형 대조는 미완료다. XY 도표는 단일 trace·무차원 실수·최대 2,000점의 제한된 범위다. 이런 제한이 있는 상태를 완성 제품으로 부르지 않는다. 정적 근거는 분석 0021–0023을 참고한다.
-
-## 1. 분석 환경 확보
-
-- 현재 설치 도우미의 해시와 버전을 기록한다. 설치 도우미와 실제 계산 엔진을 구분한다.
-- 이 PC의 `C:\Program Files\PTC\Mathcad Prime 12.0.0.1`에서 실제 설치 모듈을 분석했다. 원본 Express 12.0.0.1에서 새 문서 38개를 계산·완료 대기·저장했고, 라벨·정의·단위·오류·배치 증거를 확보했다. 사용자가 GUI를 쓰는 동안에는 원본 앱·COM 실행을 멈추고 정적 분석과 독립 구현만 수행한다.
-- 설치된 파일 목록, PE/.NET 여부, 모듈과 파일 형식을 조사한 후 REA 분석 경로를 선택한다.
-- REA 버전, 분석 제공자와 버전, 입력 파일 해시, 명령 및 산출물 위치를 기록한다. 실제 설치 상태를 확인하기 전에는 REA가 사용 가능하다고 가정하지 않는다.
-- 원본 앱 분석과 구현물 개발은 이 PC에서 진행한다. `peets`는 Linux 검증용으로 사용한다.
-
-완료 조건: 원본 앱에서 최소 워크시트를 실행하고 저장할 수 있으며, 제품 버전·파일 경로·분석 도구 구성이 기록되어 있다.
-
-## 2. 기준 사례와 동작 명세
-
-각 사례에 입력, 원본 출력, 허용 오차, 단위, 오류, 실행 순서, 원본 버전, 증거 경로를 붙인다. 관찰 사실과 추정을 구분하고 미확인 사항은 명시한다.
-
-| 분야 | 우선 조사할 사례 |
-| --- | --- |
-| 계산 순서 | 위에서 아래 및 좌우 배치 순서, 재정의, 전방 참조, 지역/전역 정의 |
-| 수식 | 사칙연산, 거듭제곱, 괄호, 정의와 평가, 사용자 함수 |
-| 수치 | 실수/복소수, 표시 자릿수, 반올림, 0 나눗셈, 비유한 값 |
-| 단위 | 길이·시간·질량, 변환, 차원 불일치, 온도 오프셋 |
-| 배열 | 벡터·행렬, 인덱스 기준, 범위 변수, 행렬 곱 |
-| 편집 | 수식 커서, 영역 이동, 복사/붙여넣기, 실행 취소, 한글 입력 |
-| 파일 | 빈 문서와 한 영역씩 추가한 문서의 구조 차이, 재저장 변화 |
-
-처음에는 최소 30개 사례를 확보한다. REA로 필요한 모듈을 좁혀 정적 분석하고, 실행 관찰과 대조한다. 전체 바이너리를 무작정 분석하는 방식보다 기능별 질문을 먼저 정한다. 원본 소스·리소스·바이너리를 구현물에 복사하지 않고 관찰한 동작과 문서화한 형식을 바탕으로 구현한다.
-
-완료 조건: 첫 구현 범위의 사례가 재현 가능하고, 계산 순서와 수치/단위 규칙이 문서로 확정되어 있다.
-
-## 3. Rust 구조와 기술 검증
-
-Cargo workspace를 다음 경계로 구성한다. 기존 문자열 core/행 기반 GUI는 실험용이다. 구조 수식 편집, 원본 문서 보존, MathML 직접 실행 계층을 분리해 목표 구조로 옮긴다.
-
-- `mathcraft-core`: 수식 AST, 값/차원 타입, 계산기, 심볼과 의존성. GUI와 OS에서 독립.
-- `mathcraft-document`: 원본 ZIP parts·XML·라벨·계층·좌표·캐시 상태를 유지하는 native 계층. 기존 평탄화 importer는 별도 실험 경로.
-- `mathcraft-editor`: AST arena, 캐럿·구조 선택, 분수·지수·괄호 편집 및 레이아웃.
-- `mathcraft-app`: 데스크톱 GUI, 수식 편집기, 렌더링, 키보드/IME, 파일 대화상자.
-- `mathcraft-cli`: 기준 사례 실행과 GUI 없는 계산 검증.
-- `mathcraft-compat`: MathML AST 직접 실행, 라벨별 scope, 원본 실행 증거와 차등 검증. 문자열 importer를 통하지 않는다.
-
-GUI는 Rust 네이티브 후보인 egui/eframe을 우선 평가한다. 확정 전 Windows와 peets에서 수식 레이아웃, 한글 IME, 클립보드, 고해상도 배율, Wayland/X11을 검증한다. 후보가 요구를 충족하지 못하면 같은 코어 경계에서 교체한다. 라이브러리 버전과 라이선스는 채택 시 확인하고 Cargo.lock을 추적한다.
-
-수식은 표시 문자열과 AST를 분리한다. 숫자는 f64 복소수와 차원 타입에서 시작하되 유리수 차원·affine 단위·라벨·부분식·오류 위치를 보존하는 구조로 확장한다. MCDX는 알 수 없는 영역과 관계도 보존하며, 편집하지 않은 부분은 바이트를 유지한다. native-copy 외에 편집 export와 캐시 무효화도 구현했다. 원본 앱 재열기는 검증하지 않았으며 현재 GUI를 사용하지 않는다.
-
-완료 조건: 두 OS에서 동일한 코어 계산 결과가 나오고, GUI 프로토타입에서 수식 입력과 한글 입력이 가능하다.
-
-## 4. 구현 순서
-
-| 단계 | 구현 범위 | 완료 기준 |
+| 작업 묶음 | 현재 범위 | 완료를 막는 항목 |
 | --- | --- | --- |
-| M0 조사 | 분석 환경, REA 구성 확인, 기준 사례 | 최소 30개 증거 있는 사례와 미확인 목록 |
-| M1 코어 | AST, 산술, 변수, 함수, 오류, 평가 순서 | 지원 사례의 차등 테스트 통과 |
-| M2 단위/배열 | 차원, 단위 변환, 벡터·행렬 | 단위 오류와 인덱스/행렬 사례 통과 |
-| M3 워크시트 | 자유 배치 수식/텍스트, 구조 커서, 부분식 선택, undo/redo, MCDX 보존 | 원본 키 조작과 대조, 작성→계산→저장→재열기 일치 |
-| M4 시각화 | 2D 그래프, 축/범위, PDF 또는 인쇄 내보내기 | 두 OS 화면·출력 실기 확인 |
-| M5 호환성 | 모든 단계에 적용하는 원본 차등 검증, 원본 파일 왕복과 미지원 보존 | 값·단위·오류·편집·문서 동작을 별도 측정 |
-| M6 배포 | Windows 패키지, Linux 패키지 | 개발 도구 없는 환경 설치 및 실행 |
+| 기본 공학 계산서 | 자유 배치·기본 수식/단위·행렬·서식·XY 연결 | 전체 원본 편집 전이·단위/배열 범위·도표의 전체 native source 규약 |
+| 기술 계산 문서 | 프로그램 Enter·행렬 Tab, 다중 trace, Find/Minerr, 날짜, 용지/여백·기본 인쇄/PDF | 전체 제어문 저작·풀이 블록 인라인 UX·전체 CAS/solver·출력 fidelity |
+| 문서 열기·결과 표시 | 저장 표현 복원, F5/Ctrl+F5 분리, Pending 유지, 평면 영역 비활성화, 백그라운드 계산·협력 중지/재개 | 전체 native cache·정밀 의존성·Area 전파·원본 queue 게시 시점·외부 IO 중단·중첩/Area 결과의 전체 표시 범위 조절 |
+| 종이 오른쪽 초과 영역 | Prime Page/Draft 전환의 기본 경로 | 전체 원본 조작/배치 검증 |
+| 성능·실행 | release 실행, backend 의존성 축소, idle 복제/불필요 조판 감소 | 실제 GPU·대규모 재계산·두 OS 사용 성능 측정 |
 
-미분·적분·root·프로그램·통계·단위와 배열은 현재 MathML 실행 엔진에서 확장 중이며, 풀이블록과 상징 연산을 같은 엔진에 연결한다. 고급 수치 분야와 CAS 전체, 3D 그래프 등은 미완료다. 제한된 구현을 전체 Mathcad 완성으로 판단하지 않는다.
+2026-10-20 사용자의 최신 평가는 **80%**다. 이전15%/40% 개발 목표와11%/20% 목표는 아래 기능 개발 이력으로 보존한다. 이 수치는 사용자 평가이며 계측된 Prime 호환율이 아니다. 제한된 기능이나 테스트 개수를 완료율로 환산하지 않는다.
 
-## 5. 검증과 배포
+## 이전 40% 목표의 작업 범위
 
-- 원본 출력 대비 절대·상대 오차를 사례별로 정의한다. 단위/오류 종류는 별도로 비교한다.
-- 저장 형식은 왕복 테스트, 손상된 문서, 버전 불일치, 큰 입력을 검증한다. 신뢰할 수 없는 문서가 임의 코드를 실행하지 않게 한다.
-- GUI는 수식 입력, 한글 IME, 선택·이동, undo/redo, 배율, 저장 중 종료를 검증한다.
-- Cargo workspace를 추가하는 시점에 Windows/Linux CI에서 fmt, clippy, 테스트, 빌드를 실행한다.
-- CI Linux 검증과 별도로 peets의 KDE 실제 세션에서 Wayland/X11, 폰트, GPU 렌더링, 클립보드를 확인한다.
-- Windows는 설치와 시작 메뉴/파일 열기, Linux는 우선 AppImage 후보를 검증한다. 배포 형식은 의존성과 대상 PC 검증 후 확정한다.
-- 성능은 원본 및 구현물의 동일한 100/1,000 영역 워크시트 재계산과 문서 열기 시간을 측정한 뒤 목표를 정한다.
+기본 구조 편집·Area·문서 흐름·native 결과·XY 확정/공유 축을 통합했고, 다음 원본 작성 흐름의 공백을 연속해서 채운다. 각 묶음은 입력·수정·계산 확정·Undo/Redo·저장·재열기까지 검증하며, 구현 범위를 기능 목록의 실제 원본 항목에 연결한다.
 
-## 바로 이어서 할 일
+| 우선순위 | 원본 작성 흐름 | 확인할 결과 |
+|---|---|---|
+| 1 | 구조 수식 편집 | 연산자 선택/교체, Typeover 두 단계 삭제, 이름 아래첨자·라벨, 컨테이너 이동과 문자/범위 편집이 원본 상태 전이를 따른다. |
+| 2 | 행렬·표·함수·프로그램 | 일반 행렬과 표의 실제 선택/편집/열 계산, 함수 정의·호출과 프로그램의 주요 편집 경계를 계산·native 저장에 연결한다. |
+| 3 | 기술 문서 작성 | 텍스트 서식 저작, 페이지 나눔·Area 등 주요 문서 구조의 현재 공백을 원본 저장 구조와 함께 구현한다. |
+| 4 | 도표·풀이 블록 | 기존 XY·solve 계산을 실제 원본 저작/수정/재열기 흐름에 연결하고, 도표 MCDX export 등 막힌 왕복 경로를 채운다. |
+| 5 | 계산 결과·단위·출력 | 제공 원본 계산서의 결과·표·단위·색상과 벡터 PDF를 유지하며 저장 표시/계산 명령의 미지원 상태를 확대한다. |
+| 6 | 반응성과 양 OS 통합 | 큰 문서의 열기·첫 페이지·이동·키 입력·Enter를 분리 측정하고, 증가 표본도 보존한다. Windows·peets에서 동일 소스 회귀와 원본 reference/native/PDF를 검증한다. |
 
-1. 원본 38개 새 실행 결과를 체크인한 회귀 기준으로 사용. [호환성 측정](CONFORMANCE.md) 및 분석 기록 0002–0004 참고.
-2. GitHub 인증 복구 후 기본 비공개 `mathcraft` 원격 저장소 생성 및 push. 현재는 로컬 Git 저장소만 생성 가능하다.
-3. 완료: Rust 1.99.0 및 필수 빌드 도구를 양쪽에 설치하고 CLI/GUI 빌드, fmt/Clippy, CLI 실행 검증.
-4. 수식 범위·방향·문맥 명령·라벨·계산 피드백을 REA로 추적하고 작성 흐름의 headless 테스트를 확장. 분석 0014–0017 참고.
-5. 부분 피연산자 선택, 원본 우선순위에 따른 wrapping, 오류 노드 연결을 다음 편집 계약으로 조사. 전체 함수·단위·풀이·상징 계산은 작성 흐름의 필요와 호환성 공백에 맞춰 확장.
+모든 묶음은 GUI·스크린샷·원본 런타임 없이 REA와 CPU 입력/상태·파일 검증으로 진행한다. 이 범위의 검증 완료와 사용자가 체감하는40% 달성은 구분하며, 간접 검사만으로 전체 UI/UX나40% 달성을 선언하지 않는다.
 
-## 참고
+## 기존 기능의 남은 공백과 조사 이력
 
-- [REA 공식 저장소](https://github.com/morluto/rea)
-- [REA 설치 문서](https://github.com/morluto/rea/blob/main/docs/installation.md)
-- [REA native 분석](https://github.com/morluto/rea/blob/main/docs/native-investigation.md)
-- [REA .NET 분석](https://github.com/morluto/rea/blob/main/docs/managed-code-analysis.md)
+1. 저장 결과·계산 명령과 평면 영역 비활성화는 [0032](analysis/0032-calculation-commands-and-saved-results.md)/[0037](analysis/0037-disabled-regions.md)에 반영했다. [백그라운드 계산·중지·재개](analysis/0041-background-calculation-ui.md)도 연결했다. 전체 native 결과 형식, Area 비활성 전파, 정밀 의존성·원본 queue와 결과 게시 시점·외부 IO 중단 계약을 채운다.
 
-REA는 분석 도구이며 제품 구현의 런타임 의존성으로 넣지 않는다. 공식 README에 따르면 분석 대상에 따라 .NET 정적 검사 또는 Ghidra/Hopper/IDA 같은 제공자가 필요하므로 실제 모듈 형식을 확인하고 선택한다.
+   일반 입력과 Enter/영역 이탈 확정은 [0044](analysis/0044-edit-commit-implementation.md)에 분리했다. [제공 PDF 비교](analysis/0043-pdf-output-comparison.md)에서 확인한 백분율·극형식은 [결과 서식 연결](analysis/0047-result-formatting-integration.md)에 반영했다. 실제 원본의 [표·색상 표시](analysis/0048-native-table-and-colors.md), [벡터 PDF](analysis/0049-vector-pdf-output.md), [단위 표시](analysis/0050-unit-regressions.md), [입력 이력 비용](analysis/0051-typing-history-cost.md)을 교정했다. 가져온 표의 [셀 편집](analysis/0053-spec-table-editing.md)과 [열 계산](analysis/0054-spec-table-calculation.md)을 연결했다. [새 표·행/열·범위 명령](analysis/0059-spec-table-structural-commands.md), [원본 단축키·아래첨자·비교/논리 입력](analysis/0057-shortcut-and-subscript-contract.md), [계산 준비·드래그 비용](analysis/0058-input-and-calculation-latency.md)을 추가로 연결했다. Rich Text 저작·원본 전체 clipboard·편집 전이와 전체 수식 조판은 남은 호환 공백이다.
+2. 프로그램 Enter 줄·행렬 마지막 Tab은 [0036](analysis/0036-program-lines-and-matrix-tab.md)에 반영했다. 전체 삭제/unwrap·다중 셀·큰 기호 결과 resize handle·인라인 풀이 블록·단위/배열/상징 누락을 이어서 채운다.
+3. 실제 날짜와 기본 용지/여백·인쇄/PDF는 [0035](analysis/0035-printing-implementation.md)/[0038](analysis/0038-saved-date-fields.md)에 반영했다. 명시 페이지 나눔·지원 Area와 기본 도표 native export는0145/0147에 연결했다. 일반 공간 편집·전체 rich text/native 출력·도표 전체 source 규약과 실제 장치 검증이 남아 있다.
+4. 미구현 엔진 기능은 바인딩 이름을 발견한 것과 실제 계산을 구분해 기능별로 분석·구현한다. FFT/DFT·회귀/보간·분포·ODE·고급 선형대수·전체 풀이/CAS의 타입·단위·오류 경계를 먼저 확정한다.
+5. Windows와 peets에서 같은 소스의 fmt·Clippy·workspace 테스트·빌드·기존 참조 비교를 수행한다. 최신 소스의 검증과 과거 Linux 검증을 구분한다.
+
+현재 사용자 지시에 따라 GUI·스크린샷·원본 앱/COM 실행 없이 정적 REA와 headless 검사를 사용한다. 실제 화면·IME·클립보드·원본 재열기 확인은 미검증 항목으로 남긴다.
+
+## 구조와 검증 경계
+
+- `mathcraft-editor`: 안정 ID의 구조 수식, 캐럿·선택·명령 이력.
+- `mathcraft-document`: 원본 MCDX ZIP parts·관계 보존, 문서 모델과 편집 export.
+- `mathcraft-compat`: 라벨·scope·MathML 직접 실행과 참조 비교.
+- `mathcraft-app`: 자유 배치 워크시트·수식 조판·리본·문서 입출력.
+- `mathcraft-cli`: GUI 없는 MathML/native 실행과 검증.
+- `mathcraft-core`: 값·차원 기반과 초기 문자열 엔진. 새 호환 기능은 문자열 평탄화 경로로 판정하지 않는다.
+
+원본의 기존 38개 실행 표본은 제한된 차등 기준이다. 새 수치 기능의 독립 수학 기대값, 편집 상태/저장 불변식 검사와 구분한다. MCDX는 미편집 parts를 보존하고 편집 시 지원 구조만 생성하며 결과 캐시를 무효화한다. XSD 통과와 원본 앱 재열기는 별도 검증이다.
+
+검증 기록은 [CONFORMANCE](CONFORMANCE.md), 실행은 [PROTOTYPE](PROTOTYPE.md), 환경/명령은 [DEVELOPMENT](DEVELOPMENT.md), 작성 철학과 근거는 [DESIGN](DESIGN.md)에 둔다. 분석 기록은 당시 근거로 보존하고 현재 상태를 대신하지 않는다.
+
+설치 프로그램·제품 바이너리·전체 디컴파일 산출물은 Git에서 제외한다. REA는 개발 분석 도구이며 제품 런타임 의존성이 아니다. 원격 저장소·CI 실행 여부는 실제 원격/실행 기록으로 확인하며 로컬 빌드 성공을 배포 완료로 세지 않는다.
+
+이어진 구현과 원본 근거: [배열 원소 정의](analysis/0063-indexed-definition-contract.md), [표 clipboard 교정](analysis/0064-table-clipboard-application.md), [계산 준비 추가 감소](analysis/0062-input-preparation-second-pass.md)를 반영했다. 지원 범위와 미확정 동작은 각 기록 및 FEATURES/CONFORMANCE를 따른다.
+
+후속 [일반 행렬 편집·저장 통합](analysis/0068-matrix-workflow-integration.md)은 원본 범위 선택 모드의 Copy/Cut/Delete와 Clear의 차이를 연결한다. [배열 참조 비용](analysis/0067-array-reference-cost.md)은 계산기 내부 전체 복제를 줄였으며 전체 앱 지연이 해결됐다는 판정과 구분한다. 남은 원본 기능을 계속 같은 목록에서 관리한다.
+
+[구조 연산자 통합](analysis/0072-structural-operators-integration.md)은 native opcode·키·조판·저장 캐시까지 검사한다. Ctrl+Shift+C를 잃던 입력 backend를 최소 수정하고 실제 Copy 이벤트를 키로 추측하는 처리를 제거했다. 전용 연산자의 전체 기호 변환과 물리 단위 type-lowering, 다른 편집/문서 기능은 계속 목록에 남긴다.
+
+[전역·벡터 연산 통합](analysis/0076-global-vector-integration.md)은 전역 선계산과 실패 전파, 원소별 연산자/함수 계산, 3×1 외적을 연결한다. nested 배열·상징 및 전체 원본 편집 전이는 미완료이며 테스트 수를 제품 완료율로 환산하지 않는다.
+
+[기본 숫자 표기](analysis/0080-scalar-notation-integration.md)는 Percent·Degree·Polar의 원본 descriptor/키/XML과 지원 계산을 연결한다. 전체 편집·상징/타입 공백은 기능 목록에 유지한다.
+
+[행·열 대입](analysis/0083-array-slice-integration.md)은 원본에서 확인한 named-base·scalar-index부터 일반·전역·프로그램 계산에 연결한다. 범위 slice와 상위 typing 전체 일치는 남은 공백이다.
+
+[프로그램 지역 함수](analysis/0087-local-function-integration.md)는 원본 증거가 있는 named parameter·앞선 local capture부터 작성·계산에 연결한다. 캡처 변경·함수값·고차 함수는 지원 경계로 남긴다.
+
+[첫 입력 통합 검증](analysis/0092-committed-input-integration.md)에서 실제 열기 뒤 불필요한 준비와 첫 행렬 Tab을 교정했다. 다음 비용 조사는 큰 문서 Enter의 전체 문맥 라벨 처리·표시 트리 복원이며 Manual/F5·generation·취소·오류 시점을 유지한다. 이 비용 교정을 새 기능 완료나 전체 20%로 집계하지 않는다.
+
+[라벨 순환 통합](analysis/0094-label-cycle-integration.md)은 Ctrl+Q와 자동(None) 리본을 원본 상태·native 저장·계산에 연결한다. 단위/변수 이름 충돌과 함수 인자·local·표의 기존 추론은 검사하지만 전체 원본 wildcard와 Typeover/override 호스트를 완료 처리하지 않는다.
+
+[프로그램 제어문 통합](analysis/0098-program-controls-integration.md)은 Ctrl+J 5개 단어와 break/continue의 빈 자리 삽입·안쪽 삭제를 연결한다. 후속은 원본 if/else/elseif/alsoif/try의 구조·pair repair, populated 위치의 삽입·분할 및 삭제 전이다. [cold 준비](analysis/0097-cold-worksheet-preparation.md)는 많은 작은 조각의 XML parse/assembly를 줄였으며 label walk·표시 준비·확정의 다른 단계는 별도 개선 대상이다.
+
+[다중 조건 분기](analysis/0101-conditional-branch-integration.md)는 native 편집·계산과 확인된 경계의 구조 입력을 연결한다. 후속은 원본 populated split/merge·ancestor repair·프로그램 glyph/DPI 배치다. Ctrl+J if의 descriptor 순서는 [0099](analysis/0099-conditional-branch-contract.md)의 설치 framework 정적 근거를 따른다.
+
+[Try/on error](analysis/0105-try-control-integration.md)의 확인된 입력·삭제·계산·native 경로와 [표시 DOM 재사용](analysis/0102-display-preparation-cost.md)을 연결했다. 후속은 일반 populated split/merge·ancestor repair·전체 오류 분류·프로그램 glyph/DPI·남은 XML/label/signature 준비 비용이다.
+
+[선택 수식의 프로그램 삽입](analysis/0109-program-insertion-integration.md)과 [프레임 중복 제거](analysis/0107-frame-interaction-cost.md)를 연결했다. 후속은 원본 일반 partial/implicit parser·전체 ancestor repair/커서 상태·미확정 root 계산 경계·native cold alignment와 실제 GPU 지연이다.
+
+[암시적 배율·확정 준비](analysis/0113-implicit-scale-integration.md)의 원본 단축키·이름 함수·implicit Ctrl+J를 연결했다. 후속은 일반 partial/adjacency parser·함숫값·원본 전체 navigation/repair, 확정 준비의 남은 직렬화/signature와 native cold 정렬이다. 현재40% 목표 달성과 이 구현 범위는 구분한다.
+
+[괄호·컨테이너/직렬화](analysis/0117-parenthesis-integration.md)를 연결했다. 다음 공백은 일반 lexer/rich-run·모든 navigator/repair·미지원 조합과 남은 signature/clone·native cold 정렬이다. 현재40% 목표 달성과 이 구현 범위는 구분한다.
+
+[일반 연산자 입력](analysis/0121-infix-entry-integration.md)은 숫자/이름 문자 범위·Normal 교체/Scope·alternate·커서를 연결한다. 문서 열기 중복을 별도로 측정한다. 다음은 formatted 이름의 모든 run·callee/parent repair·구조 삭제/변환과 큰 문서 signature 비용이며, 새 테스트 수를 전체20%로 환산하지 않는다.

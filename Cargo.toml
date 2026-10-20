@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/mathcraft-core", "crates/mathcraft-document", "crates/mathcraft-cli", "crates/mathcraft-app", "crates/mathcraft-compat", "crates/mathcraft-editor"]
+exclude = ["vendor/egui-winit"]
 resolver = "3"
 
 [workspace.package]
@@ -9,14 +10,28 @@ rust-version = "1.99"
 publish = false
 
 [workspace.dependencies]
-eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "glow", "wgpu", "wayland", "x11"] }
+eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "wayland", "x11"] }
 mathcraft-core = { path = "crates/mathcraft-core" }
 mathcraft-document = { path = "crates/mathcraft-document" }
 mathcraft-compat = { path = "crates/mathcraft-compat" }
 num-complex = { version = "0.4", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
 zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 roxmltree = "0.21.1"
 rfd = "0.17.2"
 egui_plot = "0.37.0"
+
+[profile.dev]
+opt-level = 1
+
+[patch.crates-io]
+egui-winit = { path = "vendor/egui-winit" }
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

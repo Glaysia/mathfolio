@@ -189,6 +189,253 @@ fn singular_and_mixed_dimensional_factorization_do_not_return_guessed_values() {
 }
 
 #[test]
+fn lsolve_handles_square_complex_multiple_rhs_and_physical_dimensions() {
+    let a = m(2, 2, &[3., 2., 1., 2.]);
+    assert_eq!(
+        nums(&call("lsolve", &[a.clone(), m(2, 1, &[5., 5.])])),
+        vec![0., 2.5]
+    );
+
+    let inverse = call("lsolve", &[a.clone(), m(2, 2, &[1., 0., 0., 1.])]);
+    let product = arrays::binary("mult", &a, &inverse).unwrap();
+    for (actual, expected) in nums(&product).iter().zip([1., 0., 0., 1.]) {
+        close(*actual, expected);
+    }
+
+    let complex_a = qm(
+        2,
+        2,
+        vec![
+            Quantity {
+                value: Complex64::new(1., 1.),
+                dimension: [0.; 7],
+            },
+            Quantity::scalar(0.),
+            Quantity::scalar(0.),
+            Quantity {
+                value: Complex64::new(2., -1.),
+                dimension: [0.; 7],
+            },
+        ],
+    );
+    let expected = qm(
+        2,
+        1,
+        vec![
+            Quantity {
+                value: Complex64::new(1., -1.),
+                dimension: [0.; 7],
+            },
+            Quantity {
+                value: Complex64::new(2., 1.),
+                dimension: [0.; 7],
+            },
+        ],
+    );
+    let rhs = arrays::binary("mult", &complex_a, &expected).unwrap();
+    let solved = call("lsolve", &[complex_a, rhs]);
+    for (actual, expected) in e(&solved).iter().zip(e(&expected)) {
+        close(actual.value.re, expected.value.re);
+        close(actual.value.im, expected.value.im);
+    }
+
+    let meter = unit("m").unwrap();
+    let second = unit("s").unwrap();
+    let physical_a = qm(
+        2,
+        2,
+        vec![
+            meter,
+            Quantity {
+                value: Complex64::new(0., 0.),
+                ..meter
+            },
+            Quantity {
+                value: Complex64::new(0., 0.),
+                ..meter
+            },
+            meter,
+        ],
+    );
+    let physical_b = qm(
+        2,
+        1,
+        vec![
+            Quantity {
+                value: Complex64::new(2., 0.),
+                ..second
+            },
+            Quantity {
+                value: Complex64::new(3., 0.),
+                ..second
+            },
+        ],
+    );
+    let solved = call("lsolve", &[physical_a, physical_b]);
+    assert_eq!(nums(&solved), vec![2., 3.]);
+    assert!(e(&solved).iter().all(|value| {
+        value
+            .dimension
+            .iter()
+            .zip(second.dimension.iter().zip(meter.dimension))
+            .all(|(actual, (b, a))| (*actual - (b - a)).abs() < 1e-12)
+    }));
+}
+
+#[test]
+fn lsolve_returns_full_rank_least_squares_and_rejects_unproven_cases() {
+    let fitted = call(
+        "lsolve",
+        &[m(3, 2, &[1., 0., 0., 1., 1., 1.]), m(3, 1, &[1., 2., 4.])],
+    );
+    close(nums(&fitted)[0], 4. / 3.);
+    close(nums(&fitted)[1], 7. / 3.);
+
+    for args in [
+        vec![m(2, 3, &[1., 0., 0., 0., 1., 0.]), m(2, 1, &[1., 2.])],
+        vec![m(2, 2, &[1., 2., 2., 4.]), m(2, 1, &[1., 2.])],
+        vec![m(2, 2, &[1., 0., 0., 1.]), m(3, 1, &[1., 2., 3.])],
+    ] {
+        assert!(arrays::call("lsolve", &args, Quantity::scalar(0.)).is_err());
+    }
+    let mixed = qm(
+        2,
+        2,
+        vec![
+            unit("m").unwrap(),
+            unit("s").unwrap(),
+            unit("m").unwrap(),
+            unit("s").unwrap(),
+        ],
+    );
+    assert!(arrays::call("lsolve", &[mixed, m(2, 1, &[1., 2.])], Quantity::scalar(0.)).is_err());
+    assert!(arrays::is_builtin("lsolve"));
+}
+
+#[test]
+fn native_mathml_dispatch_reaches_lsolve() {
+    // Native matrix children are serialized column-major: A=[[3,2],[1,2]].
+    let xml = r#"<worksheet xmlns="http://schemas.mathsoft.com/worksheet50"><regions><region region-id="1" left="0" top="0"><math><eval xmlns="http://schemas.mathsoft.com/math50"><apply><id labels="FUNCTION">lsolve</id><matrix rows="2" cols="2"><real>3</real><real>1</real><real>2</real><real>2</real></matrix><matrix rows="2" cols="1"><real>5</real><real>5</real></matrix></apply><unitOverride><placeholder/></unitOverride></eval></math></region></regions></worksheet>"#;
+    let rows = mathcraft_compat::evaluate_worksheet(xml).unwrap();
+    assert!(rows[0].error.is_none(), "{:?}", rows[0].error);
+    assert_eq!(nums(rows[0].value.as_ref().unwrap()), vec![0., 2.5]);
+}
+
+#[test]
+fn symmetric_eigenvalues_are_descending_and_vectors_match_their_columns() {
+    let a = m(2, 2, &[2., 1., 1., 2.]);
+    let values = call("eigenvals", std::slice::from_ref(&a));
+    let vectors = call("eigenvecs", std::slice::from_ref(&a));
+    close(nums(&values)[0], 3.);
+    close(nums(&values)[1], 1.);
+
+    for column in 0..2 {
+        for row in 0..2 {
+            let applied = (0..2)
+                .map(|k| e(&a)[row * 2 + k].value.re * e(&vectors)[k * 2 + column].value.re)
+                .sum::<f64>();
+            close(
+                applied,
+                e(&values)[column].value.re * e(&vectors)[row * 2 + column].value.re,
+            );
+        }
+        let norm = (0..2)
+            .map(|row| e(&vectors)[row * 2 + column].value.re.powi(2))
+            .sum::<f64>();
+        close(norm, 1.);
+    }
+    let dot = (0..2)
+        .map(|row| e(&vectors)[row * 2].value.re * e(&vectors)[row * 2 + 1].value.re)
+        .sum::<f64>();
+    close(dot, 0.);
+
+    let a = m(3, 3, &[4., 1., 1., 1., 3., 0., 1., 0., 2.]);
+    let values = call("eigenvals", std::slice::from_ref(&a));
+    let vectors = call("eigenvecs", std::slice::from_ref(&a));
+    assert!(nums(&values).windows(2).all(|pair| pair[0] >= pair[1]));
+    close(nums(&values).iter().sum(), 9.);
+    for column in 0..3 {
+        for row in 0..3 {
+            let applied = (0..3)
+                .map(|k| e(&a)[row * 3 + k].value.re * e(&vectors)[k * 3 + column].value.re)
+                .sum::<f64>();
+            close(
+                applied,
+                e(&values)[column].value.re * e(&vectors)[row * 3 + column].value.re,
+            );
+        }
+    }
+}
+
+#[test]
+fn symmetric_eigendecomposition_preserves_value_units_and_native_dispatch() {
+    let diagonal = m(3, 3, &[1., 0., 0., 0., 3., 0., 0., 0., 2.]);
+    let meter = unit("m").unwrap();
+    let physical = arrays::binary("scale", &diagonal, &Value::Scalar { quantity: meter }).unwrap();
+    let values = call("eigenvals", std::slice::from_ref(&physical));
+    assert_eq!(nums(&values), vec![3., 2., 1.]);
+    assert!(e(&values).iter().all(|value| value.same_dimension(&meter)));
+    assert!(
+        e(&call("eigenvecs", &[physical]))
+            .iter()
+            .all(Quantity::is_scalar)
+    );
+
+    let xml = r#"<worksheet xmlns="http://schemas.mathsoft.com/worksheet50"><regions><region region-id="1" left="0" top="0"><math><eval xmlns="http://schemas.mathsoft.com/math50"><apply><id labels="FUNCTION">eigenvals</id><matrix rows="2" cols="2"><real>2</real><real>1</real><real>1</real><real>2</real></matrix></apply><unitOverride><placeholder/></unitOverride></eval></math></region></regions></worksheet>"#;
+    let rows = mathcraft_compat::evaluate_worksheet(xml).unwrap();
+    assert!(rows[0].error.is_none(), "{:?}", rows[0].error);
+    let native_values = rows[0].value.as_ref().unwrap();
+    close(nums(native_values)[0], 3.);
+    close(nums(native_values)[1], 1.);
+}
+
+#[test]
+fn eigendecomposition_rejects_unreconstructed_matrix_classes_and_excessive_work() {
+    let nonsymmetric = m(2, 2, &[1., 2., 0., 1.]);
+    assert!(arrays::call("eigenvals", &[nonsymmetric], Quantity::scalar(0.)).is_err());
+
+    let complex_hermitian = qm(
+        2,
+        2,
+        vec![
+            Quantity::scalar(1.),
+            Quantity {
+                value: Complex64::new(0., 1.),
+                dimension: [0.; 7],
+            },
+            Quantity {
+                value: Complex64::new(0., -1.),
+                dimension: [0.; 7],
+            },
+            Quantity::scalar(1.),
+        ],
+    );
+    assert!(arrays::call("eigenvecs", &[complex_hermitian], Quantity::scalar(0.)).is_err());
+
+    let mixed = qm(
+        2,
+        2,
+        vec![
+            unit("m").unwrap(),
+            unit("m").unwrap(),
+            unit("s").unwrap(),
+            unit("s").unwrap(),
+        ],
+    );
+    assert!(arrays::call("eigenvals", &[mixed], Quantity::scalar(0.)).is_err());
+    assert!(
+        arrays::call(
+            "eigenvals",
+            &[m(33, 33, &vec![0.; 33 * 33])],
+            Quantity::scalar(0.)
+        )
+        .is_err()
+    );
+    assert!(arrays::is_builtin("eigenvals"));
+    assert!(arrays::is_builtin("eigenvecs"));
+}
+
+#[test]
 fn integer_matrix_powers_and_vector_powers_have_distinct_semantics() {
     let a = m(2, 2, &[1., 2., 3., 4.]);
     assert_eq!(

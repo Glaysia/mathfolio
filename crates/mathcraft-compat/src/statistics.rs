@@ -9,6 +9,7 @@ fn bad(detail: &str) -> Fault {
     Fault::unsupported(detail)
 }
 fn finite(q: Quantity) -> Result<Quantity> {
+    super::check_cancelled()?;
     if q.value.re.is_finite() && q.value.im.is_finite() && q.dimension.iter().all(|d| d.is_finite())
     {
         Ok(q)

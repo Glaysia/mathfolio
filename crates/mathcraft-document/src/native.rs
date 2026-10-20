@@ -7,10 +7,11 @@
 use roxmltree::{Document, Node};
 use serde::Serialize;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{File, OpenOptions},
     io::{Cursor, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
@@ -27,11 +28,11 @@ const MAX_XML_NODES: u32 = 250_000;
 type NativeResult<T> = Result<T, String>;
 
 /// An original ZIP member. The byte data is deliberately not exposed mutably.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NativePart {
     pub name: String,
     pub compression: CompressionMethod,
-    bytes: Vec<u8>,
+    bytes: Arc<Vec<u8>>,
     modified: Option<zip::DateTime>,
     unix_mode: Option<u32>,
 }
@@ -121,18 +122,142 @@ pub struct NativeCache {
     pub calculation_status: Option<String>,
     pub tag: Option<String>,
     pub result_kind: Option<String>,
+    /// Standalone namespace-complete Math50 result subtree. This is saved data,
+    /// not an expression to evaluate; unsupported result forms remain opaque.
+    pub result_mathml: Option<String>,
     pub attributes: Vec<NativeAttribute>,
     pub errors: Vec<NativeDiagnostic>,
     pub warnings: Vec<NativeWarning>,
     pub raw_xml: String,
 }
 
-#[derive(Debug)]
+/// XML Schema int collapses XML whitespace before interpreting its sign and
+/// digits. Preserve the original lexeme in source; use its value for binding.
+pub fn parse_result_id(source: &str) -> NativeResult<i32> {
+    source
+        .trim_matches([' ', '\t', '\r', '\n'])
+        .parse::<i32>()
+        .map_err(|_| "Invalid native result identity".into())
+}
+impl NativeCache {
+    pub fn matches_result_ref(&self, reference: &str) -> bool {
+        self.result_id
+            .as_deref()
+            .and_then(|id| parse_result_id(id).ok())
+            .zip(parse_result_id(reference).ok())
+            .is_some_and(|(id, reference)| id == reference)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct NativePackage {
     source: PathBuf,
     parts: Vec<NativePart>,
     worksheet_part: usize,
     archive_comment: Vec<u8>,
+}
+
+/// Rebuild only the selected XML subtree with explicit namespace bindings.
+/// The exact source fragment remains in NativeCache::raw_xml; canonicalizing a
+/// presentation copy prevents inherited prefixes becoming unbound after import.
+fn standalone_xml(root: Node<'_, '_>) -> String {
+    const XML_NS: &str = "http://www.w3.org/XML/1998/namespace";
+    let mut namespaces = std::collections::BTreeMap::<String, String>::new();
+    for node in root.descendants().filter(Node::is_element) {
+        for namespace in node.tag_name().namespace().into_iter().chain(
+            node.attributes()
+                .filter_map(|attribute| attribute.namespace()),
+        ) {
+            let prefix = match namespace {
+                MATH_NS => "ml".into(),
+                RESULT_NS => "rslt".into(),
+                XML_NS => "xml".into(),
+                _ => format!("ns{}", namespaces.len()),
+            };
+            namespaces.entry(namespace.into()).or_insert(prefix);
+        }
+    }
+    fn escaped(text: &str, attribute: bool, out: &mut String) {
+        for ch in text.chars() {
+            match ch {
+                '&' => out.push_str("&amp;"),
+                '<' => out.push_str("&lt;"),
+                '>' => out.push_str("&gt;"),
+                '"' if attribute => out.push_str("&quot;"),
+                '\n' if attribute => out.push_str("&#10;"),
+                '\r' => out.push_str("&#13;"),
+                '\t' if attribute => out.push_str("&#9;"),
+                _ => out.push(ch),
+            }
+        }
+    }
+    fn name(
+        namespace: Option<&str>,
+        local: &str,
+        namespaces: &std::collections::BTreeMap<String, String>,
+        out: &mut String,
+    ) {
+        if let Some(namespace) = namespace {
+            out.push_str(&namespaces[namespace]);
+            out.push(':');
+        }
+        out.push_str(local);
+    }
+    fn write(
+        node: Node<'_, '_>,
+        root: bool,
+        namespaces: &std::collections::BTreeMap<String, String>,
+        out: &mut String,
+    ) {
+        if node.is_text() {
+            escaped(node.text().unwrap_or_default(), false, out);
+            return;
+        }
+        if !node.is_element() {
+            return;
+        }
+        out.push('<');
+        name(
+            node.tag_name().namespace(),
+            node.tag_name().name(),
+            namespaces,
+            out,
+        );
+        if root {
+            for (namespace, prefix) in namespaces {
+                if prefix == "xml" {
+                    continue;
+                }
+                out.push_str(" xmlns:");
+                out.push_str(prefix);
+                out.push_str("=\"");
+                escaped(namespace, true, out);
+                out.push('"');
+            }
+        }
+        for attribute in node.attributes() {
+            out.push(' ');
+            name(attribute.namespace(), attribute.name(), namespaces, out);
+            out.push_str("=\"");
+            escaped(attribute.value(), true, out);
+            out.push('"');
+        }
+        out.push('>');
+        for child in node.children() {
+            write(child, false, namespaces, out);
+        }
+        out.push_str("</");
+        name(
+            node.tag_name().namespace(),
+            node.tag_name().name(),
+            namespaces,
+            out,
+        );
+        out.push('>');
+    }
+    let mut xml = String::new();
+    write(root, true, &namespaces, &mut xml);
+    xml
 }
 
 impl NativePackage {
@@ -211,7 +336,7 @@ impl NativePackage {
             parts.push(NativePart {
                 name,
                 compression,
-                bytes,
+                bytes: Arc::new(bytes),
                 modified,
                 unix_mode,
             });
@@ -243,7 +368,7 @@ impl NativePackage {
             return Err("Exported package exceeds total size limit".into());
         }
         if let Some(part) = self.parts.iter_mut().find(|p| p.name == name) {
-            part.bytes = bytes;
+            part.bytes = Arc::new(bytes);
         } else {
             if self.parts.len() >= MAX_MEMBERS {
                 return Err("Exported package exceeds member limit".into());
@@ -251,7 +376,7 @@ impl NativePackage {
             self.parts.push(NativePart {
                 name: name.into(),
                 compression: CompressionMethod::Deflated,
-                bytes,
+                bytes: Arc::new(bytes),
                 modified: None,
                 unix_mode: None,
             });
@@ -278,6 +403,28 @@ impl NativePackage {
     /// Decodes a view for inspection; `original_part` retains exact source bytes.
     pub fn worksheet_xml(&self) -> NativeResult<String> {
         xml_text(&self.parts[self.worksheet_part].bytes)
+    }
+
+    /// Package-wide reference multiplicity, including plot traces/limits and
+    /// specification-table columns without their own worksheet region. Saved
+    /// result data is not decoded or treated as executable source here.
+    pub fn result_reference_counts(&self) -> NativeResult<HashMap<i32, usize>> {
+        let mut counts = HashMap::new();
+        for part in self.parts.iter().filter(|part| is_xml_part(&part.name)) {
+            let source = xml_text(&part.bytes)?;
+            let doc = parse_xml(&source)?;
+            for reference in doc
+                .descendants()
+                .filter(|node| {
+                    node.is_element() && node.tag_name().namespace() == Some(WORKSHEET_NS)
+                })
+                .filter_map(|node| node.attribute("resultRef"))
+            {
+                let id = parse_result_id(reference)?;
+                *counts.entry(id).or_insert(0) += 1;
+            }
+        }
+        Ok(counts)
     }
 
     /// Returns a source-ordered view without changing hierarchy or evaluation order.
@@ -339,16 +486,17 @@ impl NativePackage {
                         raw_xml: text[n.range()].into(),
                     })
                     .collect();
-                let result_kind = node
+                let result_node = node
                     .children()
-                    .find(|n| n.is_element() && n.tag_name().namespace() == Some(MATH_NS))
-                    .map(|n| n.tag_name().name().into());
+                    .find(|n| n.is_element() && n.tag_name().namespace() == Some(MATH_NS));
+                let result_kind = result_node.map(|n| n.tag_name().name().into());
                 out.push(NativeCache {
                     part: part.name.clone(),
                     result_id: attr(node, "result-id"),
                     calculation_status: attr(node, "calculation-status"),
                     tag: attr(node, "tag"),
                     result_kind,
+                    result_mathml: result_node.map(standalone_xml),
                     attributes: attributes(node),
                     errors,
                     warnings,
@@ -399,7 +547,23 @@ impl NativePackage {
         result
     }
 
+    /// Repackage the preserved parts in memory, e.g. after source-bound Area
+    /// edits. Cached result bytes stay inert and unchanged.
+    pub fn to_bytes(&self) -> NativeResult<Vec<u8>> {
+        Ok(self.write_zip(Cursor::new(Vec::new()))?.into_inner())
+    }
+
+    pub(crate) fn to_bytes_bounded(&self, limit: usize) -> NativeResult<Vec<u8>> {
+        Ok(self
+            .write_zip(crate::native_save::BoundedCursor::new(limit))?
+            .into_inner())
+    }
+
     fn write_to(&self, file: File) -> NativeResult<()> {
+        self.write_zip(file)?.sync_all().map_err(|e| e.to_string())
+    }
+
+    fn write_zip<W: Write + Seek>(&self, file: W) -> NativeResult<W> {
         let mut writer = ZipWriter::new(file);
         writer
             .set_raw_comment(self.archive_comment.clone().into_boxed_slice())
@@ -417,11 +581,7 @@ impl NativePackage {
                 .map_err(|e| e.to_string())?;
             writer.write_all(&part.bytes).map_err(|e| e.to_string())?;
         }
-        writer
-            .finish()
-            .map_err(|e| e.to_string())?
-            .sync_all()
-            .map_err(|e| e.to_string())
+        writer.finish().map_err(|e| e.to_string())
     }
 }
 
@@ -709,6 +869,29 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    #[test]
+    fn result_id_uses_xml_schema_integer_whitespace_and_aliases() {
+        for (source, expected) in [
+            (" \t+0007\r\n", 7),
+            ("-0", 0),
+            ("-2147483648", i32::MIN),
+            ("2147483647", i32::MAX),
+        ] {
+            assert_eq!(parse_result_id(source).unwrap(), expected);
+        }
+        for source in [
+            "",
+            "1 2",
+            "2147483648",
+            "-2147483649",
+            "\u{a0}7",
+            "7\u{a0}",
+            "7.0",
+        ] {
+            assert!(parse_result_id(source).is_err(), "{source:?}");
+        }
+    }
+
     // Independent fixtures written for this test, not redistributed product data.
     const SHEET: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 <!-- Keep whitespace, prefix spelling, opaque attributes and comment. -->
@@ -909,6 +1092,20 @@ mod tests {
         assert_eq!(c.calculation_status.as_deref(), Some("Pending"));
         assert_eq!(c.tag.as_deref(), Some("saved-only"));
         assert_eq!(c.result_kind.as_deref(), Some("result"));
+        let saved_mathml = Document::parse(c.result_mathml.as_ref().unwrap()).unwrap();
+        assert!(
+            saved_mathml
+                .root_element()
+                .has_tag_name((MATH_NS, "result"))
+        );
+        assert_eq!(
+            saved_mathml
+                .root_element()
+                .first_element_child()
+                .unwrap()
+                .text(),
+            Some("5")
+        );
         assert_eq!(c.errors[0].code.as_deref(), Some("undefined"));
         assert_eq!(c.errors[0].arguments, ["ω"]);
         assert_eq!(
@@ -924,6 +1121,44 @@ mod tests {
         assert_eq!(c.warnings[0].old_type.as_deref(), Some("Function"));
         assert_eq!(c.warnings[0].old_location.as_deref(), Some("12:2"));
         assert_eq!(caches[1].result_kind.as_deref(), Some("symResult"));
+        assert!(
+            Document::parse(caches[1].result_mathml.as_ref().unwrap())
+                .unwrap()
+                .root_element()
+                .has_tag_name((MATH_NS, "symResult"))
+        );
+    }
+
+    #[test]
+    fn saved_result_subtree_preserves_namespace_identity_and_escaped_literals() {
+        let xml = format!(
+            r#"<resultsList xmlns="{RESULT_NS}" xmlns:m="{MATH_NS}"
+            xmlns:u="urn:units" xmlns:z="urn:future"><resultData result-id="1">
+            <m:result><m:str xml:space="preserve" z:note="a&amp;b&#10;c">&lt;do not execute &amp; evaluate&gt;</m:str>
+            <u:item z:note="&quot;quoted&quot;"/></m:result></resultData></resultsList>"#
+        );
+        let source = Document::parse(&xml).unwrap();
+        let subtree = source
+            .descendants()
+            .find(|n| n.has_tag_name((MATH_NS, "result")))
+            .unwrap();
+        let serialized = standalone_xml(subtree);
+        let restored = Document::parse(&serialized).unwrap();
+        let string = restored
+            .descendants()
+            .find(|n| n.has_tag_name((MATH_NS, "str")))
+            .unwrap();
+        assert_eq!(string.text(), Some("<do not execute & evaluate>"));
+        assert_eq!(string.attribute(("urn:future", "note")), Some("a&b\nc"));
+        assert_eq!(
+            string.attribute(("http://www.w3.org/XML/1998/namespace", "space")),
+            Some("preserve")
+        );
+        assert!(
+            restored
+                .descendants()
+                .any(|n| n.has_tag_name(("urn:units", "item")))
+        );
     }
 
     #[test]
@@ -1022,3 +1257,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "native/shared_parts_tests.rs"]
+mod shared_parts_tests;

@@ -299,8 +299,12 @@ pub(crate) fn evaluate(
     block: &SolveBlock,
     region: &str,
 ) -> Result<(Option<Value>, Option<Value>)> {
+    super::check_cancelled()?;
     let result = evaluate_inner(scope, block, region);
     if let Err(fault) = &result {
+        if fault.is_cancelled() {
+            return result;
+        }
         for name in &block.declared_outputs {
             scope.bindings.insert(
                 name.clone(),
@@ -404,6 +408,7 @@ struct Residuals<'a> {
 }
 impl Residuals<'_> {
     fn at(&mut self, x: &[Quantity]) -> Result<Vec<f64>> {
+        super::check_cancelled()?;
         if self.evaluations >= 10000 {
             return Err(Fault::new(
                 "solve_nonconvergence",
@@ -552,7 +557,11 @@ fn solve_system(
                     break;
                 }
                 Ok(_) => (),
-                Err(fault) if fault.unsupported || fault.code == "bad%_dimensions" => {
+                Err(fault)
+                    if fault.is_cancelled()
+                        || fault.unsupported
+                        || fault.code == "bad%_dimensions" =>
+                {
                     return Err(fault);
                 }
                 Err(_) => (),

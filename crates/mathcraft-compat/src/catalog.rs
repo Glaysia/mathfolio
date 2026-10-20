@@ -10,7 +10,8 @@ pub fn inventory() -> Value {
         let name = binding["name"].as_str().unwrap_or("");
         let implemented = match binding["kind"].as_str() {
             Some("function") => {
-                super::scalars::is_builtin(name)
+                super::strings::is_implemented(name)
+                    || super::scalars::is_builtin(name)
                     || super::arrays::is_builtin(name)
                     || super::statistics::is_builtin(name)
                     || super::numerics::is_builtin(name)
@@ -22,6 +23,7 @@ pub fn inventory() -> Value {
                     | "sub"
                     | "negate"
                     | "mult"
+                    | "scale"
                     | "div"
                     | "power"
                     | "sqrt"

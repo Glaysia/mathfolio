@@ -1,5 +1,9 @@
 # Editable XY plot regions
 
+> Follow-up: [0027-multi-trace-xy-plots.md](0027-multi-trace-xy-plots.md)
+> adds the bounded multi-trace, axis-label/range, and trace-style model while
+> retaining the native serialization boundary documented here.
+
 This milestone implements one editable XY trace on the worksheet. Its axis expressions use the existing Rust structural worksheet evaluator and the definitions visible at the plot's position. It is a bounded reconstruction of the original authoring workflow, not complete Prime plot compatibility.
 
 ## Static original evidence

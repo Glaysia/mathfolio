@@ -1,11 +1,14 @@
 # Mathcraft 작성 경험의 기준
 
+현재 상태 갱신: 2026-10-20. 다음 UI 방향은 [현대적인 UI 개선 계획](UI-MODERNIZATION.md)이다. Excalidraw처럼 문서 중심으로 화면을 간결하게 정리하고, 기존 단축키와 수식·계산·저장 의미는 유지한다. 아래 Prime 외형 재현 기록은 이전 설계 이력이다. 구현 판정은 [통합 목록](FEATURES.md)을 기준으로 한다.
+
 Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 않다. 사용자가 종이에 쓰듯 수식을 작성하고, 구조를 고치고, 단위와 결과를 같은 자리에서 읽으며 생각을 이어갈 수 있어야 한다. 계산 엔진과 문서 형식은 그 작성 흐름을 지탱한다. Mathcad의 이 흐름을 이해하기 위해 REA로 명령 진입점, 편집 모드, 상태 변경과 저장 표현을 추적한다.
 
 원본 내부 구조에서 확인한 사실과 우리가 재구성한 정책을 구분한다. 정적 코드에서 보인 경로를 실제 키보드·IME·화면 동작까지 검증했다고 부르지 않는다. 현재 사용자의 지시에 따라 Windows와 peets 모두 GUI·스크린샷·원본 실행 없이 작업한다.
 
 | 작성 상황 | 지켜야 하는 계약 | 구현과 근거 |
 | --- | --- | --- |
+| 수식 값을 수정한다 | 입력 중 AST·커서·Undo만 바꾸고 마지막 계산값을 유지한다. Enter·영역 이탈 때 계산에 전달한다. 내부 줄바꿈과 명시 계산은 구분한다. | [원본 확정 계약](analysis/0042-edit-commit-contract.md), [구현](analysis/0044-edit-commit-implementation.md) |
 | 수식 중간에서 Space로 범위를 넓힌다 | 범위의 방향과 진입 커서를 보존한다. 끝까지 확장하면 원래 커서로 돌아온다. 이동만으로 Undo를 소비하지 않는다. | editor의 scope 상태·이력, [0014](analysis/0014-expression-scope.md) |
 | 선택한 부분식에 연산자를 넣는다 | 선택한 쪽에 따라 기존 부분식이 왼쪽 또는 오른쪽 피연산자가 된다. 인접 가지의 ID와 Undo 복원을 유지한다. | 분수·지수·이항 연산의 제한된 subtree 계약, [0014](analysis/0014-expression-scope.md) |
 | 선택한 복합식을 문자로 바꾼다 | 선택한 가지를 치환한다. 선택을 암묵적 곱셈의 피연산자로 오인하지 않는다. | formula 입력·치환 테스트, [0017](analysis/0017-contextual-commands.md) |
@@ -13,7 +16,7 @@ Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 �
 | 결과 단위를 입력한다 | 물리량과 표시 단위를 분리한다. `distance:=2m=cm`의 정의값은 2m이며 표시는 200이다. | 편집→MathML→계산 통합 테스트 |
 | 붙여넣기 또는 확정 텍스트를 되돌린다 | 내부의 여러 트리 변형을 사용자 명령 하나로 묶고 이전 선택·커서도 복원한다. | `Editor::edit_group`, [0014](analysis/0014-expression-scope.md), [0017](analysis/0017-contextual-commands.md) |
 | 저장 문서를 다시 계산한다 | 명시적 라벨과 이전 계산의 문맥 라벨을 구분한다. 이전 추론을 사용자 지정으로 고정하지 않는다. | 원본 메타데이터 보존·계산용 라벨 처리, [0016](analysis/0016-contextual-labels.md) |
-| 계산 상태가 바뀐다 | 계산 중 여부, 결과의 동기화 여부, 결과·오류 payload를 구분한다. 오래된 결과를 새 정답으로 읽지 않는다. | 원본 상태 분석, [0015](analysis/0015-worksheet-feedback.md); 현재 Rust 재계산은 동기식 |
+| 계산 상태가 바뀐다 | 계산 중 여부, 결과의 동기화 여부, 결과·오류 payload를 구분한다. 오래된 결과를 새 정답으로 읽지 않는다. | [원본 상태](analysis/0015-worksheet-feedback.md), [백그라운드 계산·중지/재개](analysis/0041-background-calculation-ui.md) |
 
 새 기능은 실제 작성 상황 → 필요한 편집 상태 → 원본 근거 → 독립 구현 → 재현 테스트 순서로 추가한다. 함수 목록의 개수나 단위 테스트 통과 수는 UX 완성도를 대신하지 않는다.
 
@@ -27,7 +30,7 @@ Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 �
 
 원본 Mathcad 글꼴은 배포하지 않는다. 모든 플랫폼에 OFL-1.1의 STIX Two Math/Text를 포함하므로 Mathcad 설치 없이 실행할 수 있다. Windows 본문은 사용 가능한 Tahoma, UI는 Segoe UI를 사용하며 Linux는 설치된 대체 글꼴을 선택한다. 큰 괄호와 근호의 경로, 일부 간격·기준선과 원본 글리프의 모양은 아직 근사 구현이다.
 
-새 문서는 한국어 템플릿의 A4·0.5cm 표준 grid·2.5cm 여백을 따른다. region 좌표는 여백 안 본문 기준이며 저장 좌표에 여백을 더하지 않는다. 화면에서만 페이지별 여백과 간격으로 변환하고 클릭·IME·이동에 역변환한다. 기본 눈금선은 화면 BAML의 #BDDEF8/0.6 DIP이며 인쇄용 초기 색과 구분한다. Letter/A4의 저장 방향·Standard/Narrow/Wide 여백, grid 표시·강조 설정을 읽는다. 사용자 정의 종이·여백, header/footer 편집과 완전한 pagination은 남아 있다. [페이지 근거](analysis/0020-prime-page-appearance.md)를 참고한다.
+새 문서는 한국어 템플릿의 A4·0.5cm 표준 grid·2.5cm 여백을 따른다. region 좌표는 여백 안 본문 기준이며 저장 좌표에 여백을 더하지 않는다. 화면에서만 페이지별 여백과 간격으로 변환하고 클릭·IME·이동에 역변환한다. 8종 용지·방향·프리셋/사용자 여백·기본 인쇄/PDF를 연결했다. 머리글·바닥글의 텍스트/필드와 실제 저장 날짜도 화면·출력에 반영한다. 첫 페이지 별도 서식·rich text·명시 페이지 나눔·전체 native 출력은 남아 있다. [인쇄 구현](analysis/0035-printing-implementation.md)과 [날짜 근거](analysis/0038-saved-date-fields.md)를 참고한다.
 
 수식 영역을 Esc로 선택한 뒤 방향키로 옮기고 Enter로 다시 편집할 수 있다. Tab은 편집 중에는 입력 칸을, 영역 선택 중에는 배치 순서의 영역을 이동한다. Ctrl+Enter로 활성 영역 선택을 전환한다. 우클릭 메뉴에는 편집·영역 복사·잘라내기·복제·삭제를 모았다. 분수·지수·제곱근·절댓값 도구는 현재 피연산자를 보존한다. 단위·상수 갤러리는 명시 라벨을 넣어 앞선 동명 변수에 의해 의미가 바뀌지 않도록 한다.
 
@@ -35,10 +38,16 @@ Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 �
 
 검증은 창·스크린샷 없이 egui context의 이벤트·텍스트 스타일·기하·트리 상태를 검사한다. 50%·100%·200% 클릭 역변환, 리본 메뉴를 닫은 뒤 연속 입력, Undo 후 입력, 동명 변수/단위 스타일과 갤러리 의미, 큰 괄호의 폭, 근호의 숨긴 기본 차수, source node hit 일관성, 페이지 간 본문 좌표를 포함한다. 실제 Windows/Linux IME·마우스 사용감과 최종 화면의 동일성은 아직 실기 검증하지 않았다.
 
-이번 변경은 Windows와 peets(Kubuntu 26.04)에서 각각 전체 215개 테스트, rustfmt, Clippy 경고 금지, workspace build를 통과했다. peets 검증 소스는 `/home/peets/Projects/mathcraft-prime-20261015`, 공유 빌드 결과는 `/home/peets/Projects/mathcraft/target/debug/mathcraft`다. Windows 실행 파일은 `target/debug/mathcraft.exe`다. 검증 과정에서 GUI·스크린샷·원본 실행은 사용하지 않았다.
+2026-10-15의 해당 변경 당시 Windows와 peets(Kubuntu 26.04)에서 각각 전체 215개 테스트, rustfmt, Clippy 경고 금지, workspace build를 통과했다. peets 검증 소스는 `/home/peets/Projects/mathcraft-prime-20261015`, 공유 빌드 결과는 `/home/peets/Projects/mathcraft/target/debug/mathcraft`다. 당시 Windows 실행 파일은 `target/debug/mathcraft.exe`였다. 현재 기본 실행은 `scripts/run.ps1`의 release 빌드이며 `target/release/mathcraft.exe`를 사용한다. 이 단락의 검사 개수는 과거 기록이다. 검증 과정에서 GUI·스크린샷·원본 실행은 사용하지 않았다.
 
 ## 기본 계산서 작성의 연결
 
 이번 단계는 리본의 서식 명령, 행렬 축 편집, 구조 결과 조판과 XY 도표를 실제 작성→수정→저장→재열기 흐름에 연결했다. 결과는 source arena에 가짜 결과 노드를 추가하지 않고 표시 전용 구조로 그린다. 큰 결과 괄호·단위 분수·숫자 지수도 source RHS의 편집 자리와 구분한다. 숫자 표시 기본값과 임계값은 [0022](analysis/0022-math-formatting.md), 행렬 편집은 [0021](analysis/0021-matrix-authoring.md), 도표의 근거와 차이는 [0023](analysis/0023-xy-plots.md)에 연결했다.
 
 검토용 예제의 F 결과는 19.6133 N, determinant는 5, f(x)=2x²의 x=2 끝점은 8이다. 작성 통합 검사에서는 정의 a를 3으로 수정하면 도표 끝점이 12로 바뀌고 Undo 후 8로 돌아오는 것을 확인한다. 실제 GUI·스크린샷·원본 실행 없이 검증한다.
+
+## 원본 동작을 기준으로 한 재분류 — 2026-10-16
+
+기능 조사 범위를 문서·편집·도표 설정·접이식 영역·Include·템플릿·검색/출력·스크립팅·공개 자동화로 확장했다. 상세 항목과 행별 원본 해시/구현 경로는 [통합 목록](FEATURES.md)과 [재조사 기록](analysis/0031-feature-inventory-audit.md)을 따른다. 기존 87개 묶음과 단계 체크를 전체 원본 기능 수로 사용하지 않는다.
+
+문서 열기는 저장 표현 복원으로, Calculate Now는 보이는 활성 영역 갱신과 가시 범위의 Pending 계산으로, Worksheet는 전체 강제 계산으로 분리했다. 수동 편집은 이전 결과를 보존하며 영향받은 영역만 흐리게 표시한다. [구현·검증 경계](analysis/0032-calculation-commands-and-saved-results.md)를 따른다. 원본의 큰 기호 결과 영역 오른쪽 폭 조절 핸들은 별도 미구현 동작이다. 새 편의 UI를 만드는 대신 이러한 원본 동작의 누락을 채운다.

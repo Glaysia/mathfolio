@@ -10,7 +10,17 @@ use super::{
 };
 use mathcraft_core::Quantity;
 use roxmltree::Node;
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
+#[cfg(test)]
+#[path = "program/try_tests.rs"]
+mod try_tests;
 
 pub const DEFAULT_BUDGET: usize = 100_000;
 const MAX_LINES: usize = 4096;
@@ -27,10 +37,25 @@ pub enum Instruction {
         target: Symbol,
         value: Expression,
     },
+    AssignArray {
+        target: Symbol,
+        indices: Vec<Expression>,
+        slice: Option<&'static str>,
+        value: Expression,
+    },
+    DefineFunction {
+        target: Symbol,
+        parameters: Vec<Symbol>,
+        body: Expression,
+    },
     If {
         branches: Vec<(Expression, Program)>,
         otherwise: Option<Program>,
         evaluate_all: bool,
+    },
+    Try {
+        attempt: Program,
+        handler: Program,
     },
     For {
         variable: Symbol,
@@ -174,8 +199,41 @@ fn parse_instruction(node: Node<'_, '_>, depth: usize) -> Result<Instruction> {
             {
                 return Err(bad("Local assignment style"));
             }
-            if items.len() != 2 || !is_math(items[0], "id") {
-                return Err(bad("Only named local assignments are implemented"));
+            if items.len() != 2 {
+                return Err(bad("Local assignment arity"));
+            }
+            if is_math(items[0], "function") {
+                check_attributes(items[0], &[])?;
+                let declaration = children(items[0]);
+                let [name, bound] = declaration.as_slice() else {
+                    return Err(bad("Local function declaration structure"));
+                };
+                if !is_math(*bound, "boundVars") {
+                    return Err(bad("Local function requires boundVars"));
+                }
+                check_attributes(*bound, &[])?;
+                let parameters = children(*bound)
+                    .into_iter()
+                    .map(symbol)
+                    .collect::<Result<Vec<_>>>()?;
+                if parameters.len() > 64
+                    || parameters.iter().collect::<HashSet<_>>().len() != parameters.len()
+                {
+                    return Err(bad("Local function parameter count or duplicates"));
+                }
+                return Ok(Instruction::DefineFunction {
+                    target: symbol(*name)?,
+                    parameters,
+                    body: parse_expression(items[1], depth + 1)?,
+                });
+            }
+            if let Some((target, indices, slice)) = super::array_definition_target(items[0])? {
+                return Ok(Instruction::AssignArray {
+                    target,
+                    indices,
+                    slice,
+                    value: parse_expression(items[1], depth + 1)?,
+                });
             }
             Ok(Instruction::Assign {
                 target: symbol(items[0])?,
@@ -238,6 +296,16 @@ fn parse_instruction(node: Node<'_, '_>, depth: usize) -> Result<Instruction> {
                 body: body(items[1], depth + 1)?,
             })
         }
+        "tryCatch" => {
+            check_attributes(node, &[])?;
+            if items.len() != 2 {
+                return Err(bad("Try/on error requires exactly two bodies"));
+            }
+            Ok(Instruction::Try {
+                attempt: body(items[0], depth + 1)?,
+                handler: body(items[1], depth + 1)?,
+            })
+        }
         "return" => {
             check_attributes(node, &[])?;
             if items.len() != 1 {
@@ -267,6 +335,18 @@ pub fn from_mathml(xml: &str) -> Result<Program> {
     }
     let document = roxmltree::Document::parse(xml).map_err(|_| bad("Malformed program XML"))?;
     parse_program(document.root_element(), 0)
+}
+
+/// Native Try is also an expression-class node. Represent an isolated Try in
+/// this interpreter's existing local program frame; do not extend this policy
+/// to every programming operator by analogy (source contract 0103).
+pub(crate) fn parse_try_expression(node: Node<'_, '_>, depth: usize) -> Result<Program> {
+    if !is_math(node, "tryCatch") {
+        return Err(bad("Expected a Try/on error expression"));
+    }
+    Ok(Program {
+        instructions: vec![parse_instruction(node, depth + 1)?],
+    })
 }
 
 /// Host bindings are cloned. Program locals never modify the caller's worksheet.
@@ -300,13 +380,14 @@ enum Control {
 }
 struct Outcome {
     control: Control,
-    value: Option<Value>,
+    value: Option<Result<Value>>,
 }
 struct Runtime {
     remaining: usize,
 }
 impl Runtime {
     fn tick(&mut self) -> Result<()> {
+        super::check_cancelled()?;
         self.remaining = self
             .remaining
             .checked_sub(1)
@@ -328,6 +409,9 @@ fn run(program: &Program, scope: &mut Scope, runtime: &mut Runtime, depth: usize
             scope.bindings.insert(alias, binding);
         }
     }
+    // Each program expression owns its mutation ledger. Captured functions
+    // refer to this ledger, not the argument bindings of later callers.
+    scope.program_frame = Some(Arc::new(CaptureFrame::default()));
     let out = block(program, scope, runtime, depth)?;
     if matches!(out.control, Control::Break | Control::Continue) {
         return Err(Fault::new(
@@ -336,7 +420,7 @@ fn run(program: &Program, scope: &mut Scope, runtime: &mut Runtime, depth: usize
         ));
     }
     out.value
-        .ok_or_else(|| Fault::new("program_no_value", "Program produced no value"))
+        .unwrap_or_else(|| Err(Fault::new("program_no_value", "Program produced no value")))
 }
 
 fn automatic_alias(name: &Symbol) -> Option<Symbol> {
@@ -347,10 +431,334 @@ fn automatic_alias(name: &Symbol) -> Option<Symbol> {
 }
 
 fn assign_local(scope: &mut Scope, name: &Symbol, value: Value) {
-    if let Some(alias) = automatic_alias(name) {
-        scope.bindings.insert(alias, Binding::Value(value.clone()));
-    }
+    let before = local_before(scope, name);
     scope.bindings.insert(name.clone(), Binding::Value(value));
+    finish_local_assignment(scope, name, before);
+}
+
+#[derive(Default)]
+pub(crate) struct CaptureFrame {
+    watched: Mutex<HashMap<Symbol, u64>>,
+    active: AtomicBool,
+}
+
+#[derive(Clone)]
+pub(crate) struct CaptureGuard {
+    frame: Arc<CaptureFrame>,
+    revisions: Vec<(Symbol, u64)>,
+}
+impl CaptureGuard {
+    fn new(
+        scope: &Scope,
+        target: &Symbol,
+        parameters: &[Symbol],
+        body: &Expression,
+    ) -> Result<Option<Self>> {
+        let Some(frame) = &scope.program_frame else {
+            return Ok(None);
+        };
+        let mut names = HashSet::new();
+        let mut bound = parameters.iter().cloned().collect::<HashSet<_>>();
+        bound.extend(parameters.iter().filter_map(automatic_alias));
+        free_names(body, &bound, &mut names, 0)?;
+        // A redefinition may refer to its previous function binding. Publishing
+        // the new function must not invalidate that deliberate backreference.
+        names.remove(target);
+        if let Some(alias) = automatic_alias(target) {
+            names.remove(&alias);
+        }
+        let mut watched = frame
+            .watched
+            .lock()
+            .map_err(|_| bad("Local capture ledger unavailable"))?;
+        let revisions = names
+            .into_iter()
+            .map(|name| {
+                let revision = *watched.entry(name.clone()).or_default();
+                (name, revision)
+            })
+            .collect();
+        frame.active.store(!watched.is_empty(), Ordering::Relaxed);
+        Ok(Some(Self {
+            frame: frame.clone(),
+            revisions,
+        }))
+    }
+    pub(crate) fn check(&self) -> Result<()> {
+        let watched = self
+            .frame
+            .watched
+            .lock()
+            .map_err(|_| bad("Local capture ledger unavailable"))?;
+        if self
+            .revisions
+            .iter()
+            .any(|(name, revision)| watched.get(name) != Some(revision))
+        {
+            return Err(bad(
+                "Calling a local function after changing one of its captured bindings needs an established original capture contract",
+            ));
+        }
+        Ok(())
+    }
+}
+
+type LocalBefore = Vec<(Symbol, Option<Arc<Binding>>)>;
+fn same_capture_quantity(left: &Quantity, right: &Quantity) -> bool {
+    left.value.re.to_bits() == right.value.re.to_bits()
+        && left.value.im.to_bits() == right.value.im.to_bits()
+        && left
+            .dimension
+            .iter()
+            .zip(right.dimension)
+            .all(|(left, right)| left.to_bits() == right.to_bits())
+}
+fn same_capture_value(left: &Value, right: &Value) -> bool {
+    let quantities = |left: &[Quantity], right: &[Quantity]| {
+        left.len() == right.len()
+            && left
+                .iter()
+                .zip(right)
+                .all(|(left, right)| same_capture_quantity(left, right))
+    };
+    match (left, right) {
+        (Value::Scalar { quantity: left }, Value::Scalar { quantity: right }) => {
+            same_capture_quantity(left, right)
+        }
+        (
+            Value::Matrix {
+                rows: lr,
+                cols: lc,
+                elements: left,
+            },
+            Value::Matrix {
+                rows: rr,
+                cols: rc,
+                elements: right,
+            },
+        ) => (lr, lc) == (rr, rc) && quantities(left, right),
+        (Value::RangeValues { elements: left }, Value::RangeValues { elements: right }) => {
+            quantities(left, right)
+        }
+        (
+            Value::Range {
+                start: ls,
+                step: lt,
+                end: le,
+                count: lc,
+            },
+            Value::Range {
+                start: rs,
+                step: rt,
+                end: re,
+                count: rc,
+            },
+        ) => {
+            lc == rc
+                && same_capture_quantity(ls, rs)
+                && same_capture_quantity(lt, rt)
+                && same_capture_quantity(le, re)
+        }
+        (Value::Symbolic { mathml: left }, Value::Symbolic { mathml: right }) => left == right,
+        (Value::String { value: left }, Value::String { value: right }) => left == right,
+        _ => false,
+    }
+}
+fn local_before(scope: &Scope, name: &Symbol) -> LocalBefore {
+    if !scope
+        .program_frame
+        .as_ref()
+        .is_some_and(|frame| frame.active.load(Ordering::Relaxed))
+    {
+        return vec![];
+    }
+    std::iter::once(name.clone())
+        .chain(automatic_alias(name))
+        .map(|name| {
+            let binding = scope.bindings.shared(&name);
+            (name, binding)
+        })
+        .collect()
+}
+fn finish_local_assignment(scope: &mut Scope, name: &Symbol, before: LocalBefore) {
+    if let Some(alias) = automatic_alias(name)
+        && let Some(binding) = scope.bindings.shared(name)
+    {
+        scope.bindings.insert_shared(alias, binding);
+    }
+    if before.is_empty() {
+        return;
+    }
+    let Some(frame) = &scope.program_frame else {
+        return;
+    };
+    let Ok(mut watched) = frame.watched.lock() else {
+        return;
+    };
+    for (name, old) in before {
+        let Some(revision) = watched.get_mut(&name) else {
+            continue;
+        };
+        let new = scope.bindings.shared(&name);
+        let same = match (&old, &new) {
+            (Some(old), Some(new)) if Arc::ptr_eq(old, new) => true,
+            (Some(old), Some(new)) => {
+                fn value(binding: &Binding) -> Option<&Value> {
+                    match binding {
+                        Binding::Value(value) | Binding::IndexedArray { value, .. } => Some(value),
+                        _ => None,
+                    }
+                }
+                fn fill_dimension(binding: &Binding) -> Option<[f64; 7]> {
+                    match binding {
+                        Binding::IndexedArray { zero_dimension, .. } => *zero_dimension,
+                        Binding::Value(Value::Matrix { elements, .. }) => elements
+                            .first()
+                            .filter(|first| elements.iter().all(|q| q.dimension == first.dimension))
+                            .map(|q| q.dimension),
+                        _ => None,
+                    }
+                }
+                match (value(old), value(new)) {
+                    (Some(old_value), Some(new_value)) => {
+                        let same_fill = match (fill_dimension(old), fill_dimension(new)) {
+                            (Some(left), Some(right)) => left
+                                .iter()
+                                .zip(right)
+                                .all(|(left, right)| left.to_bits() == right.to_bits()),
+                            (None, None) => true,
+                            _ => false,
+                        };
+                        same_capture_value(old_value, new_value) && same_fill
+                    }
+                    _ => false,
+                }
+            }
+            (None, None) => true,
+            _ => false,
+        };
+        if !same {
+            *revision = revision.saturating_add(1);
+        }
+    }
+}
+
+fn free_names(
+    expression: &Expression,
+    bound: &HashSet<Symbol>,
+    names: &mut HashSet<Symbol>,
+    depth: usize,
+) -> Result<()> {
+    if depth > 128 {
+        return Err(bad("Local function dependency depth exceeded"));
+    }
+    let mut visit = |child| free_names(child, bound, names, depth + 1);
+    match expression {
+        Expression::Name(name) => {
+            if !bound.contains(name) {
+                names.insert(name.clone());
+            }
+        }
+        Expression::Scalar(_) | Expression::StringLiteral(_) | Expression::Unsupported(_) => (),
+        Expression::Neg(child) | Expression::Absolute(child) | Expression::Unary(_, child) => {
+            visit(child)?
+        }
+        Expression::Binary(_, left, right) | Expression::Root(left, right) => {
+            visit(left)?;
+            visit(right)?;
+        }
+        Expression::Matrix { elements, .. } => {
+            for child in elements {
+                visit(child)?;
+            }
+        }
+        Expression::Index(base, indices) => {
+            visit(base)?;
+            for child in indices {
+                visit(child)?;
+            }
+        }
+        Expression::Range { start, second, end } => {
+            visit(start)?;
+            if let Some(second) = second {
+                visit(second)?;
+            }
+            visit(end)?;
+        }
+        Expression::Call(name, args) => {
+            for arg in args {
+                visit(arg)?;
+            }
+            if !bound.contains(name) {
+                names.insert(name.clone());
+            }
+        }
+        Expression::Logic(logic) => {
+            for child in &logic.arguments {
+                visit(child)?;
+            }
+        }
+        Expression::Program(program) => {
+            let mut local = bound.clone();
+            let mut declared = HashSet::new();
+            locals(program, &mut declared);
+            local.extend(declared.iter().filter_map(automatic_alias));
+            local.extend(declared);
+            visit_expressions(program, &mut |child, parameters| {
+                let mut child_bound = local.clone();
+                child_bound.extend(parameters.iter().cloned());
+                child_bound.extend(parameters.iter().filter_map(automatic_alias));
+                free_names(child, &child_bound, names, depth + 1)
+            })?;
+        }
+        Expression::Numerical(numerical) => {
+            use super::numerics::NumericalExpression::*;
+            let (body, variable) = match numerical {
+                Root { body, variable, .. }
+                | Derivative { body, variable, .. }
+                | Integral { body, variable, .. }
+                | Fold { body, variable, .. } => (body, variable),
+            };
+            let mut local = bound.clone();
+            local.insert(variable.clone());
+            if let Some(alias) = automatic_alias(variable) {
+                local.insert(alias);
+            }
+            free_names(body, &local, names, depth + 1)?;
+            match numerical {
+                Root {
+                    bounds: Some((lower, upper)),
+                    ..
+                }
+                | Integral { lower, upper, .. }
+                | Fold { lower, upper, .. } => {
+                    free_names(lower, bound, names, depth + 1)?;
+                    free_names(upper, bound, names, depth + 1)?;
+                }
+                Root {
+                    bounds: None,
+                    variable,
+                    ..
+                } => {
+                    if !bound.contains(variable) {
+                        names.insert(variable.clone());
+                    }
+                }
+                Derivative {
+                    variable, order, ..
+                } => {
+                    free_names(order, bound, names, depth + 1)?;
+                    if !bound.contains(variable) {
+                        names.insert(variable.clone());
+                    }
+                }
+            }
+        }
+        Expression::Symbolic(_) => {
+            return Err(bad("Symbolic local function capture is not established"));
+        }
+    }
+    Ok(())
 }
 
 fn truth(value: Value) -> Result<bool> {
@@ -414,6 +822,23 @@ pub(crate) fn evaluate_logic(logic: &Logic, scope: &Scope, depth: usize) -> Resu
     })))
 }
 
+/// A bounded interpreter policy, not a reconstruction of the original fault
+/// taxonomy. Calculation faults can enter on-error; implementation gaps,
+/// upstream failed regions and host stop/resource limits must remain visible.
+fn try_catches(fault: &Fault) -> bool {
+    !fault.unsupported
+        && !fault.is_cancelled()
+        && fault.previous_region.is_none()
+        && !matches!(
+            fault.code.as_str(),
+            "unsupported"
+                | "program_budget"
+                | "program_control"
+                | "program_no_value"
+                | "EA041_RANGE_RECURRENCE"
+        )
+}
+
 fn block(
     program: &Program,
     scope: &mut Scope,
@@ -429,24 +854,99 @@ fn block(
         let out = match instruction {
             Instruction::Expression(expression) => Outcome {
                 control: Control::Normal,
-                value: Some(scope.evaluate(expression, depth + 1)?),
+                value: Some(Ok(scope.evaluate(expression, depth + 1)?)),
             },
             Instruction::Assign { target, value } => {
+                let shared_array = match value {
+                    Expression::Name(name) => scope.bindings.shared(name).filter(|binding| {
+                        matches!(
+                            binding.as_ref(),
+                            Binding::IndexedArray { .. } | Binding::Value(Value::Matrix { .. })
+                        )
+                    }),
+                    _ => None,
+                };
                 let value = scope.evaluate(value, depth + 1)?;
                 if matches!(value, Value::Range { .. }) {
                     return Err(bad(
                         "Local range assignment requires vector materialization, not a local range binding",
                     ));
                 }
-                assign_local(scope, target, value.clone());
+                if let Some(binding) = shared_array {
+                    let before = local_before(scope, target);
+                    scope.bindings.insert_shared(target.clone(), binding);
+                    finish_local_assignment(scope, target, before);
+                } else {
+                    assign_local(scope, target, value.clone());
+                }
                 Outcome {
                     control: Control::Normal,
-                    value: Some(value),
+                    value: Some(Ok(value)),
+                }
+            }
+            Instruction::AssignArray {
+                target,
+                indices,
+                slice,
+                value,
+            } => {
+                let before = local_before(scope, target);
+                let (_, assigned) = scope.define_array_at_depth(
+                    target,
+                    (indices, *slice),
+                    value,
+                    "program-local",
+                    depth + 1,
+                )?;
+                // Share the complete binding, including its zero-fill basis.
+                finish_local_assignment(scope, target, before);
+                Outcome {
+                    control: Control::Normal,
+                    value: Some(Ok(assigned)),
+                }
+            }
+            Instruction::DefineFunction {
+                target,
+                parameters,
+                body,
+            } => {
+                let guard = CaptureGuard::new(scope, target, parameters, body)?;
+                let before = local_before(scope, target);
+                scope.define(
+                    target,
+                    &Some(parameters.clone()),
+                    body,
+                    "program-local-function",
+                )?;
+                let Some(Binding::Function {
+                    parameters,
+                    body,
+                    captured,
+                    ..
+                }) = scope.bindings.get(target)
+                else {
+                    unreachable!()
+                };
+                scope.bindings.insert(
+                    target.clone(),
+                    Binding::Function {
+                        parameters: parameters.clone(),
+                        body: body.clone(),
+                        captured: captured.clone(),
+                        local_guard: guard,
+                    },
+                );
+                finish_local_assignment(scope, target, before);
+                Outcome {
+                    control: Control::Normal,
+                    value: Some(Err(bad(
+                        "Returning a function value from a program is not implemented",
+                    ))),
                 }
             }
             Instruction::Return(expression) => Outcome {
                 control: Control::Return,
-                value: Some(scope.evaluate(expression, depth + 1)?),
+                value: Some(Ok(scope.evaluate(expression, depth + 1)?)),
             },
             Instruction::Break => Outcome {
                 control: Control::Break,
@@ -480,6 +980,32 @@ fn block(
                     out = block(body, scope, runtime, depth + 1)?;
                 }
                 out
+            }
+            Instruction::Try { attempt, handler } => {
+                match block(attempt, scope, runtime, depth + 1) {
+                    Ok(out) => {
+                        // Return/break/continue are successful control flow,
+                        // not errors. A deferred final value fault still has
+                        // the same boundary as an immediately raised fault.
+                        if out.control == Control::Normal
+                            && out
+                                .value
+                                .as_ref()
+                                .is_some_and(|value| value.as_ref().is_err_and(try_catches))
+                        {
+                            block(handler, scope, runtime, depth + 1)?
+                        } else {
+                            out
+                        }
+                    }
+                    Err(fault) if try_catches(&fault) => {
+                        // Preserve this interpreter's sequential local state;
+                        // original rollback semantics have not been observed.
+                        // Do not reset the host's shared instruction budget.
+                        block(handler, scope, runtime, depth + 1)?
+                    }
+                    Err(fault) => return Err(fault),
+                }
             }
             Instruction::While { condition, body } => {
                 let mut out = Outcome {
@@ -581,7 +1107,9 @@ fn iteration_values(value: Value) -> Result<Vec<Quantity>> {
 fn locals(program: &Program, names: &mut HashSet<Symbol>) {
     for instruction in &program.instructions {
         match instruction {
-            Instruction::Assign { target, .. } => {
+            Instruction::Assign { target, .. }
+            | Instruction::AssignArray { target, .. }
+            | Instruction::DefineFunction { target, .. } => {
                 names.insert(target.clone());
             }
             Instruction::For { variable, body, .. } => {
@@ -589,6 +1117,10 @@ fn locals(program: &Program, names: &mut HashSet<Symbol>) {
                 locals(body, names);
             }
             Instruction::While { body, .. } => locals(body, names),
+            Instruction::Try { attempt, handler } => {
+                locals(attempt, names);
+                locals(handler, names);
+            }
             Instruction::If {
                 branches,
                 otherwise,
@@ -608,20 +1140,33 @@ fn locals(program: &Program, names: &mut HashSet<Symbol>) {
 
 pub(crate) fn visit_expressions(
     program: &Program,
-    visitor: &mut impl FnMut(&Expression) -> Result<()>,
+    visitor: &mut impl FnMut(&Expression, &[Symbol]) -> Result<()>,
 ) -> Result<()> {
     for instruction in &program.instructions {
         match instruction {
             Instruction::Expression(e)
             | Instruction::Return(e)
-            | Instruction::Assign { value: e, .. } => visitor(e)?,
+            | Instruction::Assign { value: e, .. } => visitor(e, &[])?,
+            Instruction::DefineFunction {
+                body, parameters, ..
+            } => visitor(body, parameters)?,
+            Instruction::AssignArray { indices, value, .. } => {
+                for index in indices {
+                    visitor(index, &[])?;
+                }
+                visitor(value, &[])?;
+            }
             Instruction::For { iterable, body, .. } => {
-                visitor(iterable)?;
+                visitor(iterable, &[])?;
                 visit_expressions(body, visitor)?;
             }
             Instruction::While { condition, body } => {
-                visitor(condition)?;
+                visitor(condition, &[])?;
                 visit_expressions(body, visitor)?;
+            }
+            Instruction::Try { attempt, handler } => {
+                visit_expressions(attempt, visitor)?;
+                visit_expressions(handler, visitor)?;
             }
             Instruction::If {
                 branches,
@@ -629,7 +1174,7 @@ pub(crate) fn visit_expressions(
                 ..
             } => {
                 for (test, body) in branches {
-                    visitor(test)?;
+                    visitor(test, &[])?;
                     visit_expressions(body, visitor)?;
                 }
                 if let Some(body) = otherwise {
@@ -653,7 +1198,89 @@ pub(crate) fn validate_names(
     let mut bound = parameters.to_vec();
     bound.extend(names.iter().filter_map(automatic_alias));
     bound.extend(names);
-    visit_expressions(program, &mut |expression| {
-        scope.validate_names(expression, &bound, depth + 1)
+    visit_expressions(program, &mut |expression, parameters| {
+        let mut local = bound.clone();
+        local.extend(parameters.iter().cloned());
+        local.extend(parameters.iter().filter_map(automatic_alias));
+        scope.validate_names(expression, &local, depth + 1)
     })
+}
+
+#[cfg(test)]
+mod local_function_tests {
+    use super::*;
+    use crate::CalculationControl;
+
+    #[test]
+    fn cancelling_a_local_function_call_preserves_the_caller_and_fresh_retry() {
+        let name = |name: &str| Symbol {
+            name: name.into(),
+            label: "VARIABLE".into(),
+        };
+        let number = |value: f64| Expression::Scalar(Quantity::scalar(value));
+        let body = Program {
+            instructions: vec![
+                Instruction::Assign {
+                    target: name("total"),
+                    value: number(0.),
+                },
+                Instruction::For {
+                    variable: name("i"),
+                    iterable: Expression::Range {
+                        start: Box::new(number(0.)),
+                        second: None,
+                        end: Box::new(number(999.)),
+                    },
+                    body: Program {
+                        instructions: vec![Instruction::Assign {
+                            target: name("total"),
+                            value: Expression::Binary(
+                                "plus".into(),
+                                Box::new(Expression::Name(name("total"))),
+                                Box::new(Expression::Name(name("x"))),
+                            ),
+                        }],
+                    },
+                },
+                Instruction::Expression(Expression::Name(name("total"))),
+            ],
+        };
+        let program = Program {
+            instructions: vec![
+                Instruction::DefineFunction {
+                    target: name("f"),
+                    parameters: vec![name("x")],
+                    body: Expression::Program(Box::new(body)),
+                },
+                Instruction::Expression(Expression::Call(name("f"), vec![number(3.)])),
+            ],
+        };
+        let mut scope = Scope::default();
+        scope
+            .define(&name("external"), &None, &number(5.), "caller")
+            .unwrap();
+        let before = scope.bindings.shared(&name("external")).unwrap();
+        let control = CalculationControl::stop_after_checks(300);
+        assert!(
+            control
+                .run(|| evaluate_in_scope(&program, &scope, 0))
+                .unwrap_err()
+                .is_cancelled()
+        );
+        assert!(Arc::ptr_eq(
+            &before,
+            &scope.bindings.shared(&name("external")).unwrap()
+        ));
+        assert!(scope.program_frame.is_none());
+        assert!(!scope.bindings.contains_key(&name("f")));
+        assert_eq!(
+            evaluate_in_scope(&program, &scope, 0)
+                .unwrap()
+                .as_quantity()
+                .unwrap()
+                .value
+                .re,
+            3000.
+        );
+    }
 }

@@ -5,10 +5,23 @@ use std::{
     path::Path,
 };
 
+pub mod area;
+pub mod area_authoring;
 pub mod canvas;
 pub mod export;
+pub mod matrix_result_format;
 mod mcdx;
 pub mod native;
+pub mod native_calculation;
+pub mod native_plot;
+pub mod native_plot_result;
+pub mod native_plot_units;
+pub mod native_result;
+pub mod native_save;
+pub mod page_break;
+pub mod plot_axis_presentation;
+pub mod plot_snapshot;
+pub mod rich_text_source;
 pub use mcdx::import_mcdx;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -180,3 +193,8 @@ mod tests {
 }
 
 pub mod formatting;
+pub mod native_visual;
+pub mod spec_table;
+
+#[cfg(test)]
+mod radix_source_tests;

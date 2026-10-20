@@ -2,32 +2,147 @@
 //!
 //! Keeps identifier labels and expression trees; never translates through the
 //! prototype text parser. Evidence: docs/analysis/0003 and tests/reference.
-//! Top-level, already placed regions only. Grid snapping, nested scopes, exact
-//! error arguments/handles and complete built-in/unit catalogs are not implemented.
+//! Positioned worksheet regions and bounded Area child blocks. General nested
+//! scopes, exact error arguments/handles and complete catalogs remain incomplete.
 use mathcraft_core::{Quantity, unit};
 use num_complex::Complex64;
 use roxmltree::Node;
-use serde::Serialize;
-use std::{collections::HashMap, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
+mod area_calculation;
+#[cfg(test)]
+mod area_legacy_tests;
 pub mod arrays;
+#[cfg(test)]
+mod cancellation_tests;
 pub mod catalog;
 pub mod editor_bridge;
+#[cfg(test)]
+mod indexed_definition_tests;
+mod matrix_origin;
 pub mod numerics;
+mod plot_query;
 pub mod program;
+pub use plot_query::PreparedPlotQuery;
+pub mod radix_integral;
+#[cfg(test)]
+mod radix_tests;
 pub mod reference;
 pub mod scalars;
 pub mod solve;
+pub mod solve_builder;
+mod source_matrix_display;
+mod spec_table;
 pub mod statistics;
+#[cfg(test)]
+mod string_tests;
+mod string_value;
+pub use string_value::StringValue;
+pub mod strings;
 pub mod symbolics;
 
 const ML: &str = "http://schemas.mathsoft.com/math50";
 const WS: &str = "http://schemas.mathsoft.com/worksheet50";
 type Result<T> = std::result::Result<T, Fault>;
 
+/// A cooperative, per-job stop request. A fresh control should be used for each
+/// background job; stopping never becomes an ordinary worksheet error.
+#[derive(Clone, Debug, Default)]
+pub struct CalculationControl {
+    inner: Arc<ControlState>,
+}
+#[derive(Debug, Default)]
+struct ControlState {
+    cancelled: AtomicBool,
+    #[cfg(test)]
+    remaining_checks: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    check_budget_enabled: AtomicBool,
+}
+thread_local! {
+    static ACTIVE_CONTROL: RefCell<Option<CalculationControl>> = const {RefCell::new(None)};
+}
+impl CalculationControl {
+    pub fn cancel(&self) {
+        self.inner.cancelled.store(true, Ordering::Release);
+    }
+    pub fn is_cancelled(&self) -> bool {
+        self.inner.cancelled.load(Ordering::Acquire)
+    }
+    /// Apply this job's control to calculation and temporary plot queries on the
+    /// current worker thread. Nested calls restore the previous control on exit,
+    /// including unwinding, so stored function environments never retain tokens.
+    pub fn run<T>(&self, operation: impl FnOnce() -> T) -> T {
+        struct Guard(Option<CalculationControl>);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                ACTIVE_CONTROL.with(|active| {
+                    active.replace(self.0.take());
+                });
+            }
+        }
+        let _guard = Guard(ACTIVE_CONTROL.with(|active| active.replace(Some(self.clone()))));
+        operation()
+    }
+    #[cfg(test)]
+    fn stop_after_checks(checks: usize) -> Self {
+        let control = Self::default();
+        control
+            .inner
+            .remaining_checks
+            .store(checks, Ordering::Relaxed);
+        control
+            .inner
+            .check_budget_enabled
+            .store(true, Ordering::Relaxed);
+        control
+    }
+}
+
+fn cancellation_requested() -> bool {
+    ACTIVE_CONTROL.with(|active| {
+        active
+            .borrow()
+            .as_ref()
+            .is_some_and(CalculationControl::is_cancelled)
+    })
+}
+
+fn check_cancelled() -> Result<()> {
+    ACTIVE_CONTROL.with(|active| {
+        let active = active.borrow();
+        let Some(control) = active.as_ref() else {
+            return Ok(());
+        };
+        #[cfg(test)]
+        if control.inner.check_budget_enabled.load(Ordering::Relaxed)
+            && control
+                .inner
+                .remaining_checks
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+                .is_err()
+        {
+            control.cancel();
+        }
+        if control.is_cancelled() {
+            Err(Fault::new("CANCELLED", "Calculation stopped"))
+        } else {
+            Ok(())
+        }
+    })
+}
+
 /// Original load-time placement, inferred from saved page settings and confirmed
 /// by ApplyWorksheetData/AddItemAtLocation and AlignmentGrid IL. Ties snap down.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PlacementGrid {
     step: f64,
 }
@@ -85,6 +200,7 @@ pub struct Symbol {
 pub enum Expression {
     Unsupported(Fault),
     Scalar(Quantity),
+    StringLiteral(String),
     Name(Symbol),
     Neg(Box<Self>),
     Binary(String, Box<Self>, Box<Self>),
@@ -109,9 +225,12 @@ pub enum Expression {
     },
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Value {
+    String {
+        value: StringValue,
+    },
     Symbolic {
         mathml: String,
     },
@@ -146,6 +265,15 @@ impl Value {
             _ => Err(Fault::unsupported("Expected a scalar value")),
         }
     }
+    pub fn as_string(&self) -> Result<&str> {
+        match self {
+            Self::String { value } => {
+                strings::validate(value)?;
+                Ok(value)
+            }
+            _ => Err(Fault::new("invalid_argument", "must be string")),
+        }
+    }
     /// Numeric display payload, comparable with an original saved result.
     /// Physical dimensions remain separately available in `Value`.
     pub fn numeric_json(&self) -> serde_json::Value {
@@ -153,6 +281,7 @@ impl Value {
             serde_json::json!({"kind":"scalar", "real":q.value.re, "imag":q.value.im})
         }
         match self {
+            Self::String { value } => serde_json::json!({"kind":"string","value":value}),
             Self::Symbolic { mathml } => serde_json::json!({"kind":"symbolic","mathml":mathml}),
             Self::Scalar { quantity } => number(quantity),
             Self::Matrix {
@@ -187,6 +316,9 @@ pub struct Fault {
     pub unsupported: bool,
 }
 impl Fault {
+    pub fn is_cancelled(&self) -> bool {
+        self.code == "CANCELLED"
+    }
     fn new(code: &str, detail: impl Into<String>) -> Self {
         Self {
             code: code.into(),
@@ -212,9 +344,19 @@ impl Fault {
 #[derive(Clone, Debug)]
 enum Statement {
     SolveBlock(solve::SolveBlock),
+    SpecTable(spec_table::SpecTable),
     Define {
         symbol: Symbol,
         parameters: Option<Vec<Symbol>>,
+        body: Expression,
+        global: bool,
+        show_result: bool,
+        display_unit: Option<Expression>,
+    },
+    IndexedDefine {
+        symbol: Symbol,
+        indices: Vec<Expression>,
+        slice: Option<&'static str>,
         body: Expression,
         global: bool,
         show_result: bool,
@@ -237,6 +379,11 @@ pub struct RegionEvaluation {
     pub display_value: Option<Value>,
     pub error: Option<Fault>,
     pub redefinition_warning: bool,
+    /// Result-associated metadata captured from an already executing Rust scope.
+    /// Unknown/cold/unexecuted/pending/error publications never invent an origin.
+    /// This is neither matrix data nor a native MatrixFormat/source attribute.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matrix_origin: Option<i32>,
 }
 
 fn children<'a, 'input>(node: Node<'a, 'input>) -> Vec<Node<'a, 'input>> {
@@ -254,14 +401,12 @@ fn symbol(node: Node<'_, '_>) -> Result<Symbol> {
     let name = editor_bridge::identifier_identity(&name, subscript.as_deref());
     // Prime persists resolved display labels separately from explicit choices.
     // Direct MathML has no contextual resolver; never force a stale cached label.
-    let label = if contextual == Some(true) {
-        None
-    } else {
-        label
-    };
-    let label = label
+    let label = editor_bridge::explicit_identifier_label(label.as_deref(), contextual)
         .ok_or_else(|| Fault::unsupported("Automatic identifier labelling is not implemented"))?;
-    Ok(Symbol { name, label })
+    Ok(Symbol {
+        name,
+        label: label.into(),
+    })
 }
 fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
     if depth > 128 {
@@ -273,8 +418,12 @@ fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
     if is_math(node, "symEval") {
         return symbolics::parse(node, depth + 1).map(|s| Expression::Symbolic(Box::new(s)));
     }
+    if is_math(node, "str") {
+        return strings::parse_literal(node).map(Expression::StringLiteral);
+    }
     if !is_math(node, "id") {
         let allowed: &[&str] = match node.tag_name().name() {
+            "real" => &["base"],
             "imag" => &["symbol"],
             "matrix" => &["rows", "cols"],
             _ => &[],
@@ -287,6 +436,9 @@ fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
         return Ok(expression);
     }
     match node.tag_name().name() {
+        "tryCatch" => {
+            program::parse_try_expression(node, depth + 1).map(|p| Expression::Program(Box::new(p)))
+        }
         "program" => {
             program::parse_program(node, depth + 1).map(|p| Expression::Program(Box::new(p)))
         }
@@ -301,11 +453,26 @@ fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
             {
                 return Err(Fault::unsupported("Unknown imaginary symbol"));
             }
-            let number: f64 = node
-                .text()
-                .unwrap_or("")
-                .parse()
-                .map_err(|_| Fault::unsupported("Invalid numeric literal"))?;
+            let digits = node.text().unwrap_or("");
+            // Native base10/absent keep the established decimal contract. This
+            // bounded decoder never changes the authoritative worksheet XML.
+            let number: f64 = match node.attribute("base") {
+                None | Some("10") => digits
+                    .parse()
+                    .map_err(|_| Fault::unsupported("Invalid numeric literal"))?,
+                Some(base @ ("2" | "8" | "16")) => {
+                    let base = match base {
+                        "2" => 2,
+                        "8" => 8,
+                        "16" => 16,
+                        _ => unreachable!(),
+                    };
+                    radix_integral::decode_unsigned_integral(digits, base)
+                        .map_err(|e| Fault::unsupported(e.to_string()))?
+                        .exact_f64()
+                }
+                Some(_) => return Err(Fault::unsupported("Unsupported numeric base metadata")),
+            };
             if !number.is_finite() {
                 return Err(Fault::unsupported("Nonfinite literal"));
             }
@@ -328,6 +495,21 @@ fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
                 .unwrap_or("")
                 .parse()
                 .map_err(|_| Fault::unsupported("Invalid matrix columns"))?;
+            // Probe only the first child on the ordinary legacy path. A later
+            // display (including a foreign mimic) is still rejected by the
+            // existing full-cell parse below; it can never be skipped as data.
+            let source = if items
+                .first()
+                .is_some_and(|n| n.tag_name().name() == "display")
+            {
+                Some(
+                    source_matrix_display::parse(node, rows, cols, &items)
+                        .map_err(Fault::unsupported)?,
+                )
+            } else {
+                None
+            };
+            let items = source.as_ref().map_or(items.as_slice(), |s| s.cells);
             if rows.checked_mul(cols) != Some(items.len())
                 || rows == 0
                 || cols == 0
@@ -405,12 +587,19 @@ fn parse_expression(node: Node<'_, '_>, depth: usize) -> Result<Expression> {
                 ("neg", [a]) => Ok(Expression::Neg(Box::new(parse(*a)?))),
                 ("absval", [a]) => Ok(Expression::Absolute(Box::new(parse(*a)?))),
                 (
-                    name @ ("transpose" | "conjugate" | "factorial" | "determinant" | "norm"),
+                    name @ ("transpose" | "conjugate" | "factorial" | "determinant" | "vectorize"
+                    | "percent" | "degree_op"),
                     [a],
                 ) => Ok(Expression::Unary(name.into(), Box::new(parse(*a)?))),
-                (name @ ("plus" | "minus" | "mult" | "div" | "pow" | "scale"), [a, b]) => Ok(
-                    Expression::Binary(name.into(), Box::new(parse(*a)?), Box::new(parse(*b)?)),
-                ),
+                (
+                    name @ ("plus" | "minus" | "mult" | "div" | "pow" | "scale" | "matcol"
+                    | "matrow" | "crossProduct" | "polar"),
+                    [a, b],
+                ) => Ok(Expression::Binary(
+                    name.into(),
+                    Box::new(parse(*a)?),
+                    Box::new(parse(*b)?),
+                )),
                 ("nthRoot", [degree, a]) => {
                     let degree = if is_math(*degree, "placeholder") {
                         Expression::Scalar(Quantity::scalar(2.))
@@ -459,42 +648,47 @@ fn parse_statement(node: Node<'_, '_>) -> Result<Statement> {
         items.as_slice(),
     ) {
         (Some(ML), name @ ("define" | "globalDefine"), [lhs, rhs]) => {
-            let (symbol, parameters, declaration_fault) = if is_math(*lhs, "function") {
-                let parts = children(*lhs);
-                let target = symbol(
-                    *parts
-                        .first()
-                        .ok_or_else(|| Fault::unsupported("Missing function name"))?,
-                )?;
-                let parameters = (|| {
-                    check_attributes(*lhs, &[])?;
-                    match parts.as_slice() {
-                        [name, bound] if is_math(*bound, "boundVars") => {
-                            symbol(*name)?;
-                            check_attributes(*bound, &[])?;
-                            let parameters = children(*bound)
-                                .into_iter()
-                                .map(symbol)
-                                .collect::<Result<Vec<_>>>()?;
-                            if parameters.len() > 64 {
-                                return Err(Fault::unsupported("Parameter budget exceeded"));
+            let mut indexed = None;
+            let (symbol, parameters, declaration_fault) =
+                if let Some((target, indices, slice)) = array_definition_target(*lhs)? {
+                    indexed = Some((indices, slice));
+                    (target, None, None)
+                } else if is_math(*lhs, "function") {
+                    let parts = children(*lhs);
+                    let target = symbol(
+                        *parts
+                            .first()
+                            .ok_or_else(|| Fault::unsupported("Missing function name"))?,
+                    )?;
+                    let parameters = (|| {
+                        check_attributes(*lhs, &[])?;
+                        match parts.as_slice() {
+                            [name, bound] if is_math(*bound, "boundVars") => {
+                                symbol(*name)?;
+                                check_attributes(*bound, &[])?;
+                                let parameters = children(*bound)
+                                    .into_iter()
+                                    .map(symbol)
+                                    .collect::<Result<Vec<_>>>()?;
+                                if parameters.len() > 64 {
+                                    return Err(Fault::unsupported("Parameter budget exceeded"));
+                                }
+                                let mut unique = std::collections::HashSet::new();
+                                if parameters.iter().any(|p| !unique.insert(p.clone())) {
+                                    return Err(Fault::unsupported("Duplicate parameters"));
+                                }
+                                Ok(parameters)
                             }
-                            let mut unique = std::collections::HashSet::new();
-                            if parameters.iter().any(|p| !unique.insert(p.clone())) {
-                                return Err(Fault::unsupported("Duplicate parameters"));
-                            }
-                            Ok(parameters)
+                            _ => Err(Fault::unsupported("Function declaration structure")),
                         }
-                        _ => Err(Fault::unsupported("Function declaration structure")),
+                    })();
+                    match parameters {
+                        Ok(parameters) => (target, Some(parameters), None),
+                        Err(fault) => (target, Some(vec![]), Some(fault)),
                     }
-                })();
-                match parameters {
-                    Ok(parameters) => (target, Some(parameters), None),
-                    Err(fault) => (target, Some(vec![]), Some(fault)),
-                }
-            } else {
-                (symbol(*lhs)?, None, None)
-            };
+                } else {
+                    (symbol(*lhs)?, None, None)
+                };
             let (body, display_unit, show_result) = if is_math(*rhs, "eval") {
                 let parts = children(*rhs);
                 match parts.as_slice() {
@@ -519,21 +713,33 @@ fn parse_statement(node: Node<'_, '_>) -> Result<Statement> {
                     false,
                 )
             };
+            let body = declaration_fault
+                .or_else(|| {
+                    if is_math(*rhs, "eval") {
+                        check_attributes(*rhs, &[]).err()
+                    } else {
+                        None
+                    }
+                })
+                .map(Expression::Unsupported)
+                .unwrap_or(body);
+            if let Some((indices, slice)) = indexed {
+                return Ok(Statement::IndexedDefine {
+                    symbol,
+                    indices,
+                    slice,
+                    body,
+                    global: name == "globalDefine",
+                    show_result,
+                    display_unit,
+                });
+            }
             Ok(Statement::Define {
                 symbol,
                 parameters,
                 // Retain the declaration even if its RHS is unsupported, so it
                 // poisons dependent reads instead of exposing an earlier value.
-                body: declaration_fault
-                    .or_else(|| {
-                        if is_math(*rhs, "eval") {
-                            check_attributes(*rhs, &[]).err()
-                        } else {
-                            None
-                        }
-                    })
-                    .map(Expression::Unsupported)
-                    .unwrap_or(body),
+                body,
                 global: name == "globalDefine",
                 show_result,
                 display_unit,
@@ -551,6 +757,39 @@ fn parse_statement(node: Node<'_, '_>) -> Result<Statement> {
             node.tag_name().name()
         ))),
     }
+}
+
+/// Keep the declared base even when an index/operand is malformed, so failed
+/// array definitions poison subsequent reads rather than expose an old value.
+type ArrayDefinitionTarget = (Symbol, Vec<Expression>, Option<&'static str>);
+fn array_definition_target(node: Node<'_, '_>) -> Result<Option<ArrayDefinitionTarget>> {
+    if !is_math(node, "apply") {
+        return Ok(None);
+    }
+    let parts = children(node);
+    let Some(op) = parts.first() else {
+        return Ok(None);
+    };
+    let slice = match op.tag_name().name() {
+        "matrow" if is_math(*op, "matrow") => Some("matrow"),
+        "matcol" if is_math(*op, "matcol") => Some("matcol"),
+        "indexer" if is_math(*op, "indexer") => None,
+        _ => return Ok(None),
+    };
+    let target = symbol(
+        *parts
+            .get(1)
+            .ok_or_else(|| Fault::unsupported("Missing array definition name"))?,
+    )?;
+    let indices = match parse_expression(node, 0) {
+        Ok(Expression::Index(_, indices)) if slice.is_none() => indices,
+        Ok(Expression::Binary(_, _, index)) if slice.is_some() => vec![*index],
+        Ok(_) => vec![Expression::Unsupported(Fault::unsupported(
+            "Array definition structure",
+        ))],
+        Err(fault) => vec![Expression::Unsupported(fault)],
+    };
+    Ok(Some((target, indices, slice)))
 }
 
 fn parse_display_unit(node: Node<'_, '_>) -> Result<Option<Expression>> {
@@ -574,35 +813,351 @@ fn check_attributes(node: Node<'_, '_>, allowed: &[&str]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod array_reference_tests;
+mod scaling;
+mod unit_functions;
+
 #[derive(Clone)]
 enum Binding {
     Value(Value),
+    IndexedArray {
+        value: Value,
+        zero_dimension: Option<[f64; 7]>,
+    },
     Function {
         parameters: Vec<Symbol>,
         body: Expression,
         captured: Arc<Scope>,
+        local_guard: Option<program::CaptureGuard>,
     },
     Failed {
         fault: Fault,
         region: String,
     },
 }
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Scope {
-    bindings: HashMap<Symbol, Binding>,
+    strings_use_origin: Option<bool>,
+    bindings: Bindings,
+    program_frame: Option<Arc<program::CaptureFrame>>,
+}
+impl Default for Scope {
+    fn default() -> Self {
+        Self {
+            strings_use_origin: Some(false),
+            bindings: Bindings::default(),
+            program_frame: None,
+        }
+    }
+}
+
+type BindingDelta = Vec<(Symbol, Arc<Binding>)>;
+type BindingUndo = Vec<(Symbol, Option<Arc<Binding>>)>;
+
+/// Bindings are replaced atomically, never mutated through a scope reference.
+/// A copied scope/checkpoint can share immutable payloads, including fill-unit
+/// metadata and captured functions, without copying every matrix element.
+#[derive(Clone, Default)]
+struct Bindings {
+    values: HashMap<Symbol, Arc<Binding>>,
+}
+impl Bindings {
+    fn get(&self, name: &Symbol) -> Option<&Binding> {
+        self.values.get(name).map(Arc::as_ref)
+    }
+    fn shared(&self, name: &Symbol) -> Option<Arc<Binding>> {
+        self.values.get(name).cloned()
+    }
+    fn contains_key(&self, name: &Symbol) -> bool {
+        self.values.contains_key(name)
+    }
+    fn insert(&mut self, name: Symbol, binding: Binding) -> Option<Arc<Binding>> {
+        self.insert_shared(name, Arc::new(binding))
+    }
+    fn insert_shared(&mut self, name: Symbol, binding: Arc<Binding>) -> Option<Arc<Binding>> {
+        self.values.insert(name, binding)
+    }
+    fn remove(&mut self, name: &Symbol) -> Option<Arc<Binding>> {
+        self.values.remove(name)
+    }
+    fn extend(&mut self, bindings: impl IntoIterator<Item = (Symbol, Arc<Binding>)>) {
+        self.values.extend(bindings);
+    }
 }
 fn builtin(name: &Symbol) -> bool {
-    name.label == "FUNCTION"
-        && (scalars::is_builtin(&name.name)
-            || arrays::is_builtin(&name.name)
-            || statistics::is_builtin(&name.name)
-            || numerics::is_builtin(&name.name))
+    unit_functions::is_builtin(name)
+        || (name.label == "FUNCTION"
+            && (strings::is_builtin(&name.name)
+                || scalars::is_builtin(&name.name)
+                || arrays::is_builtin(&name.name)
+                || statistics::is_builtin(&name.name)
+                || numerics::is_builtin(&name.name)))
 }
 impl Scope {
+    fn origin(&self) -> Result<Quantity> {
+        let symbol = Symbol {
+            name: "ORIGIN".into(),
+            label: "SYSTEM".into(),
+        };
+        let origin = match self.stored_binding(&symbol)? {
+            Some(Binding::Value(value) | Binding::IndexedArray { value, .. }) => {
+                value.as_quantity()?
+            }
+            Some(_) => return Err(Fault::unsupported("Non-scalar SYSTEM ORIGIN")),
+            None => Quantity::scalar(0.),
+        };
+        if !origin.is_scalar()
+            || origin.value.im != 0.
+            || !origin.value.re.is_finite()
+            || origin.value.re.fract() != 0.
+        {
+            return Err(Fault::unsupported(
+                "SYSTEM ORIGIN must be a real, dimensionless integer",
+            ));
+        }
+        Ok(origin)
+    }
+
+    fn define_indexed(
+        &mut self,
+        symbol: &Symbol,
+        indices: &[Expression],
+        body: &Expression,
+        region: &str,
+    ) -> Result<bool> {
+        self.define_array(symbol, indices, None, body, region)
+    }
+
+    fn define_array(
+        &mut self,
+        symbol: &Symbol,
+        indices: &[Expression],
+        slice: Option<&str>,
+        body: &Expression,
+        region: &str,
+    ) -> Result<bool> {
+        self.define_array_at_depth(symbol, (indices, slice), body, region, 0)
+            .map(|(ranged, _)| ranged)
+    }
+
+    fn define_array_at_depth(
+        &mut self,
+        symbol: &Symbol,
+        (indices, slice): (&[Expression], Option<&str>),
+        body: &Expression,
+        region: &str,
+        depth: usize,
+    ) -> Result<(bool, Value)> {
+        let result: Result<(Binding, bool, Value)> = (|| {
+            if slice.is_some_and(|operator| !matches!(operator, "matrow" | "matcol")) {
+                return Err(Fault::unsupported("Unknown array assignment operator"));
+            }
+            let origin = self.origin()?;
+            let mut names = std::collections::HashSet::new();
+            for index in indices {
+                self.collect_range_names(index, &mut names, depth)?;
+            }
+            let mut names: Vec<_> = names.into_iter().collect();
+            names.sort_by(|a, b| a.name.cmp(&b.name).then(a.label.cmp(&b.label)));
+            let ranged = !names.is_empty();
+            if ranged && slice.is_some() {
+                return Err(Fault::unsupported(
+                    "Range-valued row/column assignment indices need an established original lowering contract",
+                ));
+            }
+            if ranged {
+                // Self-dependent range recurrence has an observable loop order
+                // that this static pass has not recovered. Reject it instead
+                // of silently reading either a partly updated or stale array.
+                let mut validation = self.clone();
+                validation.bindings.insert(symbol.clone(),Binding::Failed{fault:Fault::new("EA041_RANGE_RECURRENCE","Indexed range recurrence needs an established execution-order contract"),region:region.into()});
+                validation
+                    .validate_names(body, &[], depth)
+                    .map_err(|fault| {
+                        if fault.code == "EA041_RANGE_RECURRENCE" {
+                            Fault::unsupported(fault.detail)
+                        } else {
+                            fault
+                        }
+                    })?;
+            }
+            let mut ranges = Vec::new();
+            let mut count = 1usize;
+            for name in names {
+                let Binding::Value(Value::Range {
+                    start,
+                    step,
+                    count: range_count,
+                    ..
+                }) = self.lookup(&name)?
+                else {
+                    unreachable!()
+                };
+                count = count
+                    .checked_mul(range_count)
+                    .filter(|count| *count > 0 && *count <= 16_384)
+                    .ok_or_else(|| Fault::unsupported("Indexed range work budget exceeded"))?;
+                ranges.push((name, start, step, range_count));
+            }
+            let (existing, dimension) = match self.bindings.get(symbol) {
+                Some(Binding::IndexedArray {
+                    value,
+                    zero_dimension,
+                }) => (Some(value.clone()), *zero_dimension),
+                Some(Binding::Value(value)) => (Some(value.clone()), None),
+                Some(Binding::Failed { .. }) => {
+                    self.lookup(symbol)?;
+                    unreachable!()
+                }
+                _ => (None, None),
+            };
+            let mut array = arrays::IndexedArray::new(existing, dimension)?;
+            let mut point = self.clone();
+            let mut last_value = None;
+            for ordinal in 0..count {
+                check_cancelled()?;
+                let mut remainder = ordinal;
+                for (name, start, step, len) in ranges.iter().rev() {
+                    let index = remainder % len;
+                    remainder /= len;
+                    let mut value = *start;
+                    value.value = start.value + step.value * index as f64;
+                    point
+                        .bindings
+                        .insert(name.clone(), Binding::Value(Value::scalar(value)));
+                }
+                let offsets = indices
+                    .iter()
+                    .map(|index| {
+                        point
+                            .evaluate(index, depth)?
+                            .as_quantity()
+                            .and_then(|index| arrays::index_offset(index, origin))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let value = point.evaluate(body, depth)?;
+                if let Some(operator) = slice {
+                    let [offset] = offsets.as_slice() else {
+                        return Err(Fault::unsupported(
+                            "Row/column definition requires one index",
+                        ));
+                    };
+                    let rhs_dimension = match body {
+                        Expression::Name(name) => match point.bindings.get(name) {
+                            Some(Binding::IndexedArray { zero_dimension, .. }) => *zero_dimension,
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    array.put_slice(operator == "matcol", *offset, &value, rhs_dimension)?;
+                } else {
+                    array.put(&offsets, value.as_quantity()?)?;
+                }
+                last_value = Some(value);
+            }
+            let (value, zero_dimension) = array.finish();
+            Ok((
+                Binding::IndexedArray {
+                    value,
+                    zero_dimension,
+                },
+                ranged,
+                last_value.expect("Nonempty bounded array assignment iteration"),
+            ))
+        })();
+        match result {
+            Ok((binding, ranged, value)) => {
+                self.bindings.insert(symbol.clone(), binding);
+                Ok((ranged, value))
+            }
+            Err(fault) => {
+                if !fault.is_cancelled() {
+                    self.bindings.insert(
+                        symbol.clone(),
+                        Binding::Failed {
+                            fault: fault.clone(),
+                            region: region.into(),
+                        },
+                    );
+                }
+                Err(fault)
+            }
+        }
+    }
+
+    fn indexed_definition_result(
+        &self,
+        symbol: &Symbol,
+        indices: &[Expression],
+        unit: &Option<Expression>,
+    ) -> Result<(Value, Option<Value>)> {
+        // The shipped array-authoring help explicitly supports single-index
+        // writes to row vectors. Preserve that addressed-cell meaning for the
+        // definition's inline result without broadening general index reads.
+        if let [index] = indices
+            && let Value::Matrix {
+                rows: 1,
+                cols,
+                elements,
+            } = self.evaluate(&Expression::Name(symbol.clone()), 0)?
+            && cols > 1
+        {
+            let offset =
+                arrays::index_offset(self.evaluate(index, 0)?.as_quantity()?, self.origin()?)?;
+            let quantity = elements
+                .get(offset)
+                .copied()
+                .ok_or_else(|| Fault::unsupported("Matrix index outside implemented range"))?;
+            return self.display(Value::scalar(quantity), unit);
+        }
+        let value = self.evaluate(
+            &Expression::Index(Box::new(Expression::Name(symbol.clone())), indices.to_vec()),
+            0,
+        )?;
+        self.display(value, unit)
+    }
+
+    fn array_definition_result(
+        &self,
+        symbol: &Symbol,
+        indices: &[Expression],
+        slice: Option<&str>,
+        unit: &Option<Expression>,
+    ) -> Result<(Value, Option<Value>)> {
+        if let Some(operator) = slice {
+            let [index] = indices else {
+                return Err(Fault::unsupported(
+                    "Row/column definition requires one index",
+                ));
+            };
+            let value = self.evaluate(
+                &Expression::Binary(
+                    operator.into(),
+                    Box::new(Expression::Name(symbol.clone())),
+                    Box::new(index.clone()),
+                ),
+                0,
+            )?;
+            self.display(value, unit)
+        } else {
+            self.indexed_definition_result(symbol, indices, unit)
+        }
+    }
+
     fn display(&self, value: Value, unit: &Option<Expression>) -> Result<(Value, Option<Value>)> {
         let Some(unit) = unit else {
             return Ok((value, None));
         };
+        // UNIT functions have a registered inverse, not a linear factor.
+        // Preserve worksheet bindings (including failed definitions) first.
+        if let Expression::Name(name) = unit
+            && !self.bindings.contains_key(name)
+            && unit_functions::is_builtin(name)
+        {
+            let display = unit_functions::inverse_display(name, &value)?;
+            return Ok((value, Some(display)));
+        }
         let unit = self.evaluate(unit, 0)?.as_quantity()?;
         if unit.value.norm() == 0. {
             return Err(Fault::new("divide_by_zero", "Display unit is zero"));
@@ -624,6 +1179,11 @@ impl Scope {
             })
         };
         let display = match &value {
+            Value::String { .. } => {
+                return Err(Fault::unsupported(
+                    "Strings cannot have a numeric display unit",
+                ));
+            }
             Value::Symbolic { .. } => {
                 return Err(Fault::unsupported(
                     "Symbolic results cannot have a numeric display unit",
@@ -713,7 +1273,10 @@ impl Scope {
         match expression {
             Expression::Symbolic(_) => Ok(()),
             Expression::Name(name) => {
-                if matches!(self.lookup(name), Ok(Binding::Value(Value::Range { .. }))) {
+                if matches!(
+                    self.bindings.get(name),
+                    Some(Binding::Value(Value::Range { .. }))
+                ) {
                     names.insert(name.clone());
                 }
                 Ok(())
@@ -726,6 +1289,9 @@ impl Scope {
                     visit(a)?;
                 }
                 Ok(())
+            }
+            Expression::Binary(op, a, b) if op == "scale" && self.scaling_function(b).is_some() => {
+                visit(a)
             }
             Expression::Binary(_, a, b) | Expression::Root(a, b) => {
                 visit(a)?;
@@ -755,7 +1321,9 @@ impl Scope {
                 }
                 visit(end)
             }
-            Expression::Unsupported(_) | Expression::Scalar(_) => Ok(()),
+            Expression::Unsupported(_) | Expression::Scalar(_) | Expression::StringLiteral(_) => {
+                Ok(())
+            }
         }
     }
 
@@ -772,12 +1340,9 @@ impl Scope {
         }
     }
     fn lookup(&self, name: &Symbol) -> Result<Binding> {
-        if let Some(binding) = self.bindings.get(name) {
+        if let Some(binding) = self.stored_binding(name)? {
             return match binding {
-                Binding::Failed { fault, region } => Err(Fault {
-                    previous_region: Some(region.clone()),
-                    ..fault.clone()
-                }),
+                Binding::IndexedArray { value, .. } => Ok(Binding::Value(value.clone())),
                 _ => Ok(binding.clone()),
             };
         }
@@ -798,16 +1363,52 @@ impl Scope {
             .map(|q| Binding::Value(Value::scalar(q)))
             .ok_or_else(|| Fault::unknown(name))
     }
+    fn stored_binding(&self, name: &Symbol) -> Result<Option<&Binding>> {
+        match self.bindings.get(name) {
+            Some(Binding::Failed { fault, region }) => Err(Fault {
+                previous_region: Some(region.clone()),
+                ..fault.clone()
+            }),
+            binding => Ok(binding),
+        }
+    }
+    fn validate_name(&self, name: &Symbol) -> Result<()> {
+        if self.stored_binding(name)?.is_some() {
+            Ok(())
+        } else {
+            self.lookup(name).map(|_| ())
+        }
+    }
+    fn evaluate_reference<'a>(
+        &'a self,
+        expression: &Expression,
+        depth: usize,
+    ) -> Result<std::borrow::Cow<'a, Value>> {
+        if let Expression::Name(name) = expression {
+            check_cancelled()?;
+            if depth > 128 {
+                return Err(Fault::unsupported("Evaluation depth exceeded"));
+            }
+            if let Some(Binding::Value(value) | Binding::IndexedArray { value, .. }) =
+                self.stored_binding(name)?
+            {
+                return Ok(std::borrow::Cow::Borrowed(value));
+            }
+        }
+        self.evaluate(expression, depth)
+            .map(std::borrow::Cow::Owned)
+    }
     fn validate_names(&self, e: &Expression, parameters: &[Symbol], depth: usize) -> Result<()> {
+        check_cancelled()?;
         if depth > 128 {
             return Err(Fault::unsupported("Expression depth exceeded"));
         }
         match e {
             Expression::Symbolic(_) => Ok(()),
             Expression::Unsupported(fault) => Err(fault.clone()),
-            Expression::Scalar(_) => Ok(()),
+            Expression::Scalar(_) | Expression::StringLiteral(_) => Ok(()),
             Expression::Name(s) if parameters.contains(s) => Ok(()),
-            Expression::Name(s) => self.lookup(s).map(|_| ()),
+            Expression::Name(s) => self.validate_name(s),
             Expression::Neg(a) | Expression::Absolute(a) | Expression::Unary(_, a) => {
                 self.validate_names(a, parameters, depth + 1)
             }
@@ -818,6 +1419,10 @@ impl Scope {
                     self.validate_names(a, parameters, depth + 1)?;
                 }
                 Ok(())
+            }
+            Expression::Binary(op, a, b) if op == "scale" && self.scaling_function(b).is_some() => {
+                self.validate_names(a, parameters, depth + 1)?;
+                self.validate_call_name(self.scaling_function(b).unwrap(), parameters)
             }
             Expression::Binary(_, a, b) | Expression::Root(a, b) => {
                 self.validate_names(a, parameters, depth + 1)?;
@@ -838,9 +1443,7 @@ impl Scope {
                 self.validate_names(end, parameters, depth + 1)
             }
             Expression::Call(s, args) => {
-                if !parameters.contains(s) && (self.bindings.contains_key(s) || !builtin(s)) {
-                    self.lookup(s)?;
-                }
+                self.validate_call_name(s, parameters)?;
                 for a in args {
                     self.validate_names(a, parameters, depth + 1)?;
                 }
@@ -855,6 +1458,7 @@ impl Scope {
         }
     }
     fn evaluate(&self, e: &Expression, depth: usize) -> Result<Value> {
+        check_cancelled()?;
         if depth > 128 {
             return Err(Fault::unsupported("Evaluation depth exceeded"));
         }
@@ -881,18 +1485,44 @@ impl Scope {
             Expression::Numerical(n) => numerics::evaluate(self, n, depth + 1),
             Expression::Unsupported(fault) => Err(fault.clone()),
             Expression::Scalar(q) => Ok(Value::scalar(*q)),
+            Expression::StringLiteral(value) => {
+                strings::validate(value)?;
+                Ok(Value::String {
+                    value: StringValue::from(value.as_str()),
+                })
+            }
             Expression::Name(name) => match self.lookup(name)? {
                 Binding::Value(v) => Ok(v),
                 _ => Err(Fault::unsupported("Function used as a scalar")),
             },
             Expression::Neg(a) => arrays::unary("neg", &eval(a)?),
             Expression::Absolute(a) => arrays::unary("absval", &eval(a)?),
+            Expression::Unary(op, a) if op == "vectorize" => self.evaluate_vectorized(a, depth + 1),
             Expression::Unary(op, a) => {
+                let value = self.evaluate_reference(a, depth + 1)?;
                 if op == "factorial" {
-                    scalars::factorial(&eval(a)?)
+                    scalars::factorial(&value)
                 } else {
-                    arrays::unary(op, &eval(a)?)
+                    arrays::unary(op, &value)
                 }
+            }
+            Expression::Binary(op, a, b) if matches!(op.as_str(), "matcol" | "matrow") => {
+                let matrix = self.evaluate_reference(a, depth + 1)?;
+                let index = scalar(b)?;
+                arrays::row_or_column(op, &matrix, index, self.origin()?)
+            }
+            Expression::Binary(op, a, b) if matches!(op.as_str(), "crossProduct" | "polar") => {
+                let left = self.evaluate_reference(a, depth + 1)?;
+                let right = self.evaluate_reference(b, depth + 1)?;
+                if op == "polar" {
+                    arrays::polar(&left, &right)
+                } else {
+                    arrays::cross_product(&left, &right)
+                }
+            }
+            Expression::Binary(op, a, b) if op == "scale" && self.scaling_function(b).is_some() => {
+                let argument = eval(a)?;
+                self.call_named(self.scaling_function(b).unwrap(), vec![argument], depth)
             }
             Expression::Binary(op, a, b) => arrays::binary(op, &eval(a)?, &eval(b)?),
             Expression::Root(degree, a) => {
@@ -963,40 +1593,21 @@ impl Scope {
                 })
             }
             Expression::Index(a, indices) => {
-                let matrix = eval(a)?;
-                let origin_symbol = Symbol {
-                    name: "ORIGIN".into(),
-                    label: "SYSTEM".into(),
-                };
-                let origin = match self.lookup(&origin_symbol)? {
-                    Binding::Value(v) => v.as_quantity()?,
-                    _ => return Err(Fault::unsupported("Non-scalar SYSTEM ORIGIN")),
-                };
-                if !origin.is_scalar() || origin.value.im != 0. || origin.value.re.fract() != 0. {
-                    return Err(Fault::unsupported(
-                        "SYSTEM ORIGIN must be a real, dimensionless integer",
-                    ));
-                }
+                let matrix = self.evaluate_reference(a, depth + 1)?;
+                let origin = self.origin()?;
                 let mut offsets = Vec::new();
                 for i in indices {
                     let index = scalar(i)?;
-                    if !index.is_scalar() || index.value.im != 0. || index.value.re.fract() != 0. {
-                        return Err(Fault::unsupported("Non-integer/unit-bearing matrix index"));
-                    }
-                    let offset = index.value.re - origin.value.re;
-                    if offset < 0. || offset > 16383. {
-                        return Err(Fault::unsupported("Matrix index outside implemented range"));
-                    }
-                    offsets.push(offset as usize);
+                    offsets.push(arrays::index_offset(index, origin)?);
                 }
-                match matrix {
+                match matrix.as_ref() {
                     Value::Matrix {
                         rows,
                         cols,
                         elements,
                     } => {
                         let (r, c) = match offsets.as_slice() {
-                            [i] if cols == 1 => (*i, 0),
+                            [i] if *cols == 1 => (*i, 0),
                             [r, c] => (*r, *c),
                             _ => {
                                 return Err(Fault::unsupported(
@@ -1004,7 +1615,7 @@ impl Scope {
                                 ));
                             }
                         };
-                        if r >= rows || c >= cols {
+                        if r >= *rows || c >= *cols {
                             return Err(Fault::unsupported(
                                 "Matrix index outside implemented range",
                             ));
@@ -1016,52 +1627,125 @@ impl Scope {
             }
             Expression::Call(name, arguments) => {
                 let args = arguments.iter().map(eval).collect::<Result<Vec<_>>>()?;
-                // An explicit user definition takes priority over a built-in with
-                // the SAME labelled identity; other label classes stay distinct.
-                if self.bindings.contains_key(name) {
-                    let binding = self.lookup(name)?;
-                    if let Binding::Function {
-                        parameters,
-                        body,
-                        captured,
-                    } = binding
-                    {
-                        if args.len() != parameters.len() {
-                            return Err(Fault::unsupported("Function argument count"));
-                        }
-                        let mut call = (*captured).clone();
-                        for (parameter, value) in parameters.into_iter().zip(args) {
-                            call.bindings.insert(parameter, Binding::Value(value));
-                        }
-                        return call.evaluate(&body, depth + 1);
-                    }
-                    return Err(Fault::unsupported("Calling a non-function"));
-                }
-                if !builtin(name) {
-                    return Err(Fault::unknown(name));
-                }
-                if scalars::is_builtin(&name.name) {
-                    return scalars::call(&name.name, &args);
-                }
-                if statistics::is_builtin(&name.name) {
-                    return statistics::call(&name.name, &args);
-                }
-                if numerics::is_builtin(&name.name) {
-                    return numerics::call(&name.name, &args);
-                }
-                let origin = if matches!(name.name.as_str(), "last" | "submatrix") {
-                    match self.lookup(&Symbol {
-                        name: "ORIGIN".into(),
-                        label: "SYSTEM".into(),
-                    })? {
-                        Binding::Value(value) => value.as_quantity()?,
-                        _ => return Err(Fault::unsupported("Non-scalar SYSTEM ORIGIN")),
-                    }
-                } else {
-                    Quantity::scalar(0.)
-                };
-                arrays::call(&name.name, &args, origin)
+                self.call_named(name, args, depth)
             }
+        }
+    }
+    /// The arrow changes each application in this expression, but does not
+    /// rewrite a separately defined function body or a stored intermediate.
+    fn evaluate_vectorized(&self, expression: &Expression, depth: usize) -> Result<Value> {
+        check_cancelled()?;
+        if depth > 128 {
+            return Err(Fault::unsupported("Vectorized expression depth exceeded"));
+        }
+        let evaluate = |value| self.evaluate_vectorized(value, depth + 1);
+        let scalar_expression = |value: &Value| value.as_quantity().map(Expression::Scalar);
+        match expression {
+            Expression::Scalar(_) | Expression::StringLiteral(_) | Expression::Name(_) => {
+                let value = self.evaluate(expression, depth + 1)?;
+                if matches!(value, Value::Scalar { .. } | Value::Matrix { .. }) {
+                    Ok(value)
+                } else {
+                    Err(Fault::unsupported(
+                        "Vectorization requires a numeric scalar or matrix",
+                    ))
+                }
+            }
+            Expression::Unsupported(fault) => Err(fault.clone()),
+            Expression::Unary(op, child) if op == "vectorize" => evaluate(child),
+            Expression::Neg(child) | Expression::Absolute(child) | Expression::Unary(_, child) => {
+                let value = evaluate(child)?;
+                arrays::vectorize(&[value], |point| {
+                    let child = Box::new(scalar_expression(&point[0])?);
+                    let operation = match expression {
+                        Expression::Neg(_) => Expression::Neg(child),
+                        Expression::Absolute(_) => Expression::Absolute(child),
+                        Expression::Unary(op, _) => Expression::Unary(op.clone(), child),
+                        _ => unreachable!(),
+                    };
+                    self.evaluate(&operation, depth + 1)
+                })
+            }
+            Expression::Binary(op, left, right)
+                if op == "scale" && self.scaling_function(right).is_some() =>
+            {
+                let name = self.scaling_function(right).unwrap();
+                let argument = evaluate(left)?;
+                arrays::vectorize(&[argument], |point| {
+                    self.evaluate(
+                        &Expression::Call(name.clone(), vec![scalar_expression(&point[0])?]),
+                        depth + 1,
+                    )
+                })
+            }
+            Expression::Binary(op, left, right) => {
+                let values = [evaluate(left)?, evaluate(right)?];
+                arrays::vectorize(&values, |point| {
+                    self.evaluate(
+                        &Expression::Binary(
+                            op.clone(),
+                            Box::new(scalar_expression(&point[0])?),
+                            Box::new(scalar_expression(&point[1])?),
+                        ),
+                        depth + 1,
+                    )
+                })
+            }
+            Expression::Root(degree, value) => {
+                let values = [evaluate(degree)?, evaluate(value)?];
+                arrays::vectorize(&values, |point| {
+                    self.evaluate(
+                        &Expression::Root(
+                            Box::new(scalar_expression(&point[0])?),
+                            Box::new(scalar_expression(&point[1])?),
+                        ),
+                        depth + 1,
+                    )
+                })
+            }
+            Expression::Call(name, arguments) => {
+                let values = arguments.iter().map(evaluate).collect::<Result<Vec<_>>>()?;
+                arrays::vectorize(&values, |point| {
+                    let arguments = point.iter().map(scalar_expression).collect::<Result<_>>()?;
+                    self.evaluate(&Expression::Call(name.clone(), arguments), depth + 1)
+                })
+            }
+            Expression::Matrix {
+                rows,
+                cols,
+                elements,
+            } => Ok(Value::Matrix {
+                rows: *rows,
+                cols: *cols,
+                elements: elements
+                    .iter()
+                    .map(|cell| evaluate(cell)?.as_quantity())
+                    .collect::<Result<_>>()?,
+            }),
+            Expression::Logic(logic) => {
+                let values = logic
+                    .arguments
+                    .iter()
+                    .map(evaluate)
+                    .collect::<Result<Vec<_>>>()?;
+                arrays::vectorize(&values, |point| {
+                    let arguments = point.iter().map(scalar_expression).collect::<Result<_>>()?;
+                    self.evaluate(
+                        &Expression::Logic(Box::new(program::Logic {
+                            operator: logic.operator,
+                            arguments,
+                        })),
+                        depth + 1,
+                    )
+                })
+            }
+            Expression::Index(_, _)
+            | Expression::Range { .. }
+            | Expression::Program(_)
+            | Expression::Numerical(_)
+            | Expression::Symbolic(_) => Err(Fault::unsupported(
+                "Vectorization of index/range/program/numerical/symbolic special forms is not established",
+            )),
         }
     }
     fn define(
@@ -1071,12 +1755,27 @@ impl Scope {
         body: &Expression,
         region: &str,
     ) -> Result<()> {
+        check_cancelled()?;
+        if parameters.is_none()
+            && let Expression::Name(source) = body
+            && let Some(binding) = self.bindings.shared(source)
+            && matches!(
+                binding.as_ref(),
+                Binding::IndexedArray { .. } | Binding::Value(Value::Matrix { .. })
+            )
+        {
+            // Later writes publish a fresh binding; sharing this immutable
+            // version keeps aliases isolated and retains private fill metadata.
+            self.bindings.insert_shared(symbol.clone(), binding);
+            return Ok(());
+        }
         let binding = if let Some(parameters) = parameters {
             self.validate_names(body, parameters, 0)
                 .map(|()| Binding::Function {
                     parameters: parameters.clone(),
                     body: body.clone(),
                     captured: Arc::new(self.clone()),
+                    local_guard: None,
                 })
         } else {
             self.evaluate(body, 0).and_then(|value| {
@@ -1091,6 +1790,9 @@ impl Scope {
                 Ok(())
             }
             Err(fault) => {
+                if fault.is_cancelled() {
+                    return Err(fault);
+                }
                 self.bindings.insert(
                     symbol.clone(),
                     Binding::Failed {
@@ -1104,7 +1806,446 @@ impl Scope {
     }
 }
 
-/// Evaluate already positioned, top-level math regions, in geometric order.
+type WorksheetInput = (RegionEvaluation, Result<Statement>);
+type ParsedWorksheet = (Vec<WorksheetInput>, Vec<String>, Vec<(f64, f64)>);
+
+/// Calculation commands are independent of automatic-calculation settings.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CalculationRequest {
+    Worksheet,
+    /// Initialize global prerequisite bindings without publishing worksheet rows.
+    Prerequisites,
+    ThroughRegion(String),
+    ActiveRegion(String),
+}
+
+/// Rows retain their last result while pending, independently of synchronization.
+#[derive(Clone, Debug)]
+pub struct CalculationUpdate {
+    pub rows: Vec<RegionEvaluation>,
+    pub pending_region_ids: Vec<String>,
+    /// Includes global definitions executed as prerequisites outside the requested prefix.
+    pub executed_region_ids: Vec<String>,
+    /// Complete rows are reusable; the interrupted row retains its previous
+    /// payload and remains pending. Cancellation is not published as an error.
+    pub cancelled: bool,
+}
+
+/// Read-only worksheet environment for temporary queries, such as plot axes.
+/// It holds computed bindings; querying never executes source definitions.
+pub struct CalculationContext {
+    scope: Scope,
+    labels: HashMap<String, String>,
+}
+
+impl CalculationContext {
+    pub fn with_strings_use_origin(mut self, enabled: bool) -> Self {
+        self.scope.strings_use_origin = Some(enabled);
+        self
+    }
+    pub fn with_strings_use_origin_unavailable(mut self) -> Self {
+        self.scope.strings_use_origin = None;
+        self
+    }
+    /// Evaluate one MathML eval without changing the worksheet environment.
+    /// Display-unit metadata is validated, while the returned value retains its
+    /// canonical physical quantity, matching RegionEvaluation::value.
+    pub fn evaluate_mathml(&self, xml: &str) -> Result<Value> {
+        plot_query::evaluate_mathml(self, xml)
+    }
+}
+
+/// Incremental, geometric-order calculator with reusable binding checkpoints.
+/// Invalidation is conservatively downstream, not a recovered dependency graph.
+pub struct WorksheetCalculator {
+    strings_use_origin: Option<bool>,
+    source: Option<String>,
+    source_grid: Option<PlacementGrid>,
+    context_positions: Vec<(f64, f64)>,
+    inputs: Vec<WorksheetInput>,
+    signatures: Vec<String>,
+    pending: Vec<bool>,
+    scopes: Vec<Option<BindingDelta>>,
+    globals: Option<Scope>,
+    globals_complete: bool,
+    global_symbols: std::collections::HashSet<Symbol>,
+    global_rows: HashMap<String, RegionEvaluation>,
+    global_signature: Vec<String>,
+}
+
+impl Default for WorksheetCalculator {
+    fn default() -> Self {
+        Self {
+            strings_use_origin: Some(false),
+            source: None,
+            source_grid: None,
+            context_positions: Vec::new(),
+            inputs: Vec::new(),
+            signatures: Vec::new(),
+            pending: Vec::new(),
+            scopes: Vec::new(),
+            globals: None,
+            globals_complete: false,
+            global_symbols: Default::default(),
+            global_rows: HashMap::new(),
+            global_signature: Vec::new(),
+        }
+    }
+}
+
+impl WorksheetCalculator {
+    /// Explicit worksheet setting; false preserves native default zero indexing.
+    /// A change invalidates all calculated bindings, including captured globals.
+    pub fn set_strings_use_origin(&mut self, enabled: bool) -> bool {
+        self.set_string_origin_policy(Some(enabled))
+    }
+    /// Malformed/unavailable package metadata blocks only index-sensitive calls.
+    pub fn set_strings_use_origin_unavailable(&mut self) -> bool {
+        self.set_string_origin_policy(None)
+    }
+    fn set_string_origin_policy(&mut self, enabled: Option<bool>) -> bool {
+        if self.strings_use_origin == enabled {
+            return false;
+        }
+        self.strings_use_origin = enabled;
+        self.pending.fill(true);
+        self.scopes.fill(None);
+        self.globals = None;
+        self.globals_complete = false;
+        self.global_rows.clear();
+        true
+    }
+    /// Snapshot computed bindings strictly before this geometric position.
+    /// Global definitions participate regardless of their worksheet position.
+    /// Pending preceding regions are rejected rather than executed implicitly.
+    pub fn context_before(
+        &self,
+        left: f64,
+        top: f64,
+    ) -> std::result::Result<CalculationContext, String> {
+        if !left.is_finite() || !top.is_finite() {
+            return Err("Nonfinite calculation context position".into());
+        }
+        let mut scope = match &self.globals {
+            Some(globals) if self.globals_complete => globals.clone(),
+            Some(_) => return Err("Global definitions are pending calculation".into()),
+            None if self.global_signature.is_empty() => Scope::default(),
+            None => return Err("Global definitions are pending calculation".into()),
+        };
+        scope.strings_use_origin = self.strings_use_origin;
+        let mut labels = HashMap::new();
+        for (_, statement) in &self.inputs {
+            if let Some(symbol) = global_symbol(statement) {
+                labels.insert(symbol.name.clone(), symbol.label.clone());
+            }
+        }
+        for (index, (row, _)) in self.inputs.iter().enumerate() {
+            let (context_left, context_top) = self.context_positions[index];
+            if !(context_top < top || (context_top == top && context_left < left)) {
+                break;
+            }
+            if self.pending[index] {
+                return Err(format!(
+                    "Calculation context has pending region {}",
+                    row.region_id
+                ));
+            }
+            let saved = self.scopes[index]
+                .as_ref()
+                .ok_or_else(|| format!("Missing calculated bindings for {}", row.region_id))?;
+            for (symbol, binding) in saved {
+                labels.insert(symbol.name.clone(), symbol.label.clone());
+                scope
+                    .bindings
+                    .insert_shared(symbol.clone(), binding.clone());
+            }
+        }
+        Ok(CalculationContext { scope, labels })
+    }
+
+    /// Parse and invalidate without executing any expression. Existing payloads
+    /// are retained by region identity until an explicit calculation replaces them.
+    pub fn update(
+        &mut self,
+        xml: &str,
+        grid: Option<PlacementGrid>,
+    ) -> std::result::Result<CalculationUpdate, String> {
+        if self.source.as_deref() == Some(xml) && self.source_grid == grid {
+            return Ok(self.snapshot(Vec::new()));
+        }
+        let (mut inputs, signatures, context_positions) = parse_worksheet(xml, grid)?;
+        check_cancelled().map_err(|fault| fault.detail)?;
+        let global_signature: Vec<_> = inputs
+            .iter()
+            .zip(&signatures)
+            .filter(|((_, statement), _)| is_global(statement))
+            .map(|(_, signature)| signature.clone())
+            .collect();
+        let globals_changed = self.global_signature != global_signature || self.source_grid != grid;
+        let prefix = if globals_changed {
+            0
+        } else {
+            self.signatures
+                .iter()
+                .zip(&signatures)
+                .take_while(|(a, b)| a == b)
+                .count()
+        };
+        let mut previous: HashMap<_, _> = std::mem::take(&mut self.inputs)
+            .into_iter()
+            .map(|(row, _)| (row.region_id.clone(), row))
+            .collect();
+        for (row, _) in &mut inputs {
+            if let Some(old) = previous.remove(&row.region_id) {
+                row.value = old.value;
+                row.display_value = old.display_value;
+                row.error = old.error;
+                row.redefinition_warning = old.redefinition_warning;
+                row.matrix_origin = old.matrix_origin;
+            }
+        }
+        let mut pending = vec![true; inputs.len()];
+        let mut scopes = std::mem::take(&mut self.scopes);
+        scopes.truncate(prefix);
+        scopes.resize_with(inputs.len(), || None);
+        pending[..prefix].copy_from_slice(&self.pending[..prefix]);
+        self.inputs = inputs;
+        self.context_positions = context_positions;
+        self.signatures = signatures;
+        self.pending = pending;
+        self.scopes = scopes;
+        if globals_changed {
+            self.globals = None;
+            self.globals_complete = false;
+            self.global_rows.clear();
+        }
+        self.global_signature = global_signature;
+        self.source = Some(xml.into());
+        self.source_grid = grid;
+        Ok(self.snapshot(Vec::new()))
+    }
+
+    pub fn calculate(
+        &mut self,
+        request: CalculationRequest,
+    ) -> std::result::Result<CalculationUpdate, String> {
+        let (limit, force) = match &request {
+            CalculationRequest::Worksheet => (self.inputs.len(), None),
+            CalculationRequest::Prerequisites => (0, None),
+            CalculationRequest::ThroughRegion(id) | CalculationRequest::ActiveRegion(id) => {
+                let index = self
+                    .inputs
+                    .iter()
+                    .position(|(row, _)| row.region_id == *id)
+                    .ok_or_else(|| format!("Unknown calculation region {id}"))?;
+                (
+                    index + 1,
+                    matches!(request, CalculationRequest::ActiveRegion(_)).then_some(index),
+                )
+            }
+        };
+        if matches!(request, CalculationRequest::Worksheet) {
+            self.pending.fill(true);
+            self.scopes.fill(None);
+            self.globals = None;
+            self.globals_complete = false;
+            self.global_rows.clear();
+        }
+        if let Some(index) = force {
+            self.pending[index..].fill(true);
+            self.scopes[index..].fill(None);
+            if is_global(&self.inputs[index].1) {
+                self.globals = None;
+                self.globals_complete = false;
+                self.global_rows.clear();
+                self.pending.fill(true);
+                self.scopes.fill(None);
+            }
+        }
+        let mut executed = Vec::new();
+        if check_cancelled().is_err() {
+            return Ok(self.snapshot(executed));
+        }
+        if !self.globals_complete {
+            let mut counts = HashMap::<Symbol, usize>::new();
+            for (_, statement) in &self.inputs {
+                if let Some(symbol) = global_symbol(statement) {
+                    *counts.entry(symbol.clone()).or_default() += 1;
+                }
+            }
+            self.global_symbols = counts.keys().cloned().collect();
+            let mut globals = self.globals.take().unwrap_or_default();
+            globals.strings_use_origin = self.strings_use_origin;
+            for (row, statement) in &self.inputs {
+                if !is_global(statement) || self.global_rows.contains_key(&row.region_id) {
+                    continue;
+                }
+                if check_cancelled().is_err() {
+                    self.globals = Some(globals);
+                    return Ok(self.snapshot(executed));
+                }
+                let names = statement_binding_names(statement);
+                let before = save_bindings(&globals, &names);
+                let mut candidate = row.clone();
+                clear_result(&mut candidate);
+                evaluate_global(&mut candidate, statement, &mut globals, &counts);
+                candidate.matrix_origin = matrix_origin::capture(&globals, &candidate);
+                if candidate.error.as_ref().is_some_and(Fault::is_cancelled)
+                    || cancellation_requested()
+                {
+                    restore_bindings(&mut globals, before);
+                    self.globals = Some(globals);
+                    return Ok(self.snapshot(executed));
+                }
+                executed.push(row.region_id.clone());
+                self.global_rows.insert(row.region_id.clone(), candidate);
+            }
+            self.globals = Some(globals);
+            self.globals_complete = true;
+        }
+        let mut scope = self.globals.clone().unwrap_or_default();
+        scope.strings_use_origin = self.strings_use_origin;
+        for index in 0..limit {
+            if check_cancelled().is_err() {
+                return Ok(self.snapshot(executed));
+            }
+            if !self.pending[index]
+                && let Some(saved) = &self.scopes[index]
+            {
+                // Replay already computed bindings, not expression evaluation.
+                // Keeping only each statement's delta avoids a full copy of all
+                // earlier definitions for every worksheet result region.
+                scope.bindings.extend(saved.iter().cloned());
+                continue;
+            }
+            let original = self.inputs[index].0.clone();
+            let names = statement_binding_names(&self.inputs[index].1);
+            let before = save_bindings(&scope, &names);
+            let (row, statement) = &mut self.inputs[index];
+            if is_global(statement) {
+                if let Some(saved) = self.global_rows.get(&row.region_id) {
+                    *row = saved.clone();
+                }
+            } else {
+                clear_result(row);
+                scope = evaluate_local(
+                    std::slice::from_mut(&mut self.inputs[index]),
+                    scope,
+                    &self.global_symbols,
+                );
+                self.inputs[index].0.matrix_origin =
+                    matrix_origin::capture(&scope, &self.inputs[index].0);
+                if self.inputs[index]
+                    .0
+                    .error
+                    .as_ref()
+                    .is_some_and(Fault::is_cancelled)
+                    || cancellation_requested()
+                {
+                    restore_bindings(&mut scope, before);
+                    self.inputs[index].0 = original;
+                    return Ok(self.snapshot(executed));
+                }
+                executed.push(self.inputs[index].0.region_id.clone());
+            }
+            let names = match &self.inputs[index].1 {
+                Ok(
+                    Statement::Define {
+                        symbol,
+                        global: false,
+                        ..
+                    }
+                    | Statement::IndexedDefine {
+                        symbol,
+                        global: false,
+                        ..
+                    },
+                ) => vec![symbol.clone()],
+                Ok(Statement::SolveBlock(block)) => block.exports(),
+                Ok(Statement::SpecTable(table)) => table.binding_names(),
+                _ => Vec::new(),
+            };
+            self.pending[index] = false;
+            self.scopes[index] = Some(
+                names
+                    .into_iter()
+                    .filter_map(|symbol| {
+                        scope
+                            .bindings
+                            .shared(&symbol)
+                            .map(|binding| (symbol, binding))
+                    })
+                    .collect(),
+            );
+        }
+        Ok(self.snapshot(executed))
+    }
+
+    pub fn calculate_with_control(
+        &mut self,
+        request: CalculationRequest,
+        control: &CalculationControl,
+    ) -> std::result::Result<CalculationUpdate, String> {
+        control.run(|| self.calculate(request))
+    }
+
+    fn snapshot(&self, executed_region_ids: Vec<String>) -> CalculationUpdate {
+        CalculationUpdate {
+            rows: self
+                .inputs
+                .iter()
+                .zip(&self.pending)
+                .map(|((row, _), pending)| {
+                    let mut published = row.clone();
+                    if *pending || published.error.is_some() {
+                        published.matrix_origin = None;
+                    }
+                    published
+                })
+                .collect(),
+            pending_region_ids: self
+                .inputs
+                .iter()
+                .zip(&self.pending)
+                .filter(|(_, pending)| **pending)
+                .map(|((row, _), _)| row.region_id.clone())
+                .collect(),
+            executed_region_ids,
+            cancelled: cancellation_requested(),
+        }
+    }
+}
+
+fn clear_result(row: &mut RegionEvaluation) {
+    row.matrix_origin = None;
+    row.value = None;
+    row.display_value = None;
+    row.error = None;
+    row.redefinition_warning = false;
+}
+
+fn is_global(statement: &Result<Statement>) -> bool {
+    global_symbol(statement).is_some()
+}
+fn global_symbol(statement: &Result<Statement>) -> Option<&Symbol> {
+    match statement {
+        Ok(
+            Statement::Define {
+                global: true,
+                symbol,
+                ..
+            }
+            | Statement::IndexedDefine {
+                global: true,
+                symbol,
+                ..
+            },
+        ) => Some(symbol),
+        _ => None,
+    }
+}
+
+/// Evaluate positioned regions in sibling geometric order, with Area child blocks.
 /// Import does not execute scripts, XAML, external relationships, or the original engine.
 pub fn evaluate_worksheet(xml: &str) -> std::result::Result<Vec<RegionEvaluation>, String> {
     evaluate_worksheet_with_grid(xml, None)
@@ -1115,6 +2256,15 @@ pub fn evaluate_worksheet_with_grid(
     xml: &str,
     grid: Option<PlacementGrid>,
 ) -> std::result::Result<Vec<RegionEvaluation>, String> {
+    let mut calculator = WorksheetCalculator::default();
+    calculator.update(xml, grid)?;
+    Ok(calculator.calculate(CalculationRequest::Worksheet)?.rows)
+}
+
+fn parse_worksheet(
+    xml: &str,
+    grid: Option<PlacementGrid>,
+) -> std::result::Result<ParsedWorksheet, String> {
     if xml.len() > 8 * 1024 * 1024 {
         return Err("Worksheet XML exceeds 8 MiB".into());
     }
@@ -1128,45 +2278,32 @@ pub fn evaluate_worksheet_with_grid(
         .find(|n| n.has_tag_name((WS, "regions")))
         .ok_or("Missing regions")?;
     let mut inputs = Vec::new();
-    for region in regions.children().filter(Node::is_element) {
+    let mut table_labels = HashMap::new();
+    let hierarchical = regions.children().any(|region| {
+        region
+            .children()
+            .any(|node| node.has_tag_name((WS, "Area")))
+    });
+    for positioned in area_calculation::ordered_regions(regions, grid, hierarchical)? {
+        let region = positioned.region;
         let content = children(region);
-        if !content.is_empty()
-            && content
-                .iter()
-                .all(|n| n.has_tag_name((WS, "text")) || n.has_tag_name((WS, "image")))
-        {
-            continue;
-        }
-        if inputs.len() >= 10000 {
-            return Err("Region budget exceeded".into());
-        }
-        let coordinate = |name| -> std::result::Result<f64, String> {
-            let value: f64 = region
-                .attribute(name)
-                .ok_or_else(|| format!("Missing {name}"))?
-                .parse()
-                .map_err(|_| format!("Invalid {name}"))?;
-            if !value.is_finite() {
-                return Err(format!("Nonfinite {name}"));
-            }
-            if let Some(grid) = grid {
-                grid.snap(value)
-            } else {
-                Ok(value)
-            }
-        };
         let math = region.children().find(|n| n.has_tag_name((WS, "math")));
-        let statement = if let Some(math) = math {
+        let statement = if let Some(fault) = positioned.fault {
+            Err(fault)
+        } else if let Some(math) = math {
             let all = children(math);
             let c: Vec<_> = all
                 .iter()
                 .copied()
                 .filter(|n| n.tag_name().namespace() == Some(ML))
                 .collect();
-            if math
-                .attributes()
-                .any(|a| a.namespace().is_some() || a.name() != "resultRef")
-            {
+            if math.attributes().any(|a| {
+                a.namespace().is_some()
+                    || (a.name() != "resultRef"
+                        && !(positioned.in_area
+                            && a.name() == "disable-calc"
+                            && matches!(a.value(), "false" | "0")))
+            }) {
                 Err(Fault::unsupported("Math region execution metadata"))
             } else if all.iter().any(|n| {
                 n.tag_name().namespace() != Some(ML)
@@ -1181,11 +2318,16 @@ pub fn evaluate_worksheet_with_grid(
             }
         } else if content.len() == 1 && content[0].has_tag_name((WS, "solveblock")) {
             solve::parse_block(content[0], grid).map(Statement::SolveBlock)
+        } else if content.len() == 1 && content[0].has_tag_name((WS, "spec-table")) {
+            spec_table::parse(content[0], xml, &mut table_labels).map(Statement::SpecTable)
         } else {
             Err(Fault::unsupported(
                 "Non-math/nested region requires document model",
             ))
         };
+        for symbol in statement_binding_names(&statement) {
+            table_labels.insert(symbol.name, symbol.label);
+        }
         inputs.push((
             RegionEvaluation {
                 region_id: region.attribute("region-id").unwrap_or("").into(),
@@ -1196,77 +2338,157 @@ pub fn evaluate_worksheet_with_grid(
                         Ok(Statement::SolveBlock(block)) => block.solver_result_ref(),
                         _ => None,
                     }),
-                left: coordinate("left")?,
-                top: coordinate("top")?,
+                left: positioned.left,
+                top: positioned.top,
                 value: None,
                 display_value: None,
                 error: None,
                 redefinition_warning: false,
+                matrix_origin: None,
             },
             statement,
+            xml[region.range()].to_owned(),
+            positioned.context_position,
         ));
     }
-    // Exact overlap uses stable input order as an explicit independent policy.
-    // Original tie behavior is not established beyond the one retained probe.
-    inputs.sort_by(|a, b| {
-        a.0.top
-            .total_cmp(&b.0.top)
-            .then(a.0.left.total_cmp(&b.0.left))
-    });
-    let mut globals = Scope::default();
-    let mut global_symbols = std::collections::HashSet::new();
-    let mut global_counts = HashMap::<Symbol, usize>::new();
-    for (_, statement) in &inputs {
-        if let Ok(Statement::Define {
-            symbol,
-            global: true,
-            ..
-        }) = statement
-        {
-            *global_counts.entry(symbol.clone()).or_default() += 1;
-        }
+    // Preserve the independent legacy non-Area parser: table label state is
+    // collected in XML order before rows are sorted for execution. Area blocks
+    // instead have their explicit sibling-slot traversal above.
+    if !hierarchical {
+        inputs.sort_by(|a, b| {
+            a.0.top
+                .total_cmp(&b.0.top)
+                .then(a.0.left.total_cmp(&b.0.left))
+        });
     }
-    for (row, statement) in &mut inputs {
-        if let Ok(Statement::Define {
-            symbol,
-            parameters,
-            body,
-            global: true,
-            show_result,
-            display_unit,
-        }) = statement
-        {
-            global_symbols.insert(symbol.clone());
-            if global_counts[symbol] > 1 {
-                let fault = Fault::unsupported(
-                    "Duplicate global definitions need exact conflict diagnostics",
-                );
-                globals.bindings.insert(
-                    symbol.clone(),
-                    Binding::Failed {
-                        fault: fault.clone(),
-                        region: row.region_id.clone(),
-                    },
-                );
-                row.error = Some(fault);
+    let context_positions = inputs.iter().map(|row| row.3).collect();
+    let (inputs, signatures) = inputs
+        .into_iter()
+        .map(|(row, statement, source, _)| ((row, statement), source))
+        .unzip();
+    Ok((inputs, signatures, context_positions))
+}
+
+fn evaluate_global(
+    row: &mut RegionEvaluation,
+    statement: &Result<Statement>,
+    globals: &mut Scope,
+    global_counts: &HashMap<Symbol, usize>,
+) {
+    if let Ok(Statement::IndexedDefine {
+        symbol,
+        indices,
+        slice,
+        body,
+        global: true,
+        show_result,
+        display_unit,
+    }) = statement
+    {
+        if global_counts[symbol] > 1 {
+            let fault =
+                Fault::unsupported("Duplicate global definitions need exact conflict diagnostics");
+            globals.bindings.insert(
+                symbol.clone(),
+                Binding::Failed {
+                    fault: fault.clone(),
+                    region: row.region_id.clone(),
+                },
+            );
+            row.error = Some(fault);
+        } else {
+            let defined = if slice.is_none() {
+                globals.define_indexed(symbol, indices, body, &row.region_id)
             } else {
-                row.error = globals
-                    .define(symbol, parameters, body, &row.region_id)
-                    .err();
-                if row.error.is_none() && *show_result {
-                    match globals.definition_result(symbol, display_unit) {
-                        Ok((v, d)) => {
-                            row.value = Some(v);
-                            row.display_value = d;
+                globals.define_array(symbol, indices, *slice, body, &row.region_id)
+            };
+            match defined {
+                Ok(ranged) => {
+                    if *show_result && !ranged {
+                        match globals.array_definition_result(symbol, indices, *slice, display_unit)
+                        {
+                            Ok((value, display)) => {
+                                row.value = Some(value);
+                                row.display_value = display;
+                            }
+                            Err(fault) => row.error = Some(fault),
                         }
-                        Err(e) => row.error = Some(e),
                     }
+                }
+                Err(fault) => row.error = Some(fault),
+            }
+        }
+        return;
+    }
+    if let Ok(Statement::Define {
+        symbol,
+        parameters,
+        body,
+        global: true,
+        show_result,
+        display_unit,
+    }) = statement
+    {
+        if global_counts[symbol] > 1 {
+            let fault =
+                Fault::unsupported("Duplicate global definitions need exact conflict diagnostics");
+            globals.bindings.insert(
+                symbol.clone(),
+                Binding::Failed {
+                    fault: fault.clone(),
+                    region: row.region_id.clone(),
+                },
+            );
+            row.error = Some(fault);
+        } else {
+            row.error = globals
+                .define(symbol, parameters, body, &row.region_id)
+                .err();
+            if row.error.is_none() && *show_result {
+                match globals.definition_result(symbol, display_unit) {
+                    Ok((v, d)) => {
+                        row.value = Some(v);
+                        row.display_value = d;
+                    }
+                    Err(e) => row.error = Some(e),
                 }
             }
         }
     }
-    let mut scope = globals;
-    for (row, statement) in &mut inputs {
+}
+
+fn statement_binding_names(statement: &Result<Statement>) -> Vec<Symbol> {
+    match statement {
+        Ok(Statement::Define { symbol, .. } | Statement::IndexedDefine { symbol, .. }) => {
+            vec![symbol.clone()]
+        }
+        Ok(Statement::SolveBlock(block)) => block.exports(),
+        Ok(Statement::SpecTable(table)) => table.binding_names(),
+        _ => Vec::new(),
+    }
+}
+fn save_bindings(scope: &Scope, names: &[Symbol]) -> BindingUndo {
+    names
+        .iter()
+        .map(|name| (name.clone(), scope.bindings.shared(name)))
+        .collect()
+}
+fn restore_bindings(scope: &mut Scope, saved: BindingUndo) {
+    for (name, binding) in saved {
+        if let Some(binding) = binding {
+            scope.bindings.insert_shared(name, binding);
+        } else {
+            scope.bindings.remove(&name);
+        }
+    }
+}
+
+fn evaluate_local(
+    inputs: &mut [WorksheetInput],
+    mut scope: Scope,
+    global_symbols: &std::collections::HashSet<Symbol>,
+) -> Scope {
+    for (row, statement) in inputs.iter_mut() {
         let statement = match statement {
             Ok(s) => s,
             Err(fault) => {
@@ -1275,6 +2497,51 @@ pub fn evaluate_worksheet_with_grid(
             }
         };
         match statement {
+            Statement::IndexedDefine { global: true, .. } => (),
+            Statement::IndexedDefine {
+                symbol,
+                indices,
+                slice,
+                body,
+                show_result,
+                display_unit,
+                ..
+            } => {
+                if global_symbols.contains(symbol) {
+                    row.error = Some(Fault::new(
+                        "normal_and_global_definitions",
+                        "Identifier is already globally defined",
+                    ));
+                    continue;
+                }
+                let redefinition = scope.bindings.contains_key(symbol);
+                let defined = if slice.is_none() {
+                    scope.define_indexed(symbol, indices, body, &row.region_id)
+                } else {
+                    scope.define_array(symbol, indices, *slice, body, &row.region_id)
+                };
+                match defined {
+                    Ok(ranged) => {
+                        row.redefinition_warning = redefinition;
+                        if *show_result && !ranged {
+                            match scope.array_definition_result(
+                                symbol,
+                                indices,
+                                *slice,
+                                display_unit,
+                            ) {
+                                Ok((value, display)) => {
+                                    row.value = Some(value);
+                                    row.display_value = display;
+                                }
+                                Err(fault) => row.error = Some(fault),
+                            }
+                        }
+                    }
+                    Err(fault) => row.error = Some(fault),
+                }
+            }
+            Statement::SpecTable(table) => table.evaluate(row, &mut scope, global_symbols),
             Statement::SolveBlock(block) => {
                 let outputs = block.exports();
                 if outputs.iter().any(|symbol| global_symbols.contains(symbol)) {
@@ -1342,5 +2609,5 @@ pub fn evaluate_worksheet_with_grid(
             }
         }
     }
-    Ok(inputs.into_iter().map(|(row, _)| row).collect())
+    scope
 }

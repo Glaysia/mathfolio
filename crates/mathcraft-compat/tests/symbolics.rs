@@ -88,6 +88,70 @@ fn native_lambda_derivative_default_and_explicit_degree() {
 }
 
 #[test]
+fn native_finite_polynomial_limits_are_exact_and_locally_bound() {
+    let body = op(
+        "plus",
+        &op("pow", &id("x"), &real("2")),
+        &op("plus", &op("mult", &real("3"), &id("x")), &real("1")),
+    );
+    let limit = |direction: &str, body: &str, point: &str| {
+        format!(
+            "<apply><limit{direction}/><lambda><boundVars>{}</boundVars>{body}</lambda>{point}</apply>",
+            id("x")
+        )
+    };
+    assert!(evaluate(&limit("", &body, &real("2")), "").contains("<real>11</real>"));
+    for direction in [" direction=\"left\"", " direction=\"right\""] {
+        assert!(evaluate(&limit(direction, &body, &real("2")), "").contains("<real>11</real>"));
+    }
+
+    // The lambda variable is local: a unit-bearing worksheet binding with the
+    // same spelling must neither substitute into nor invalidate the limit.
+    let outer = op("mult", &real("2"), "<id labels=\"UNIT\">m</id>");
+    let rows = worksheet(&[
+        define("x", &outer),
+        symbolic(&limit("", &body, &real("2")), ""),
+    ]);
+    assert!(rows[0].error.is_none());
+    assert!(rows[1].error.is_none(), "{:?}", rows[1].error);
+    assert!(mathml(rows[1].value.clone().unwrap()).contains("<real>11</real>"));
+}
+
+#[test]
+fn symbolic_limit_rejects_unknown_direction_infinity_and_removable_poles() {
+    let lambda = |operator: &str, body: &str, point: &str| {
+        format!(
+            "<apply>{operator}<lambda><boundVars>{}</boundVars>{body}</lambda>{point}</apply>",
+            id("x")
+        )
+    };
+    let body = op("plus", &id("x"), &real("1"));
+    assert!(
+        symbolics::evaluate_mathml(&symbolic(
+            &lambda("<limit direction=\"sideways\"/>", &body, &real("2")),
+            ""
+        ))
+        .is_err()
+    );
+    assert!(
+        symbolics::evaluate_mathml(&symbolic(
+            &lambda("<limit/>", &body, "<id labels=\"CONSTANT\">∞</id>"),
+            ""
+        ))
+        .is_err()
+    );
+    let removable = op(
+        "div",
+        &op("minus", &op("pow", &id("x"), &real("2")), &real("1")),
+        &op("minus", &id("x"), &real("1")),
+    );
+    assert!(
+        symbolics::evaluate_mathml(&symbolic(&lambda("<limit/>", &removable, &real("1")), ""))
+            .is_err()
+    );
+}
+
+#[test]
 fn native_solve_handles_linear_and_quadratic_equations() {
     let solve = format!("<command>{}{}</command>", id("solve"), id("x"));
     let linear = op("equal", &op("mult", &real("3"), &id("x")), &real("2"));

@@ -16,3 +16,5 @@ Thumbs.db
 *.key
 *.pem
 *.code-workspace
+__pycache__/
+*.py[cod]

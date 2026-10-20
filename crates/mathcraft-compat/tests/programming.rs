@@ -227,7 +227,20 @@ fn automatic_local_references_follow_explicit_declarations_without_global_leaks(
         assign("s", &apply("plus", &automatic("s"), &automatic("k"))),
         automatic("s")
     );
-    assert_eq!(scalar(executed(&body)), 10.0);
+    // Direct MathML has no automatic label resolver. Exercise the same local
+    // scope through the worksheet labeller rather than inventing a '*' binding.
+    assert!(program::from_mathml(&program_xml(&body)).is_err());
+    let resolved = |fragments: &[String]| {
+        let regions = fragments
+            .iter()
+            .enumerate()
+            .map(|(i, source)| (i as u64, 0., i as f64 * 80., source.clone()))
+            .collect::<Vec<_>>();
+        evaluate_worksheet(&mathcraft_compat::editor_bridge::worksheet_xml(&regions).unwrap())
+            .unwrap()
+    };
+    let result = resolved(&[evaluation(&program_xml(&body))]);
+    assert_eq!(scalar(result[0].value.clone().unwrap()), 10.0);
     let define = format!("<define xmlns=\"{ML}\">{}{}</define>", id("x"), real(9));
     let shadow = format!(
         "{}{}{}",
@@ -235,7 +248,7 @@ fn automatic_local_references_follow_explicit_declarations_without_global_leaks(
         assign("x", &apply("plus", &automatic("x"), &real(1))),
         automatic("x")
     );
-    let regions = evaluated(&[
+    let regions = resolved(&[
         define,
         evaluation(&program_xml(&shadow)),
         evaluation(&id("x")),
