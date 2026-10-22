@@ -1,15 +1,22 @@
 # Mathcraft 개발 계획
 
-**현재 우선순위 — 2026-10-20:** 기능 구현을 UI 개편 전 체크포인트로 보존한다. 사용자의 최신 완성도 평가는 80%이며, 다음 작업은 [현대적인 UI와 단축키 안내 개선](UI-MODERNIZATION.md)이다. **기존 단축키는 변경하지 않는다.** [CLI·MCP·skill 연동](AGENT-INTEGRATION.md)은 후속 계획으로만 기록한다.
+**현재 우선순위 — 2026-10-22:** 사용자가 현재 기능을 다음 단계의 기준선으로 수용했다. 다음 작업은 아래 두 가지로 고정한다. **기존 단축키는 변경하지 않는다.** [CLI·MCP·skill 연동](AGENT-INTEGRATION.md)은 보관된 후속 계획이다.
 
-**UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
+| 우선순위 | 작업 | 완료 기준 |
+| --- | --- | --- |
+| 1 | [스크롤 버벅임 개선](PERFORMANCE.md) | release의 입력→조판→그리기→GPU/표시 지연을 분리하고, 실제 병목을 수정한 같은 조건의 전후 자료를 남긴다. |
+| 2 | [현대적인 UI/UX와 옵시디언 내장 구조](UI-MODERNIZATION.md) | 문서 중심 도구·속성·단축키 안내를 정리하고, 같은 Rust 편집·계산 구현과 내장 컴포넌트를 standalone/Obsidian에서 검증한다. |
+
+진행 순서는 **스크롤 재현·측정 → 확인된 병목 수정 → 작은 내장/WASM 검증 → 현대적인 UI 적용 → 양 환경 회귀 확인**이다. 현재 기능 기준선과 기존 검증 기록은 유지한다. 이번 변경은 계획만 기록한다.
+
+**UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
 
 **XY 첫 수식 후속:** [0181 계약](analysis/0181-xy-typed-expression-contract.md)·[0182 통합](analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
 
 
 기존 기능의 채택 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md) r222까지 기록되어 있다. 이전 cohort·metadata/fmt 실패 이력은 원문 receipt로 보존한다.
 
-갱신: 2026-10-20. 현재 구현 판정은 [원본 기능별 통합 목록](FEATURES.md)을 단일 기준으로 사용한다.
+갱신: 2026-10-22. 현재 구현 판정은 [원본 기능별 통합 목록](FEATURES.md)을 단일 기준으로 사용한다. 아래 호환 공백은 기존 구현 범위의 기록이며 현재 두 작업에 추가 기능 개발을 포함시키지 않는다.
 
 ## 목표와 범위
 
@@ -17,7 +24,7 @@ Mathcad Prime의 워크시트·구조 수식 편집·계산·문서 동작을 Ru
 
 개발은 현재 Windows PC에서 진행한다. 필수 실행 환경은 Windows와 Kubuntu 26.04이며 Linux 검증 대상은 `ssh peets`다. macOS는 우선 검증 대상에서 제외하되 코어의 플랫폼 종속성은 최소화한다.
 
-Rust 독립 앱 완성 후 Obsidian 플러그인과 VS Code 확장 내장은 별도 프로젝트로 진행한다.
+Obsidian 플러그인과 VS Code 확장은 별도 프로젝트로 유지한다. 이번 UI 작업에서 Obsidian에 내장할 공통 편집 컴포넌트와 최소 어댑터 검증을 먼저 설계한다.
 
 Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행 표본으로 존재와 의미를 확인한다. 불명확한 내부 경로를 추정해 호환 기능으로 부르지 않는다. 새 UI와 단축키 안내, 후속 AI 연동은 사용자 지시에 따른 Mathcraft 제품 설계로 구분한다. 원본 코드·리소스·글꼴은 제품에 복제하지 않는다.
 

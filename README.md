@@ -2,7 +2,7 @@
 
 라이선스: **[GNU AGPLv3 only](LICENSE)** (`AGPL-3.0-only`). Mathcraft 자체 작성 소스와 문서에 적용하며, 포함된 제3자 구성요소의 원래 라이선스는 [NOTICE.md](NOTICE.md)를 따른다.
 
-**UI 개편 전 기능 체크포인트:** [현재 보존 범위](docs/CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](docs/UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](docs/analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
+**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md). 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
 
@@ -12,11 +12,11 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: REA로 원본의 수식 작성·편집·계산 상태 전이를 추적하고 Rust에 연결 중. 원본 전체 호환은 미완료다.
+- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했으며, 스크롤 반응성과 내장 가능한 UI/UX를 개선하는 계획 단계다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
 
 UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하며, Mathcad 방식의 수식 편집·계산 의미와 기존 단축키는 유지한다.
 
-사용자의 최신 완성도 평가는80%다. 다음 작업은 [현대적인 UI와 단축키 안내 개선](docs/UI-MODERNIZATION.md)이며 기존 단축키를 유지한다. [CLI·MCP·skill](docs/AGENT-INTEGRATION.md)은 후속 계획으로 기록했다. 작업 범위와 검증 기준은 [개발 계획](docs/PLAN.md)을 따른다.
+2026-10-22 사용자 지시에 따라 스크롤 버벅임과 현대적인 UI/UX, 두 작업에 집중한다. UI는 향후 옵시디언에서도 같은 편집 화면을 사용할 수 있게 분리하며, 기존 단축키의 설명·툴팁·도움말을 강화한다. [CLI·MCP·skill](docs/AGENT-INTEGRATION.md)은 보관된 후속 계획이다. 작업 범위와 검증 기준은 [개발 계획](docs/PLAN.md)을 따른다.
 
 제품의 중심은 종이에 쓰듯 수식을 작성하고 고치는 경험이다. 계산 엔진은 그 흐름을 지탱한다. [작성 경험의 기준](docs/DESIGN.md)에 원본 근거와 구현·검증 범위를 연결했다.
 
@@ -53,7 +53,12 @@ cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
 
 ## 다음 작업
 
-우선 [UI 개편 계획](docs/UI-MODERNIZATION.md)을 진행한다. 아래 항목은 기존 기능의 남은 공백이며, [AI 연동](docs/AGENT-INTEGRATION.md)은 후속 계획이다.
+1. [스크롤 버벅임 개선](docs/PERFORMANCE.md): release의 실제 병목을 분리 측정하고 같은 조건에서 전후를 확인한다.
+2. [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md): 공통 편집 컴포넌트와 호스트를 분리하고, 기존 키와 계산 의미를 유지하며 도구·속성·안내를 정리한다.
+
+## 기존 기능의 남은 공백과 구현 이력
+
+아래는 현재 지원 범위와 후속 호환 공백의 기록이다. 이번 두 작업과 구분한다.
 
 1. 통합 목록에 드러난 원본 기능 공백과 동작 차이를 고친다. 저장 결과·계산 명령·영역 비활성화·프로그램 줄·행렬 Tab·날짜·기본 인쇄/PDF를 연결했다. 긴 계산은 [백그라운드에서 실행하고 중지·재개](docs/analysis/0041-background-calculation-ui.md)한다. [인쇄](docs/analysis/0035-printing-implementation.md)와 [성능 측정](docs/analysis/0034-rendering-and-calculation-cost.md)을 참고한다. 전체 native 영역·정밀 의존성·원본 queue 게시 시점·외부 IO 중단·source 직접 표시 범위 조절과 중첩 결과의 전체 형식은 남아 있다.
 2. 편집→계산→수정→Undo→저장 흐름의 재현 테스트를 확대.
