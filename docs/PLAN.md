@@ -1,5 +1,7 @@
 # Mathcraft 개발 계획
 
+**2026-10-24 SDK:** [WASM SDK 0.1.0](WASM-SDK.md)의 실제 Canvas·Worker·문서 bytes·저장 승인·벡터 PDF를 브라우저에서 검증했다. [0214](analysis/0214-wasm-sdk.md)에 크기와 Windows 전후 성능, 양 OS 회귀를 기록한다. 플러그인 자체와 실제 호스트 통합 검증은 별도 레포에서 진행한다.
+
 **2026-10-23 진행:** 보고된 Windows 스크롤 지연은 [0211](analysis/0211-windows-scroll-renderer-fix.md)에서 수정·사용자 확인·양 OS 회귀 검증을 마쳤다. [UI 1차 개편](analysis/0212-shared-native-chrome.md)에 공통 egui 도구·속성·테마·검색 도움말·입력 격리와 글꼴 경계, 양 OS 검사와 실제 창 결과를 기록했다. 새 UI의 사용자 확인과 WASM 실행은 후속이다. 같은 회차 대비 추가 그리기 비용과 도움말 간격 outlier도 공개하며 전체 성능 동등을 완료로 선언하지 않는다.
 
 **2026-10-23 구조 합의:** [네이티브·WASM 공통 구현 계획](NATIVE-WASM.md)을 따른다. 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 네이티브 앱으로 유지한다. 계산·문서·편집·조판·egui UI는 공통 Rust로 두고, 같은 구현의 WASM SDK를 별도 Obsidian·VS Code TS 플러그인에 연결한다. library 추출의 native 회귀는 위0212에서 통과했다. 전체 WASM·Worker·두 호스트 실행은 미검증이다.

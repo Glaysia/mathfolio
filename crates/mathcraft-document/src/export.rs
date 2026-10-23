@@ -11,11 +11,12 @@ use crate::{
 };
 use mathcraft_compat::editor_bridge::{tree_from_mathml, tree_to_mathml};
 use roxmltree::{Document, Node};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 use std::{
     collections::{HashMap, HashSet},
     io::{Cursor, Read, Write},
     ops::Range,
-    path::Path,
 };
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
@@ -131,6 +132,7 @@ impl ResultIds {
 
 /// Writes a new .mcdx, refusing every existing destination, including originals.
 /// Source region references must be the original top-level region-id strings.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn export_mcdx(doc: &CanvasDocument, path: &Path) -> Result<(), String> {
     doc.validate()?;
     let mut package = match &doc.native_archive {
@@ -155,6 +157,7 @@ pub fn prepare_mcdx(
 }
 
 impl CanvasDocument {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn export_mcdx(&self, path: &Path) -> Result<(), String> {
         export_mcdx(self, path)
     }

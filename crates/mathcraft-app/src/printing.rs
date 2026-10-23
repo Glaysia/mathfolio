@@ -5,7 +5,9 @@
 use eframe::egui::Color32;
 use eframe::egui::{self, Pos2, Rect, TextureId, Vec2};
 use image::ImageEncoder;
-use std::{collections::HashMap, fs, io::Write, path::Path, process::Command};
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs, io::Write, path::Path, process::Command};
 mod vector_pdf;
 
 const MAX_PAGES: usize = 1000;
@@ -16,11 +18,13 @@ const MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
 pub(crate) enum PageSelection {
     All,
     /// Inclusive, one-based document page numbers, independent of header numbering.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Range {
         first: usize,
         last: usize,
     },
     /// Pages containing selected worksheet regions, zero-based and sorted.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Indices(Vec<usize>),
 }
 
@@ -111,9 +115,11 @@ impl PrintPlan {
             source_pages,
         })
     }
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub fn page_count(&self) -> usize {
         self.page_count
     }
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub fn source_pages(&self) -> &[usize] {
         &self.source_pages
     }
@@ -138,29 +144,45 @@ pub(crate) struct RasterPage {
 /// The callback paints a whole paper in ordinary worksheet DIP coordinates;
 /// its page index is zero-based and refers to the original document. It must
 /// consume existing results only, never run the evaluator to print.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn render_pages(
     plan: &PrintPlan,
     paint: impl FnMut(&mut egui::Ui, usize, usize),
 ) -> Result<Vec<RasterPage>, String> {
-    render_pages_with_mode(plan, paint, true)
+    render_pages_with_mode(plan, paint, true, None)
 }
 
 /// PDF/CUPS output keeps the layout's paths and text, without allocating a
 /// paper-sized bitmap or encoding a PNG. DPI only affects the native fallback.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn render_vector_pages(
     plan: &PrintPlan,
     paint: impl FnMut(&mut egui::Ui, usize, usize),
 ) -> Result<Vec<RasterPage>, String> {
-    render_pages_with_mode(plan, paint, false)
+    render_pages_with_mode(plan, paint, false, None)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn render_host_vector_pages(
+    plan: &PrintPlan,
+    fonts: egui::FontDefinitions,
+    paint: impl FnMut(&mut egui::Ui, usize, usize),
+) -> Result<Vec<RasterPage>, String> {
+    render_pages_with_mode(plan, paint, false, Some(fonts))
 }
 
 fn render_pages_with_mode(
     plan: &PrintPlan,
     mut paint: impl FnMut(&mut egui::Ui, usize, usize),
     rasterize: bool,
+    fonts: Option<egui::FontDefinitions>,
 ) -> Result<Vec<RasterPage>, String> {
     let context = egui::Context::default();
-    crate::configure(&context);
+    if let Some(fonts) = fonts {
+        crate::configure_surface(&context, fonts, crate::Theme::Light);
+    } else {
+        crate::configure(&context);
+    }
     let scale = if rasterize {
         f32::from(plan.dpi) / 96.
     } else {
@@ -411,6 +433,7 @@ fn sample_texture(texture: &egui::ColorImage, uv: Vec2) -> [f32; 4] {
 }
 
 /// Write paths and searchable, embedded-font text with physical MediaBox sizes.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn write_pdf(path: &Path, pages: &[RasterPage]) -> Result<(), String> {
     if pages.is_empty() || pages.len() > MAX_PAGES {
         return Err("인쇄할 페이지가 없습니다.".into());
@@ -440,6 +463,7 @@ pub(crate) fn write_pdf(path: &Path, pages: &[RasterPage]) -> Result<(), String>
 }
 
 #[derive(Clone, Debug)]
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) struct NativePrintOptions {
     pub job_name: String,
     pub printer: Option<String>,
@@ -449,6 +473,7 @@ pub(crate) struct NativePrintOptions {
 /// Read printer names without showing the operating system's print dialog.
 /// The caller can run this on its print worker so a disconnected print server
 /// cannot block worksheet interaction.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn list_printers() -> Result<Vec<String>, String> {
     #[cfg(windows)]
     let mut command = {
@@ -491,6 +516,7 @@ pub(crate) fn list_printers() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn bounded_output(command: &mut Command) -> Result<std::process::Output, String> {
     use std::{
         process::Stdio,
@@ -517,6 +543,7 @@ fn bounded_output(command: &mut Command) -> Result<std::process::Output, String>
 
 /// Spool only when explicitly invoked by the application's Print command. The
 /// tests never call this function or start a printer, process or dialog.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn submit_native(
     pages: &[RasterPage],
     options: &NativePrintOptions,
@@ -535,7 +562,9 @@ pub(crate) fn submit_native(
     submit_job(&directory.0, pages, options)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 struct JobDirectory(std::path::PathBuf);
+#[cfg(not(target_arch = "wasm32"))]
 impl JobDirectory {
     fn create() -> Result<Self, String> {
         use std::sync::atomic::{AtomicU64, Ordering};
@@ -555,6 +584,7 @@ impl JobDirectory {
         Err("인쇄 임시 폴더를 만들 수 없습니다.".into())
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl Drop for JobDirectory {
     fn drop(&mut self) {
         // Delete only files this process created in its exclusive job folder;
@@ -569,6 +599,7 @@ impl Drop for JobDirectory {
 }
 
 #[cfg(windows)]
+#[cfg(not(target_arch = "wasm32"))]
 fn submit_job(
     directory: &Path,
     pages: &[RasterPage],
@@ -649,6 +680,7 @@ try {
 "#;
 
 #[cfg(not(windows))]
+#[cfg(not(target_arch = "wasm32"))]
 fn submit_job(
     directory: &Path,
     pages: &[RasterPage],
@@ -696,6 +728,7 @@ fn submit_job(
 }
 
 #[cfg(any(not(windows), test))]
+#[cfg(not(target_arch = "wasm32"))]
 fn cups_page_options(paper_size: [f32; 2]) -> [String; 3] {
     let [width, height] = paper_size;
     let [short, long] = [width.min(height), width.max(height)];
@@ -885,4 +918,9 @@ mod tests {
         assert_eq!(image.get_pixel(15, 55).0, [255, 255, 255]);
         assert_eq!(pages[0].paper_size, [96., 192.]);
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn pdf_bytes(pages: &[RasterPage]) -> Result<Vec<u8>, String> {
+    vector_pdf::encode(pages)
 }

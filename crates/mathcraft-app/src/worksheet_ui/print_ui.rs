@@ -1,8 +1,12 @@
 //! Print existing worksheet presentation without running the calculator.
 use super::*;
-use crate::printing::{self, NativePrintOptions, PageSelection, PrintPlan, PrintSettings};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::printing::NativePrintOptions;
+use crate::printing::{self, PageSelection, PrintPlan, PrintSettings};
 use mathcraft_document::canvas::{PageSetup, PaperSize};
-use std::sync::mpsc::{self, Receiver, TryRecvError};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, TryRecvError};
 
 #[derive(Clone, Copy, Default, PartialEq)]
 enum Selection {
@@ -45,6 +49,7 @@ impl Default for PrintUiState {
         }
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 fn parse_range(text: &str) -> Result<PageSelection, String> {
     let parts = text.trim().split('-').collect::<Vec<_>>();
     let parse = |s: &str| {
@@ -80,6 +85,7 @@ impl WorksheetApp {
         printing::write_pdf(path, &pages)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn open_print(&mut self, pdf: bool) {
         if let Err(error) = self.commit_table_edits(None) {
             self.status = error;
@@ -258,10 +264,13 @@ impl WorksheetApp {
         self.print_ui.open = open;
         if submit {
             let path = if self.print_ui.pdf {
+                #[cfg(not(target_arch = "wasm32"))]
                 let path = rfd::FileDialog::new()
                     .add_filter("PDF", &["pdf"])
                     .set_file_name(format!("{}.pdf", self.document.title))
                     .save_file();
+                #[cfg(target_arch = "wasm32")]
+                let path: Option<PathBuf> = None;
                 if path.is_none() {
                     return;
                 }
@@ -353,6 +362,7 @@ impl WorksheetApp {
             }
         }
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn begin_print(&mut self, path: Option<PathBuf>) -> Result<(), String> {
         if self.print_ui.job.is_some() {
             return Err("다른 인쇄 작업이 진행 중입니다.".into());
@@ -573,6 +583,8 @@ impl WorksheetApp {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| document.title.clone());
         PrintSnapshot {
+            #[cfg(target_arch = "wasm32")]
+            fonts: self.host.fonts.clone(),
             document,
             native_visuals: self.native_visuals.clone(),
             geometry: self.print_geometry(),
@@ -596,6 +608,8 @@ impl WorksheetApp {
 }
 
 struct PrintSnapshot {
+    #[cfg(target_arch = "wasm32")]
+    fonts: egui::FontDefinitions,
     document: CanvasDocument,
     native_visuals: Arc<NativeVisuals>,
     geometry: crate::page::PageGeometry,
@@ -627,6 +641,7 @@ impl PrintSnapshot {
             )
         })
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn selected_pages(&self, id: u64) -> Result<PageSelection, String> {
         let region = self
             .document
@@ -681,7 +696,10 @@ impl PrintSnapshot {
             }
         }
         let context = egui::Context::default();
+        #[cfg(not(target_arch = "wasm32"))]
         crate::configure(&context);
+        #[cfg(target_arch = "wasm32")]
+        crate::configure_surface(&context, self.fonts.clone(), crate::Theme::Light);
         let mut bottom = 0f64;
         let mut output = context.run_ui(egui::RawInput::default(), |ui| {
             for r in &self.document.regions {
@@ -1515,3 +1533,24 @@ mod matrix_view_packet_tests;
 #[cfg(test)]
 #[path = "matrix_live_indices_packet_tests.rs"]
 mod matrix_live_indices_packet_tests;
+
+#[cfg(target_arch = "wasm32")]
+impl WorksheetApp {
+    pub(super) fn open_print(&mut self, pdf: bool) {
+        self.host_print_request(pdf);
+    }
+    fn begin_print(&mut self, _path: Option<PathBuf>) -> Result<(), String> {
+        Err("Printing is provided by the host".into())
+    }
+    pub(crate) fn host_pdf(&mut self) -> Result<Vec<u8>, String> {
+        self.commit_table_edits(None)?;
+        let mut snapshot = self.print_snapshot();
+        let plan = snapshot.plan(PageSelection::All, 96)?;
+        let pages = printing::render_host_vector_pages(
+            &plan,
+            snapshot.fonts.clone(),
+            |ui, page, total| snapshot.paint(ui, page, total),
+        )?;
+        printing::pdf_bytes(&pages)
+    }
+}

@@ -6,8 +6,9 @@
 //! Portable trees contain semantic content, never editor caret or undo history.
 use mathcraft_editor::{NodeKind, PortableTree};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+#[cfg(not(target_arch = "wasm32"))]
 use std::{
-    collections::HashSet,
     fs::{File, OpenOptions},
     io::{Read, Write},
     path::Path,
@@ -745,6 +746,7 @@ impl CanvasDocument {
 
     /// Loads only Mathcraft v2. Mathcad import is a separate source-preserving
     /// conversion path; this method never opens external package relationships.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load(path: &Path) -> Result<Self, String> {
         check_extension(path)?;
         let mut file = File::open(path).map_err(|e| e.to_string())?;
@@ -759,7 +761,15 @@ impl CanvasDocument {
         if bytes.len() as u64 > MAX_DOCUMENT_BYTES {
             return Err("Canvas document exceeds byte limit".into());
         }
-        let mut doc: Self = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        Self::from_bytes(&bytes)
+    }
+
+    /// Same validation and legacy restoration as file loading; no OS IO.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() as u64 > MAX_DOCUMENT_BYTES {
+            return Err("Canvas document exceeds byte limit".into());
+        }
+        let mut doc: Self = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         doc.validate()?;
         doc.restore_legacy_native_disabled_regions();
         Ok(doc)
@@ -844,14 +854,10 @@ impl CanvasDocument {
     /// Validates and writes a new sibling temporary file, then atomically
     /// replaces the destination. Failed validation/write/rename preserves the
     /// old destination; an incomplete temporary file is removed on failure.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn save(&self, path: &Path) -> Result<(), String> {
         check_extension(path)?;
-        self.validate()?;
-        // Compact JSON bounds the overhead of the preserved byte array.
-        let bytes = serde_json::to_vec(self).map_err(|e| e.to_string())?;
-        if bytes.len() as u64 > MAX_DOCUMENT_BYTES {
-            return Err("Serialized canvas document exceeds byte limit".into());
-        }
+        let bytes = self.to_bytes()?;
         let parent = path
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
@@ -887,6 +893,17 @@ impl CanvasDocument {
             return Err(error.to_string());
         }
         Ok(())
+    }
+
+    /// Compact own-format bytes, with the same bounds as native Save.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        self.validate()?;
+        // Compact JSON bounds the overhead of the preserved byte array.
+        let bytes = serde_json::to_vec(self).map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > MAX_DOCUMENT_BYTES {
+            return Err("Serialized canvas document exceeds byte limit".into());
+        }
+        Ok(bytes)
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -1135,6 +1152,7 @@ impl CanvasDocument {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn check_extension(path: &Path) -> Result<(), String> {
     if path
         .extension()

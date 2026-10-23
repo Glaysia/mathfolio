@@ -3,14 +3,16 @@
 //! against concurrent writers; check-to-rename races remain possible.
 use crate::native::NativePackage;
 use sha2::{Digest, Sha256};
+#[cfg(not(target_arch = "wasm32"))]
 use std::{
     fs::{self, File, OpenOptions},
-    io::{Cursor, Read, Seek, SeekFrom, Write},
+    io::Read,
     path::{Component, Path, PathBuf},
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::atomic::{AtomicU64, Ordering},
+};
+use std::{
+    io::{Cursor, Seek, SeekFrom, Write},
+    sync::Arc,
 };
 
 pub const MAX_NATIVE_SAVE_BYTES: usize = 16 * 1024 * 1024;
@@ -31,6 +33,7 @@ impl DiskRevision {
             sha256: Sha256::digest(bytes).into(),
         })
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn read(path: &Path) -> Result<Self> {
         read_revision(path, false)
     }
@@ -69,6 +72,7 @@ impl PreparedNativeSave {
     }
 
     /// Save As fresh output only; existing export_mcdx remains unchanged.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn write_new(&self, path: &Path) -> Result<DiskRevision> {
         extension(path)?;
         let path = checked_path(path, true)?;
@@ -88,9 +92,11 @@ impl PreparedNativeSave {
 
     /// Existing target only, explicit expected old content revision required.
     /// Success returns prepared revision without a fallible post-write read.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn replace_expected(&self, path: &Path, expected: &DiskRevision) -> Result<DiskRevision> {
         self.replace_with_hook(path, expected, || {})
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn replace_with_hook(
         &self,
         path: &Path,
@@ -126,6 +132,7 @@ impl PreparedNativeSave {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn extension(path: &Path) -> Result<()> {
     if path
         .extension()
@@ -136,6 +143,7 @@ fn extension(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+#[cfg(not(target_arch = "wasm32"))]
 fn unsupported_link(metadata: &fs::Metadata) -> bool {
     if metadata.file_type().is_symlink() {
         return true;
@@ -151,6 +159,7 @@ fn unsupported_link(metadata: &fs::Metadata) -> bool {
 }
 /// Reject known symlink/reparse entries, including parent directories. Does
 /// not claim protection against a hostile directory being swapped afterward.
+#[cfg(not(target_arch = "wasm32"))]
 fn checked_path(path: &Path, allow_missing_final: bool) -> Result<PathBuf> {
     let path = if path.is_absolute() {
         path.to_path_buf()
@@ -189,6 +198,7 @@ fn checked_path(path: &Path, allow_missing_final: bool) -> Result<PathBuf> {
     }
     Ok(path)
 }
+#[cfg(not(target_arch = "wasm32"))]
 fn read_revision(path: &Path, writable: bool) -> Result<DiskRevision> {
     let path = checked_path(path, false)?;
     let metadata = fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
@@ -226,6 +236,7 @@ fn read_revision(path: &Path, writable: bool) -> Result<DiskRevision> {
     DiskRevision::from_bytes(&bytes)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn remove_owned_file(path: &Path) {
     // Only a path exclusively created by this operation is passed here.
     // Never follow a replacement symlink or remove a directory recursively.
@@ -233,11 +244,13 @@ fn remove_owned_file(path: &Path) {
         let _ = fs::remove_file(path);
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 struct SiblingTemp {
     path: PathBuf,
     file: Option<File>,
     committed: bool,
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl SiblingTemp {
     fn create(target: &Path) -> Result<Self> {
         static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -277,6 +290,7 @@ impl SiblingTemp {
         Err("Native temporary filename collisions".into())
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl Drop for SiblingTemp {
     fn drop(&mut self) {
         drop(self.file.take());

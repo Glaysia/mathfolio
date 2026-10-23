@@ -14,7 +14,7 @@ Excalidraw처럼 작업 내용이 중심이 되는 간결하고 현대적인 화
 
 ## 내장 가능한 구조
 
-현재 [eframe 0.36.2는 native 실행과 WebRunner/WASM 경로를 제공한다](https://docs.rs/eframe/0.36.2/eframe/). Rust·egui 화면을 공통으로 유지하고 WebRunner로 내장한다. 현재 Mathcraft 전체의 WASM 실행은 미검증이다. 실제 편집 표면을 브라우저와 두 호스트에 올려 입력·스크롤·글꼴·수명 주기를 먼저 확인한다. 호스트 제약은 어댑터에서 해결하며 독립판에 웹 엔진을 도입하거나 TS 편집기를 별도로 만들지 않는다.
+현재 [eframe 0.36.2는 native 실행과 WebRunner/WASM 경로를 제공한다](https://docs.rs/eframe/0.36.2/eframe/). Rust·egui 화면을 공통으로 유지하고 WebRunner로 내장한다. 2026-10-24 [WASM SDK](WASM-SDK.md)의 실제 Canvas·Worker 실행과 bytes 저장 왕복을 검증했다. 두 플러그인 연결은 별도 레포에서 검증한다. 실제 편집 표면을 브라우저와 두 호스트에 올려 입력·스크롤·글꼴·수명 주기를 먼저 확인한다. 호스트 제약은 어댑터에서 해결하며 독립판에 웹 엔진을 도입하거나 TS 편집기를 별도로 만들지 않는다.
 
 | 계층 | 책임 |
 | --- | --- |

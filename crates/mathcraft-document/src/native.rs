@@ -8,10 +8,14 @@ use roxmltree::{Document, Node};
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
-    fs::{File, OpenOptions},
     io::{Cursor, Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use std::{
+    fs::{File, OpenOptions},
+    path::Path,
 };
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
@@ -151,6 +155,7 @@ impl NativeCache {
 
 #[derive(Clone, Debug)]
 pub struct NativePackage {
+    #[cfg(not(target_arch = "wasm32"))]
     source: PathBuf,
     parts: Vec<NativePart>,
     worksheet_part: usize,
@@ -263,6 +268,7 @@ fn standalone_xml(root: Node<'_, '_>) -> String {
 impl NativePackage {
     /// Reads and validates bounded package contents without extraction or execution.
     /// ZIP64, multi-volume, encrypted and unsupported compression are rejected.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn open(path: &Path) -> NativeResult<Self> {
         Self::read(
             File::open(path).map_err(|e| e.to_string())?,
@@ -275,7 +281,7 @@ impl NativePackage {
         Self::read(Cursor::new(bytes), PathBuf::new())
     }
 
-    fn read<R: Read + Seek>(mut reader: R, source: PathBuf) -> NativeResult<Self> {
+    fn read<R: Read + Seek>(mut reader: R, _source: PathBuf) -> NativeResult<Self> {
         preflight(&mut reader)?;
         let mut zip = ZipArchive::new(reader).map_err(|e| e.to_string())?;
         let archive_comment = zip.comment().to_vec();
@@ -342,7 +348,8 @@ impl NativePackage {
             });
         }
         Ok(Self {
-            source,
+            #[cfg(not(target_arch = "wasm32"))]
+            source: _source,
             parts,
             worksheet_part: worksheet_part.ok_or("No worksheet50 worksheet part found")?,
             archive_comment,
@@ -508,6 +515,7 @@ impl NativePackage {
     }
 
     /// Creates a distinct .mcdx; never truncates or overwrites an existing file.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn write_new(&self, path: &Path) -> NativeResult<()> {
         if !path
             .extension()
@@ -559,6 +567,7 @@ impl NativePackage {
             .into_inner())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn write_to(&self, file: File) -> NativeResult<()> {
         self.write_zip(file)?.sync_all().map_err(|e| e.to_string())
     }

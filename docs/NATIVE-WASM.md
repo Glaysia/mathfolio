@@ -10,17 +10,17 @@
 - **기존 동작과 성능을 보존한다.** Enter 확정, 저장 결과/Pending, F5/Ctrl+F5, 기존 키, 단위와 MCDX 보존이 우선이다. UI 개편을 이유로 문서를 다시 계산하거나 입력마다 계산을 확정하지 않는다.
 - Obsidian·VS Code 플러그인의 본 제품은 별도 프로젝트로 유지한다. Mathcraft 저장소는 공통 Rust 구현, WASM SDK와 작은 호스트 검증 도구를 제공한다. CLI·MCP·skill 확장은 [보관 계획](AGENT-INTEGRATION.md)으로 남긴다.
 
-## 현재 출발점
+## 현재 상태 (2026-10-24)
 
-| 확인한 상태 | 다음에 필요한 작업 |
+| 확인한 상태 | 후속 범위 |
 | --- | --- |
-| 기존 `mathcraft-core`, `mathcraft-editor`, `mathcraft-compat`, `mathcraft-document`가 계산·편집·문서 기능을 나눈다. | 기존 의존 방향을 유지하며 OS IO가 섞인 함수를 bytes/데이터 처리와 네이티브 래퍼로 나눈다. |
-| 앱은 egui/eframe이다. Windows에는 [0211의 CPU 어댑터 표시 수정](analysis/0211-windows-scroll-renderer-fix.md)이 있다. | Windows 하드웨어/CPU 표시 경로와 Kubuntu 경로를 유지한다. 웹 때문에 네이티브 렌더러를 교체하지 않는다. |
-| `main.rs`를 얇게 만들고 `mathcraft_ui` 라이브러리를 추출했다. [0212](analysis/0212-shared-native-chrome.md)의 공통 egui UI·테마·호스트 공급 글꼴 설정과 Windows/peets native 회귀를 통과했다. | 파일·창·인쇄·계산 실행 경계를 계속 분리한다. 이 라이브러리 추출만으로 WASM SDK가 완성된 것은 아니다. |
-| OS 글꼴 읽기는 native 로더로 분리했다. 직접 파일 대화상자·파일 경로 기반 열기·인쇄 프로세스·native 계산 thread는 남아 있다. | 함수별 호스트 경계를 만들고 WASM에서 실행 불가능한 경로를 빌드 단계에서 제외한다. |
-| `wasm32-unknown-unknown` 개발 타깃을 설치했다. | 전체 앱의 WASM 빌드·브라우저 실행·두 플러그인 내장은 아직 미검증이다. |
+| `mathcraft-core/editor/compat/document`와 같은 egui 화면을 native/WASM에서 사용한다. | 별도 TS 계산기/문서 모델을 만들지 않는다. |
+| WASM target의 창/파일 대화상자/직접 OS 저장·인쇄를 제외하고 bytes API와 호스트 요청을 연결했다. | Vault/workspace IO·외부 변경 충돌·backup은 각 플러그인이 연결한다. |
+| 같은 Rust 계산 실행을 native persistent thread와 WASM Worker에서 사용한다. Worker 실제 중지·재생성·이전 generation 차단을 브라우저에서 검사했다. | 소스 delta 전송·공용 Worker pool은 후속 범위다. |
+| Canvas mount/dispose, 타입이 있는 TS SDK, 글꼴·테마·저장 승인·벡터 PDF API를 제공한다. | 물리 IME·호스트 단축키·리소스 URI/CSP·미리보기는 실제 플러그인에서 검증한다. |
+| native 회귀와 실제 Windows 전후 스크롤 비교를 수행했다. native에는 JS 실행 엔진을 추가하지 않았다. | 기존 성능/기능 검사를 유지한다. |
 
-현재 앱의 `cfg(not(windows))` 렌더러 설정은 WASM까지 포함한다. native/Web 전용 조건을 명시적으로 나누고, native 의존성이 WASM에 유입되는지 별도로 검사한다. 단순히 `lib.rs`나 `cdylib`를 추가한 것을 내장 완료로 판정하지 않는다.
+실제 사용/빌드는 [WASM SDK](WASM-SDK.md), 실측·증거는 [0214](analysis/0214-wasm-sdk.md)를 따른다. 아래 단계는 전체 내장 로드맵으로 보존한다. SDK의 브라우저 검증과 두 제품 플러그인의 검증은 서로 다른 완료 조건이다.
 
 ## 목표 의존 구조
 

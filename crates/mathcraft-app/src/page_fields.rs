@@ -1,9 +1,8 @@
 //! Cached save-date presentations. No clock or filesystem access while painting.
 use mathcraft_document::canvas::DateSavedFormat;
-use std::{
-    path::Path,
-    time::{SystemTime, UNIX_EPOCH},
-};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
 pub(crate) struct SavedDate {
@@ -12,13 +11,18 @@ pub(crate) struct SavedDate {
 
 impl Default for SavedDate {
     fn default() -> Self {
-        Self::from_timestamp(SystemTime::now()).unwrap_or_else(|| Self {
+        #[cfg(target_arch = "wasm32")]
+        let now = UNIX_EPOCH + std::time::Duration::from_millis(js_sys::Date::now() as u64);
+        #[cfg(not(target_arch = "wasm32"))]
+        let now = SystemTime::now();
+        Self::from_timestamp(now).unwrap_or_else(|| Self {
             formats: Default::default(),
         })
     }
 }
 
 impl SavedDate {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn from_path(path: &Path) -> Option<Self> {
         Self::from_timestamp(std::fs::metadata(path).ok()?.modified().ok()?)
     }
@@ -219,7 +223,25 @@ fn local_date(seconds: i64) -> Option<LocalDate> {
     ))
 }
 
-#[cfg(not(any(windows, unix)))]
+#[cfg(target_arch = "wasm32")]
+fn local_date(seconds: i64) -> Option<LocalDate> {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(seconds as f64 * 1000.));
+    let (year, month, day) = (
+        date.get_full_year() as i32,
+        date.get_month() + 1,
+        date.get_date(),
+    );
+    Some((
+        year,
+        month,
+        day,
+        format!("{year:04}-{month:02}-{day:02}"),
+        date.to_date_string().into(),
+        "/".into(),
+    ))
+}
+
+#[cfg(not(any(windows, unix, target_arch = "wasm32")))]
 fn local_date(_seconds: i64) -> Option<LocalDate> {
     None
 }

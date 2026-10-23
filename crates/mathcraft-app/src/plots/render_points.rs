@@ -156,3 +156,16 @@ mod tests {
         }
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+impl serde::Serialize for CurvePoints {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(self.as_slice(), serializer)
+    }
+}
+#[cfg(target_arch = "wasm32")]
+impl<'de> serde::Deserialize<'de> for CurvePoints {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(<Vec<[f64; 2]> as serde::Deserialize>::deserialize(deserializer)?.into())
+    }
+}

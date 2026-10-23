@@ -190,7 +190,7 @@ impl WorksheetApp {
             }
         }
         self.remember(before);
-        self.dirty = true;
+        self.mark_dirty();
         self.status.clear();
         self.paragraph_alignment.invalidate();
         self.refresh_rich_text_visual(id);

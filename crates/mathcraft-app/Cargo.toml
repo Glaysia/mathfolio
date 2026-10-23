@@ -26,7 +26,6 @@ mathcraft-core.workspace = true
 mathcraft-document.workspace = true
 mathcraft-compat.workspace = true
 mathcraft-editor = { path = "../mathcraft-editor" }
-rfd.workspace = true
 egui_plot.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
 serde_json.workspace = true
@@ -43,8 +42,19 @@ zip.workspace = true
 [target.'cfg(windows)'.dependencies]
 eframe = { workspace = true, features = ["wgpu"] }
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
 eframe = { workspace = true, features = ["glow"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rfd.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+eframe = { workspace = true, features = ["glow"] }
+wasm-bindgen = "0.2.129"
+wasm-bindgen-futures = "0.4.79"
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3.106"
+web-sys = { version = "0.3.106", features = ["HtmlCanvasElement", "Worker", "WorkerOptions", "WorkerType", "MessageEvent", "ErrorEvent", "Performance"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

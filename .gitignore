@@ -17,4 +17,5 @@ Thumbs.db
 *.pem
 *.code-workspace
 __pycache__/
+node_modules/
 *.py[cod]

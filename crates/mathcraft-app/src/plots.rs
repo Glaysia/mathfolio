@@ -72,11 +72,13 @@ const MAX_SAMPLES: usize = 2000;
 const MAX_SAVED_PLOT_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct PlotData {
     pub traces: Vec<TraceOutcome>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct PlotTraceData {
     pub points: CurvePoints,
     pub implicit_domain: bool,

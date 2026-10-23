@@ -2,7 +2,9 @@
 use super::*;
 use num_complex::Complex64;
 use roxmltree::{Document, Node};
-use std::{collections::HashMap, fs::File, io::Cursor};
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::File;
+use std::{collections::HashMap, io::Cursor};
 
 const MATH: &str = "http://schemas.mathsoft.com/math50";
 fn children<'a, 'i>(node: Node<'a, 'i>) -> Vec<Node<'a, 'i>> {
@@ -179,12 +181,23 @@ fn cached_number(node: Node<'_, '_>) -> Option<Complex64> {
         .unwrap_or(0.0);
     Some(Complex64::new(real, imag))
 }
+#[cfg(not(target_arch = "wasm32"))]
 pub fn import_mcdx(path: &Path) -> Result<Worksheet> {
     let file = File::open(path).map_err(|e| e.to_string())?;
     if file.metadata().map_err(|e| e.to_string())?.len() > 64 * 1024 * 1024 {
         return Err("MCDX exceeds 64 MiB".into());
     }
-    let mut zip = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+    import_mcdx_reader(path, file)
+}
+
+pub fn import_mcdx_bytes(name: &Path, bytes: &[u8]) -> Result<Worksheet> {
+    if bytes.len() > 64 * 1024 * 1024 {
+        return Err("MCDX exceeds 64 MiB".into());
+    }
+    import_mcdx_reader(name, Cursor::new(bytes))
+}
+fn import_mcdx_reader<R: Read + std::io::Seek>(path: &Path, reader: R) -> Result<Worksheet> {
+    let mut zip = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
     if zip.len() > 4096 {
         return Err("Too many package entries".into());
     }
@@ -295,8 +308,8 @@ pub fn import_mcdx(path: &Path) -> Result<Worksheet> {
     doc.validate()?;
     Ok(doc)
 }
-fn read_note(
-    zip: &mut zip::ZipArchive<File>,
+fn read_note<R: Read + std::io::Seek>(
+    zip: &mut zip::ZipArchive<R>,
     node: Node<'_, '_>,
     rels: &HashMap<String, String>,
 ) -> Result<String> {

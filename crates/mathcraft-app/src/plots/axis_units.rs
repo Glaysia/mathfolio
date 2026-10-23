@@ -12,6 +12,7 @@ use mathcraft_editor::{BinaryOp, NodeKind, PortableTree};
 use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct TracePresentation {
     pub x: Option<Box<PlotAxisPresentation>>,
     pub y: Option<Box<PlotAxisPresentation>>,

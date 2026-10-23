@@ -79,6 +79,7 @@ enum RegionAction {
 
 enum Pending {
     New,
+    #[cfg(not(target_arch = "wasm32"))]
     Open(PathBuf),
     Close,
 }
@@ -315,6 +316,8 @@ fn expects_display_result(region: &CanvasRegion) -> bool {
 }
 
 pub struct WorksheetApp {
+    #[cfg(target_arch = "wasm32")]
+    host: hosted::HostState,
     document: CanvasDocument,
     native_visuals: Arc<NativeVisuals>,
     page_margins: [f32; 4],
@@ -403,6 +406,8 @@ pub struct WorksheetApp {
 impl Default for WorksheetApp {
     fn default() -> Self {
         Self {
+            #[cfg(target_arch = "wasm32")]
+            host: Default::default(),
             document: CanvasDocument::default(),
             native_visuals: Arc::default(),
             page_margins: [crate::page::METRIC_MARGIN; 4],
@@ -626,6 +631,12 @@ fn solve_block_summary(xml: &str) -> (String, Vec<String>, usize, Option<String>
     (method, guesses, constraints, output)
 }
 impl WorksheetApp {
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+        #[cfg(target_arch = "wasm32")]
+        self.host.changed();
+    }
+
     fn region_has_error(&self, id: u64) -> bool {
         self.plot_results.get(&id).is_some_and(|result| {
             result
@@ -803,12 +814,14 @@ impl WorksheetApp {
         self.undo.push(before);
         self.redo.clear();
         self.dirty = true;
+        #[cfg(target_arch = "wasm32")]
+        self.host.changed();
     }
     fn restore(&mut self, state: HistoryEntry) {
         self.cancel_matrix_view_drag();
         if let DocumentHistory::MatrixResultView { target, viewport } = &state.document {
             match self.set_matrix_result_view(target.owner_id, *viewport) {
-                Ok(_) => self.dirty = true,
+                Ok(_) => self.mark_dirty(),
                 Err(error) => self.status = error,
             }
             return;
@@ -816,6 +829,8 @@ impl WorksheetApp {
         if let DocumentHistory::NumericInputMode(mode) = &state.document {
             self.document.bin_oct_hex_mode = *mode;
             self.dirty = true;
+            #[cfg(target_arch = "wasm32")]
+            self.host.changed();
             return;
         }
         self.text_composition = None;
@@ -969,6 +984,8 @@ impl WorksheetApp {
             self.area_editors.insert(id, area);
         }
         self.dirty = true;
+        #[cfg(target_arch = "wasm32")]
+        self.host.changed();
         self.uncommitted_math.clear();
         if let Some(id) = self.editing_region.filter(|id| {
             self.document.regions.iter().any(|r| {
@@ -1082,7 +1099,13 @@ impl WorksheetApp {
                     self.automatic_calculation,
                     self.show_warnings,
                 );
+                #[cfg(target_arch = "wasm32")]
+                let host = self.host.new_document();
                 *self = Self::default();
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.host = host;
+                }
                 self.retired_plot_widgets = retired_widgets;
                 self.background = background;
                 (
@@ -1092,10 +1115,19 @@ impl WorksheetApp {
                     self.show_warnings,
                 ) = view;
             }
+            #[cfg(not(target_arch = "wasm32"))]
             Pending::Open(path) => self.open(&path),
-            Pending::Close => self.closing = true,
+            Pending::Close => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    self.closing = true;
+                }
+                #[cfg(target_arch = "wasm32")]
+                self.host_close_request();
+            }
         }
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn open(&mut self, path: &Path) {
         self.page_break_request = None;
         self.page_break_markers = Default::default();
@@ -1116,164 +1148,174 @@ impl WorksheetApp {
         #[cfg(test)]
         drop(load_timing);
         match result {
-            Ok((document, mut native_package, native_target)) => {
-                let fresh_native = native_package.is_some();
-                #[cfg(test)]
-                let visual_timing =
-                    crate::frame_profile::scope(crate::frame_profile::Phase::OpenVisuals);
-                self.background.reset();
-                self.saved_date =
-                    crate::page_fields::SavedDate::from_path(path).unwrap_or_default();
-                self.page_margins = crate::page::standard_margins(&document);
-                self.native_visuals = Arc::default();
-                let mut visual_warning = None;
-                #[cfg(test)]
-                let mut archive_timing = Some(crate::frame_profile::scope(
-                    crate::frame_profile::Phase::VisualArchive,
-                ));
-                if native_package.is_none() {
-                    native_package = document
-                        .native_archive
-                        .as_deref()
-                        .and_then(|bytes| NativePackage::from_bytes(bytes).ok());
-                }
-                #[cfg(test)]
-                drop(archive_timing.take());
-                if let Some(package) = native_package.as_ref() {
-                    #[cfg(test)]
-                    let decode_timing =
-                        crate::frame_profile::scope(crate::frame_profile::Phase::VisualDecode);
-                    match NativeVisuals::from_package(package) {
-                        Ok(mut visuals) => {
-                            // Positively parsed plots use their structural
-                            // source/curve renderer, outside the rich-text
-                            // native visual decoder's supported object set.
-                            for region in &document.regions {
-                                if matches!(region.content, CanvasContent::Plot(_))
-                                    && let Some(id) = &region.source_region
-                                {
-                                    visuals.regions.remove(id);
-                                }
-                            }
-                            let failed = visuals.regions.values().filter(|v| v.is_err()).count();
-                            if failed > 0 {
-                                visual_warning =
-                                    Some(format!(" · 원본 서식 {failed}개 영역 지원 필요"));
-                            }
-                            self.native_visuals = Arc::new(visuals);
-                        }
-                        Err(error) => visual_warning = Some(format!(" · 원본 서식: {error}")),
-                    }
-                    #[cfg(test)]
-                    drop(decode_timing);
-                    #[cfg(test)]
-                    let _settings_timing =
-                        crate::frame_profile::scope(crate::frame_profile::Phase::VisualSettings);
-                    if let Ok(Some(source)) =
-                        package.original_xml_part("mathcad/settings/presentation.xml")
-                    {
-                        if document.page_setup.is_none()
-                            && let Some((_, margins)) = crate::page::source_settings(&source)
-                        {
-                            self.page_margins = margins;
-                        }
-                        (self.show_grid, self.use_major_grid) = crate::page::view_settings(&source);
-                    }
-                }
-                #[cfg(test)]
-                drop(archive_timing);
-                #[cfg(test)]
-                drop(visual_timing);
-                #[cfg(test)]
-                let _restore_timing =
-                    crate::frame_profile::scope(crate::frame_profile::Phase::OpenRestore);
-                self.retire_plot_widgets(None);
-                self.native_bin_oct_hex_mode = if let Some(package) = native_package.as_ref() {
-                    mathcraft_document::native_calculation::bin_oct_hex_mode(package).ok()
-                } else if document.native_archive.is_none() {
-                    Some(false)
-                } else {
-                    None
-                };
-                self.document = document;
-                self.matrix_view_drag = None;
-                self.matrix_view_sources = matrix_result_view::SourceFormats::from_document(
-                    &self.document,
-                    native_package.as_ref(),
+            Ok((document, native_package, native_target)) => {
+                self.install_document(
+                    document,
+                    native_package,
+                    native_target,
+                    path,
+                    crate::page_fields::SavedDate::from_path(path).unwrap_or_default(),
                 );
-                self.rich_text = Default::default();
-                self.paragraph_alignment.invalidate();
-                self.editors.clear();
-                self.table_editors.clear();
-                self.area_editors.clear();
-                self.inline_plots.clear();
-                self.plot_palette_cursors.clear();
-                self.plot_equation_floors.clear();
-                self.plot_widget_generations.clear();
-                self.plot_input_queue.clear();
-                self.plot_resize_start = None;
-                self.area_presentations.clear();
-                self.area_prepared.clear();
-                self.area_visuals.clear();
-                #[cfg(test)]
-                let table_timing =
-                    crate::frame_profile::scope(crate::frame_profile::Phase::OpenTables);
-                let tables: Vec<_> = self.document.regions.iter().filter(|r| matches!(&r.content, CanvasContent::Opaque { kind, .. } if matches!(kind.as_str(), "spec-table" | "specTable"))).map(|r| r.id).collect();
-                for id in tables {
-                    // Only a fresh import proves these canvas bytes/defaults
-                    // came from this package. The successful native visual has
-                    // already decoded that whole table with the same parser.
-                    // Edited/own/local/error tables keep their normal refresh;
-                    // standalone namespace overhead still obeys its 8 MiB cap.
-                    let freshly_decoded=fresh_native && self.document.regions.iter().find(|r|r.id==id).is_some_and(|region| {
-                        matches!(&region.content,CanvasContent::Opaque{xml,kind} if kind=="spec-table" && xml.len()<=8*1024*1024)
-                            && self.native_visuals.region(region).is_some_and(Result::is_ok)
-                    });
-                    if !freshly_decoded {
-                        self.refresh_table_visual(id);
-                    }
-                }
-                #[cfg(test)]
-                drop(table_timing);
-                self.text_composition = None;
-                self.text_cursors.clear();
-                let rich_ids: Vec<_> = self
-                    .document
-                    .regions
-                    .iter()
-                    .filter(|r| r.rich_text.is_some() || r.authored_text.is_some())
-                    .map(|r| r.id)
-                    .collect();
-                for id in rich_ids {
-                    self.refresh_rich_text_visual(id);
-                }
-                self.region_heights.clear();
-                self.region_widths.clear();
-                self.undo.clear();
-                self.redo.clear();
-                self.results.clear();
-                self.dirty = false;
-                self.selected = None;
-                self.editing_region = None;
-                self.focus_new = None;
-                self.dragging = None;
-                self.drag_preview = None;
-                self.drag_pointer_origin = None;
-                self.page_sections_draft = None;
-                self.insertion = None;
-                self.path = Some(path.into());
-                self.native_save_target = native_target;
-                self.status = format!("Opened {}", path.display());
-                if let Some(package) = native_package.as_ref() {
-                    self.restore_saved_calculations_for_source(Some(package), fresh_native);
-                } else {
-                    self.restore_saved_calculations();
-                }
-                if let Some(warning) = visual_warning {
-                    self.status.push_str(&warning);
-                }
             }
             Err(e) => self.status = format!("Could not open: {e}"),
+        }
+    }
+    fn install_document(
+        &mut self,
+        document: CanvasDocument,
+        mut native_package: Option<NativePackage>,
+        native_target: Option<native_save_ui::NativeTarget>,
+        path: &Path,
+        saved_date: crate::page_fields::SavedDate,
+    ) {
+        let fresh_native = native_package.is_some();
+        #[cfg(test)]
+        let visual_timing = crate::frame_profile::scope(crate::frame_profile::Phase::OpenVisuals);
+        self.background.reset();
+        self.saved_date = saved_date;
+        self.page_margins = crate::page::standard_margins(&document);
+        self.native_visuals = Arc::default();
+        let mut visual_warning = None;
+        #[cfg(test)]
+        let mut archive_timing = Some(crate::frame_profile::scope(
+            crate::frame_profile::Phase::VisualArchive,
+        ));
+        if native_package.is_none() {
+            native_package = document
+                .native_archive
+                .as_deref()
+                .and_then(|bytes| NativePackage::from_bytes(bytes).ok());
+        }
+        #[cfg(test)]
+        drop(archive_timing.take());
+        if let Some(package) = native_package.as_ref() {
+            #[cfg(test)]
+            let decode_timing =
+                crate::frame_profile::scope(crate::frame_profile::Phase::VisualDecode);
+            match NativeVisuals::from_package(package) {
+                Ok(mut visuals) => {
+                    // Positively parsed plots use their structural
+                    // source/curve renderer, outside the rich-text
+                    // native visual decoder's supported object set.
+                    for region in &document.regions {
+                        if matches!(region.content, CanvasContent::Plot(_))
+                            && let Some(id) = &region.source_region
+                        {
+                            visuals.regions.remove(id);
+                        }
+                    }
+                    let failed = visuals.regions.values().filter(|v| v.is_err()).count();
+                    if failed > 0 {
+                        visual_warning = Some(format!(" · 원본 서식 {failed}개 영역 지원 필요"));
+                    }
+                    self.native_visuals = Arc::new(visuals);
+                }
+                Err(error) => visual_warning = Some(format!(" · 원본 서식: {error}")),
+            }
+            #[cfg(test)]
+            drop(decode_timing);
+            #[cfg(test)]
+            let _settings_timing =
+                crate::frame_profile::scope(crate::frame_profile::Phase::VisualSettings);
+            if let Ok(Some(source)) = package.original_xml_part("mathcad/settings/presentation.xml")
+            {
+                if document.page_setup.is_none()
+                    && let Some((_, margins)) = crate::page::source_settings(&source)
+                {
+                    self.page_margins = margins;
+                }
+                (self.show_grid, self.use_major_grid) = crate::page::view_settings(&source);
+            }
+        }
+        #[cfg(test)]
+        drop(archive_timing);
+        #[cfg(test)]
+        drop(visual_timing);
+        #[cfg(test)]
+        let _restore_timing = crate::frame_profile::scope(crate::frame_profile::Phase::OpenRestore);
+        self.retire_plot_widgets(None);
+        self.native_bin_oct_hex_mode = if let Some(package) = native_package.as_ref() {
+            mathcraft_document::native_calculation::bin_oct_hex_mode(package).ok()
+        } else if document.native_archive.is_none() {
+            Some(false)
+        } else {
+            None
+        };
+        self.document = document;
+        self.matrix_view_drag = None;
+        self.matrix_view_sources = matrix_result_view::SourceFormats::from_document(
+            &self.document,
+            native_package.as_ref(),
+        );
+        self.rich_text = Default::default();
+        self.paragraph_alignment.invalidate();
+        self.editors.clear();
+        self.table_editors.clear();
+        self.area_editors.clear();
+        self.inline_plots.clear();
+        self.plot_palette_cursors.clear();
+        self.plot_equation_floors.clear();
+        self.plot_widget_generations.clear();
+        self.plot_input_queue.clear();
+        self.plot_resize_start = None;
+        self.area_presentations.clear();
+        self.area_prepared.clear();
+        self.area_visuals.clear();
+        #[cfg(test)]
+        let table_timing = crate::frame_profile::scope(crate::frame_profile::Phase::OpenTables);
+        let tables: Vec<_> = self.document.regions.iter().filter(|r| matches!(&r.content, CanvasContent::Opaque { kind, .. } if matches!(kind.as_str(), "spec-table" | "specTable"))).map(|r| r.id).collect();
+        for id in tables {
+            // Only a fresh import proves these canvas bytes/defaults
+            // came from this package. The successful native visual has
+            // already decoded that whole table with the same parser.
+            // Edited/own/local/error tables keep their normal refresh;
+            // standalone namespace overhead still obeys its 8 MiB cap.
+            let freshly_decoded=fresh_native && self.document.regions.iter().find(|r|r.id==id).is_some_and(|region| {
+            matches!(&region.content,CanvasContent::Opaque{xml,kind} if kind=="spec-table" && xml.len()<=8*1024*1024)
+                && self.native_visuals.region(region).is_some_and(Result::is_ok)
+        });
+            if !freshly_decoded {
+                self.refresh_table_visual(id);
+            }
+        }
+        #[cfg(test)]
+        drop(table_timing);
+        self.text_composition = None;
+        self.text_cursors.clear();
+        let rich_ids: Vec<_> = self
+            .document
+            .regions
+            .iter()
+            .filter(|r| r.rich_text.is_some() || r.authored_text.is_some())
+            .map(|r| r.id)
+            .collect();
+        for id in rich_ids {
+            self.refresh_rich_text_visual(id);
+        }
+        self.region_heights.clear();
+        self.region_widths.clear();
+        self.undo.clear();
+        self.redo.clear();
+        self.results.clear();
+        self.dirty = false;
+        self.selected = None;
+        self.editing_region = None;
+        self.focus_new = None;
+        self.dragging = None;
+        self.drag_preview = None;
+        self.drag_pointer_origin = None;
+        self.page_sections_draft = None;
+        self.insertion = None;
+        self.path = Some(path.into());
+        self.native_save_target = native_target;
+        self.status = format!("Opened {}", path.display());
+        if let Some(package) = native_package.as_ref() {
+            self.restore_saved_calculations_for_source(Some(package), fresh_native);
+        } else {
+            self.restore_saved_calculations();
+        }
+        if let Some(warning) = visual_warning {
+            self.status.push_str(&warning);
         }
     }
     fn sync_editors(&mut self) -> Result<(), String> {
@@ -1294,6 +1336,7 @@ impl WorksheetApp {
         }
         Ok(())
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn save(&mut self, save_as: bool) -> bool {
         let mut prompts = native_save_ui::SystemSavePrompts;
         self.save_with_prompts(save_as, &mut prompts)
@@ -2605,6 +2648,7 @@ impl WorksheetApp {
         self.persist_calculation_cache();
         Ok(())
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn export_mcdx(&mut self) {
         if let Err(error) = self.prepare_native_export() {
             self.status = format!("Could not export: {error}");
@@ -2659,6 +2703,7 @@ impl WorksheetApp {
             }
         });
     }
+    #[cfg(not(target_arch = "wasm32"))]
     fn choose_open(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("Worksheets", &["mathcraft", "mcdx"])
@@ -4987,6 +5032,8 @@ impl WorksheetApp {
                         }
                         if outcome.document_changed {
                             self.dirty = true;
+                            #[cfg(target_arch = "wasm32")]
+                            self.host.changed();
                             ui.ctx().request_repaint();
                         }
                         changed |= outcome.history_changed;
@@ -5049,6 +5096,8 @@ impl WorksheetApp {
                     }
                     if outcome.draft_changed {
                         self.dirty = true;
+                        #[cfg(target_arch = "wasm32")]
+                        self.host.changed();
                     }
                     if outcome.focused {
                         self.selected = Some(id);
@@ -5630,6 +5679,8 @@ impl WorksheetApp {
         if changed || geometry_changed {
             self.status.clear();
             self.dirty = true;
+            #[cfg(target_arch = "wasm32")]
+            self.host.changed();
         }
         for id in text_edits {
             self.refresh_rich_text_visual(id);
@@ -6226,12 +6277,20 @@ fn native_region_payload(source: &str, kind: &str) -> Result<String, String> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn import_native(path: &Path) -> Result<(CanvasDocument, NativePackage), String> {
     let size = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
     if size > 16 * 1024 * 1024 {
         return Err("This worksheet exceeds the current 16 MiB import limit".into());
     }
     let source_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    import_native_bytes(path, source_bytes)
+}
+
+fn import_native_bytes(
+    path: &Path,
+    source_bytes: Vec<u8>,
+) -> Result<(CanvasDocument, NativePackage), String> {
     if source_bytes.len() > 16 * 1024 * 1024 {
         return Err("This worksheet exceeds the current 16 MiB import limit".into());
     }
@@ -6278,13 +6337,16 @@ fn import_native(path: &Path) -> Result<(CanvasDocument, NativePackage), String>
     drop(worksheet_timing);
     #[cfg(test)]
     let notes_timing = crate::frame_profile::scope(crate::frame_profile::Phase::ImportNotes);
-    let notes: HashMap<_, _> = mathcraft_document::import_mcdx(path)
-        .ok()
-        .into_iter()
-        .flat_map(|d| d.rows)
-        .filter(|r| r.note)
-        .filter_map(|r| r.imported.map(|i| (i.region_id, r.input)))
-        .collect();
+    let notes: HashMap<_, _> = mathcraft_document::import_mcdx_bytes(
+        path,
+        document.native_archive.as_deref().unwrap_or_default(),
+    )
+    .ok()
+    .into_iter()
+    .flat_map(|d| d.rows)
+    .filter(|r| r.note)
+    .filter_map(|r| r.imported.map(|i| (i.region_id, r.input)))
+    .collect();
     #[cfg(test)]
     drop(notes_timing);
     #[cfg(test)]
@@ -6449,6 +6511,7 @@ impl WorksheetApp {
             if self.dirty || inline_dirty { " *" } else { "" }
         );
         if title != self.last_title {
+            #[cfg(not(target_arch = "wasm32"))]
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.last_title = title;
         }
@@ -6497,12 +6560,8 @@ impl WorksheetApp {
             if ctx.input_mut(|i| consume_exact_key(i, egui::Modifiers::COMMAND, egui::Key::N)) {
                 self.request(Pending::New);
             }
-            if ctx.input_mut(|i| consume_exact_key(i, egui::Modifiers::COMMAND, egui::Key::O))
-                && let Some(path) = rfd::FileDialog::new()
-                    .add_filter("Worksheets", &["mathcraft", "mcdx"])
-                    .pick_file()
-            {
-                self.request(Pending::Open(path));
+            if ctx.input_mut(|i| consume_exact_key(i, egui::Modifiers::COMMAND, egui::Key::O)) {
+                self.choose_open();
             }
             self.global_editing_shortcuts(&ctx);
             // Ctrl+Shift+Z belongs to the original infinity gesture, not redo.
@@ -9753,6 +9812,8 @@ mod drag_transactions;
 mod edit_commit;
 #[cfg(test)]
 mod global_vector_transactions;
+#[cfg(test)]
+mod host_boundary_tests;
 
 #[cfg(test)]
 mod full_app_profile;
@@ -9962,3 +10023,6 @@ mod matrix_indices_input;
 
 #[cfg(test)]
 mod source_matrix_display_app_tests;
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod hosted;

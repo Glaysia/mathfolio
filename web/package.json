@@ -1,0 +1,6 @@
+{
+  "name": "mathcraft-wasm-build-tools",
+  "private": true,
+  "type": "module",
+  "devDependencies": { "binaryen": "132.0.0", "typescript": "7.0.2" }
+}

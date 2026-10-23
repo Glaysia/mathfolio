@@ -4,11 +4,13 @@
 
 **2026-10-23:** [Windows 스크롤 지연 수정](docs/analysis/0211-windows-scroll-renderer-fix.md)을 반영했다. 같은 실행체의 native 간격을 약219ms에서6.5ms로 줄였고 사용자가 개선을 확인했다.
 
-**UI 1차 개편:** [간결한 도구 모음·선택 속성·테마·검색 도움말](docs/analysis/0212-shared-native-chrome.md)을 공통 Rust egui로 적용했다. 기존 키와 Enter 확정을 유지하며 검색/속성 입력을 문서 명령과 격리한다. Windows/peets 회귀와 실제 Windows 화면을 확인했다. WASM 실행은 아직 미검증이며, 스크롤 비교의 추가 그리기 비용도 기록했다.
+**UI 1차 개편:** [간결한 도구 모음·선택 속성·테마·검색 도움말](docs/analysis/0212-shared-native-chrome.md)을 공통 Rust egui로 적용했다. 기존 키와 Enter 확정을 유지하며 검색/속성 입력을 문서 명령과 격리한다. Windows/peets 회귀와 실제 Windows 화면을 확인했다. 이후 [WASM SDK](docs/WASM-SDK.md)의 실제 브라우저 실행을 검증했다. UI 개편 당시 스크롤 비교의 추가 그리기 비용도 기록했다.
+
+**2026-10-24:** [WASM SDK 사용법](docs/WASM-SDK.md) · [용량·호환·native 성능 검증](docs/analysis/0214-wasm-sdk.md). SDK 빌드는 `python scripts/build-wasm.py`이며 산출물은 `dist/wasm-sdk`와 배포용 tar.gz에 생성된다.
 
 [호스트 색상 연동·Nord](docs/HOST-THEMES.md): UI 테마 메뉴와 Rust 색 토큰 계약을 제공한다. CSS 수집·설정 저장과 실제 내장 연결은 별도 플러그인 레포의 후속 범위다.
 
-**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. 전체 WASM·두 호스트 실행은 아직 미검증이다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
+**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. [WASM SDK 0.1.0](docs/WASM-SDK.md)의 Canvas·Worker·열기/저장·벡터 PDF를 실제 브라우저에서 검증했다. 두 플러그인의 실제 연결은 별도 레포의 범위다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
 
@@ -18,7 +20,7 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했고 Windows 스크롤 지연을 수정했다. 공통 egui UI/UX의 1차 개편을 반영했으며, WASM/호스트 경계 분리를 계속한다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
+- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했고 Windows 스크롤 지연을 수정했다. 공통 egui UI/UX의 1차 개편을 반영했으며, WASM SDK의 실제 브라우저 실행을 검증했고, 두 호스트 플러그인은 별도 레포에서 연결한다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
 
 UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하며, Mathcad 방식의 수식 편집·계산 의미와 기존 단축키는 유지한다.
 
@@ -62,7 +64,7 @@ cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
 2026-10-23: [서식 있는 Text 선택 후 휠 입력이 프레임마다 밀리는 문제](docs/analysis/0208-scroll-input-backlog.md)를 수정했다. 현재 스크롤 성능 작업의 첫 수정이며, 기존 키·계산·저장 의미를 유지한다.
 
 1. [스크롤 버벅임 개선](docs/PERFORMANCE.md): release의 실제 병목을 분리 측정하고 같은 조건에서 전후를 확인한다.
-2. [현대적인 UI/UX](docs/UI-MODERNIZATION.md)와 [네이티브·WASM 투트랙](docs/NATIVE-WASM.md): 공통 Rust 세션·egui 화면과 호스트를 분리하고, native 회귀→WASM/Worker→두 호스트 검증 후 기존 키와 계산 의미를 유지하며 도구·속성·안내를 정리한다.
+2. [현대적인 UI/UX](docs/UI-MODERNIZATION.md)와 [네이티브·WASM 투트랙](docs/NATIVE-WASM.md): [공통 SDK](docs/WASM-SDK.md)의 브라우저 검증과 native 회귀를 유지하고, 별도 플러그인 레포에서 호스트 저장·테마·입력·수명을 연결한다.
 
 ## 기존 기능의 남은 공백과 구현 이력
 

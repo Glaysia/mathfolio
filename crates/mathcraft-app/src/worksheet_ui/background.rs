@@ -15,7 +15,23 @@ pub(super) struct BackgroundState {
     pub(super) preparation: super::edit_commit::PreparationCache,
 }
 impl BackgroundState {
-    #[cfg(any(test, feature = "native-profile"))]
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn web_worker_memory(&self) -> Option<u32> {
+        self.worker
+            .as_ref()
+            .and_then(CalculationWorker::memory_bytes)
+    }
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn web_worker_count(&self) -> u32 {
+        self.worker.as_ref().map_or(0, CalculationWorker::count)
+    }
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn web_worker_started(&self) -> Option<u64> {
+        self.worker
+            .as_ref()
+            .and_then(CalculationWorker::started_generation)
+    }
+    #[cfg(any(test, feature = "native-profile", target_arch = "wasm32"))]
     pub(super) fn submitted_generation(&self) -> u64 {
         self.generation
     }
@@ -223,6 +239,10 @@ impl WorksheetApp {
     fn accept_background_reply(&mut self, reply: CalculationReply) {
         if reply.generation != self.background.generation {
             return;
+        }
+        #[cfg(target_arch = "wasm32")]
+        if !reply.updates.is_empty() || !reply.plots.is_empty() {
+            self.host.changed();
         }
         self.background.running = false;
         self.last_executed_regions.clear();

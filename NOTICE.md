@@ -36,6 +36,13 @@ text is in [LICENSE](LICENSE).
 - STIX Two Math and Text fonts retain the SIL Open Font License 1.1. Preserve
   [OFL.txt](assets/fonts/stix/OFL.txt) and
   [SOURCE.json](assets/fonts/stix/SOURCE.json).
+- The optional WASM CJK font Nanum Gothic retains SIL Open Font License 1.1;
+  preserve [OFL.txt](assets/fonts/nanum/OFL.txt) and
+  [SOURCE.json](assets/fonts/nanum/SOURCE.json). It is an external host asset,
+  not an addition to the native executable's embedded fonts.
+- egui's embedded default fonts retain their individual licenses, including
+  Ubuntu Font License, SIL OFL, and Hack/emoji font notices. Copies and exact
+  dependency provenance are in [egui-default](assets/fonts/egui-default/SOURCE.json).
 - Nord palette values are credited to Sven Greb and the Nord project (MIT).
   Preserve [LICENSE-MIT](assets/themes/nord/LICENSE-MIT) and
   [SOURCE.json](assets/themes/nord/SOURCE.json). The semantic UI mapping is

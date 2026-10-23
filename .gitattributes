@@ -8,6 +8,9 @@
 assets/fonts/stix/*.ttf binary
 assets/fonts/stix/OFL.txt text eol=lf whitespace=-blank-at-eol
 assets/fonts/stix/SOURCE.json text eol=lf
+# Preserve upstream license bytes, including their original trailing spaces.
+assets/fonts/nanum/OFL.txt text eol=lf whitespace=-blank-at-eol
+assets/fonts/egui-default/*.txt text eol=lf
 .gitattributes text eol=lf
 # Native text fixtures retain original bytes, including CRLF and UTF-8 BOM.
 tests/reference/rich-text/*.xml -text whitespace=cr-at-eol

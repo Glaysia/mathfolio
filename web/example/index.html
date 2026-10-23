@@ -1,0 +1,8 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>Mathcraft WASM SDK</title>
+<style>
+html,body{height:100%;margin:0;background:#2e3440;color:#eceff4;font:14px system-ui}body{display:flex;flex-direction:column}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px}button{padding:5px 12px}canvas{width:100%;height:100%;display:block;touch-action:none}main{flex:1;min-height:0}#status{margin-left:auto}#report{white-space:pre-wrap}
+</style>
+<header><strong>Mathcraft · WASM SDK 검증 호스트</strong><input type="file" id="open" accept=".mcdx,.mathcraft"><button id="save">저장</button><button id="pdf">PDF</button><span id="status">로딩 중</span></header>
+<main><canvas id="editor"></canvas></main><pre id="report" hidden></pre>
+<script type="module" src="./example.js"></script></html>

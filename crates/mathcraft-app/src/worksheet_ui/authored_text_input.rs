@@ -698,7 +698,7 @@ impl WorksheetApp {
             .authored_text = Some(Box::new(wire));
         self.rich_text.authored_editors.insert(id, Ok(next));
         self.remember(before);
-        self.dirty = true;
+        self.mark_dirty();
         self.status.clear();
         self.refresh_rich_text_visual(id);
         self.region_heights.remove(&id);

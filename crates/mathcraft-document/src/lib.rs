@@ -1,9 +1,8 @@
 use mathcraft_core::{Environment, LineValue, Result};
 use serde::{Deserialize, Serialize};
-use std::{
-    io::{Read, Write},
-    path::Path,
-};
+#[cfg(not(target_arch = "wasm32"))]
+use std::io::Write;
+use std::{io::Read, path::Path};
 
 pub mod area;
 pub mod area_authoring;
@@ -22,7 +21,9 @@ pub mod page_break;
 pub mod plot_axis_presentation;
 pub mod plot_snapshot;
 pub mod rich_text_source;
+#[cfg(not(target_arch = "wasm32"))]
 pub use mcdx::import_mcdx;
+pub use mcdx::import_mcdx_bytes;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Row {
@@ -98,6 +99,7 @@ impl Worksheet {
             .collect();
         (env, results)
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn save(&self, path: &Path) -> Result<()> {
         if path.extension().and_then(|s| s.to_str()) != Some("mathcraft") {
             return Err(
@@ -120,6 +122,7 @@ impl Worksheet {
         drop(file);
         std::fs::rename(&temp, path).map_err(|e| e.to_string())
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load(path: &Path) -> Result<Self> {
         if path
             .extension()

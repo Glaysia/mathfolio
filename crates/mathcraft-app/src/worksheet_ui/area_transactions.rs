@@ -47,7 +47,7 @@ impl WorksheetApp {
             area.deactivate();
         }
         if changed {
-            self.dirty = true;
+            self.mark_dirty();
             for id in pending {
                 self.stage_math_edit(id, false);
             }

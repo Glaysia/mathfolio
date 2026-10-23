@@ -4,10 +4,12 @@ use super::*;
 use mathcraft_document::native_save::DiskRevision;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) struct NativeTarget {
     path: PathBuf,
     revision: DiskRevision,
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl NativeTarget {
     pub(super) fn from_open(path: &Path, document: &CanvasDocument) -> Result<Self, String> {
         let archive = document
@@ -22,16 +24,19 @@ impl NativeTarget {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) enum SaveIntent {
     Current,
     SaveAs,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(not(target_arch = "wasm32"))]
 enum Format {
     Own,
     Native,
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl Format {
     fn from_path(path: &Path) -> Result<Self, String> {
         match path.extension().and_then(|value| value.to_str()) {
@@ -42,6 +47,7 @@ impl Format {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 enum Destination {
     Own(PathBuf),
     NewNative(PathBuf),
@@ -50,6 +56,7 @@ enum Destination {
 
 /// UI-only choice. Capture revision after this returns, before editor/export preparation.
 /// The current format/name is preferred; only the selected known extension dispatches.
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn choose_destination(current: Option<&Path>) -> Result<Option<PathBuf>, String> {
     let format = current
         .map(Format::from_path)
@@ -85,12 +92,15 @@ pub(super) fn choose_destination(current: Option<&Path>) -> Result<Option<PathBu
 /// Injectable UI boundary. Scripted implementations never display a dialog.
 /// A decline/closed question and a cancelled chooser both return before source,
 /// editor, composition, cache, date, history or save identity preparation.
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) trait SavePrompts {
     fn readonly_save_as(&mut self, path: &Path) -> bool;
     fn destination(&mut self, current: Option<&Path>) -> Result<Option<PathBuf>, String>;
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) struct SystemSavePrompts;
+#[cfg(not(target_arch = "wasm32"))]
 impl SavePrompts for SystemSavePrompts {
     fn readonly_save_as(&mut self, path: &Path) -> bool {
         rfd::MessageDialog::new()
@@ -109,6 +119,7 @@ impl SavePrompts for SystemSavePrompts {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl WorksheetApp {
     pub(super) fn save_with_prompts(
         &mut self,

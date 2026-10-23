@@ -22,6 +22,8 @@ mod result_display;
 mod ribbon;
 mod typography;
 use mathcraft_compat::editor_bridge as worksheet_math;
+#[cfg(target_arch = "wasm32")]
+mod web;
 mod worksheet_ui;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -87,6 +89,11 @@ mod native_fonts;
 #[cfg(not(target_arch = "wasm32"))]
 fn configure(ctx: &egui::Context) {
     configure_surface(ctx, native_fonts::load(), Theme::Light);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn configure(ctx: &egui::Context) {
+    configure_surface(ctx, egui::FontDefinitions::default(), Theme::Light);
 }
 
 /// Configures a surface using supplied fonts, without OS IO. Initially follows

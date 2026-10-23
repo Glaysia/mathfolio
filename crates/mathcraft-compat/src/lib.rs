@@ -143,6 +143,7 @@ fn check_cancelled() -> Result<()> {
 /// Original load-time placement, inferred from saved page settings and confirmed
 /// by ApplyWorksheetData/AddItemAtLocation and AlignmentGrid IL. Ties snap down.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
 pub struct PlacementGrid {
     step: f64,
 }
@@ -308,6 +309,7 @@ impl Value {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(Deserialize))]
 pub struct Fault {
     /// Original error family where established; not localized text or node IDs.
     pub code: String,
@@ -369,6 +371,7 @@ enum Statement {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(Deserialize))]
 pub struct RegionEvaluation {
     pub region_id: String,
     pub result_ref: Option<String>,
@@ -1811,6 +1814,7 @@ type ParsedWorksheet = (Vec<WorksheetInput>, Vec<String>, Vec<(f64, f64)>);
 
 /// Calculation commands are independent of automatic-calculation settings.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
 pub enum CalculationRequest {
     Worksheet,
     /// Initialize global prerequisite bindings without publishing worksheet rows.
@@ -1821,6 +1825,7 @@ pub enum CalculationRequest {
 
 /// Rows retain their last result while pending, independently of synchronization.
 #[derive(Clone, Debug)]
+#[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
 pub struct CalculationUpdate {
     pub rows: Vec<RegionEvaluation>,
     pub pending_region_ids: Vec<String>,
@@ -1894,6 +1899,19 @@ impl Default for WorksheetCalculator {
 }
 
 impl WorksheetCalculator {
+    /// Restored browser workers retain presentation payloads, never bindings or
+    /// freshness. Only subsequent explicit engine requests execute definitions.
+    #[cfg(target_arch = "wasm32")]
+    pub fn restore_display_rows(&mut self, previous: &[RegionEvaluation]) {
+        for (row, _) in &mut self.inputs {
+            if let Some(old) = previous.iter().find(|old| old.region_id == row.region_id) {
+                row.value = old.value.clone();
+                row.display_value = old.display_value.clone();
+                row.error = old.error.clone();
+                row.matrix_origin = old.matrix_origin;
+            }
+        }
+    }
     /// Explicit worksheet setting; false preserves native default zero indexing.
     /// A change invalidates all calculated bindings, including captured globals.
     pub fn set_strings_use_origin(&mut self, enabled: bool) -> bool {

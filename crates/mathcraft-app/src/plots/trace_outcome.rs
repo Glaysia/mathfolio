@@ -6,6 +6,7 @@ use serde_json::Value;
 const MAX_DIAGNOSTIC_BYTES: usize = 16 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum TraceOutcome {
     Ready(PlotTraceData),
     Failed(String),
