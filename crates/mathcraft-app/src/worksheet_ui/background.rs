@@ -15,7 +15,7 @@ pub(super) struct BackgroundState {
     pub(super) preparation: super::edit_commit::PreparationCache,
 }
 impl BackgroundState {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-profile"))]
     pub(super) fn submitted_generation(&self) -> u64 {
         self.generation
     }

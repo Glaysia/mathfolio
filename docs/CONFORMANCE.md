@@ -1,5 +1,7 @@
 # Mathcad 호환성 구현과 측정
 
+**2026-10-23 Windows native 진단:** GUI 허용 후 실제 창의 어댑터가 DX12 CPU fallback임을 확인했다. 전체 App의 native 프레임 시작 간격 약219ms와 UI 약1ms를 분리했고, 빈 화면·latency2·AutoNoVsync를 비교했다. [결과와 제한](analysis/0209-windows-native-software-rendering.md)에 기록한다. 소프트웨어 렌더링 경로의 병목을 확인한 단계이며 해결 완료나 실제 표시 FPS로 판정하지 않는다.
+
 **2026-10-23 스크롤 입력 수정:** [서식 있는 Text의 휠 입력 대기](analysis/0208-scroll-input-backlog.md)를 제거했다. Windows2180·peets2181 정상 검사, fmt·Clippy·workspace 빌드·참조38건과 Windows release 빌드를 통과했다. GUI·원본 런타임은 실행하지 않았다. 같은 release 테스트 실행체의 offscreen 디더링 비교에서는 개선 근거가 없어 제품 렌더러 설정을 유지했다. 이 결과를 실제 화면 FPS나 모든 스크롤 지연의 해결 판정으로 확대하지 않는다.
 
 **UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.

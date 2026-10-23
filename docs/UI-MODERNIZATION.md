@@ -68,4 +68,4 @@ Obsidian은 [공식 API](https://github.com/obsidianmd/obsidian-api/blob/master/
 
 Windows와 Kubuntu의 standalone 앱, Obsidian Desktop 내장 표면에서 크기·DPI·테마·포커스·스크롤 처리가 맞아야 한다. 계산서 편집과 노트 미리보기에서 공통 구현을 재사용하고, 내장 때문에 별도의 계산 엔진이나 키 의미가 생기지 않아야 한다. [스크롤 성능 기준](PERFORMANCE.md)을 UI 변경마다 유지한다.
 
-기존 GUI·스크린샷 제한 안에서 우선 headless 입력·기하·상태·파일·WASM 빌드 검증을 수행한다. 실제 화면과 사용감의 완료 판정은 해당 측정이나 사용자 확인으로 남긴다. [CLI·MCP·skill](AGENT-INTEGRATION.md)은 이번 두 작업 바깥의 보관된 후속 계획이다.
+사용자가2026-10-23 GUI 사용 금지를 해제했다. headless 입력·기하·상태·파일·WASM 빌드 검사와 실제 GUI 검증을 함께 수행한다. 실제 화면과 사용감의 완료 판정은 해당 측정이나 사용자 확인으로 남긴다. [CLI·MCP·skill](AGENT-INTEGRATION.md)은 이번 두 작업 바깥의 보관된 후속 계획이다.

@@ -7,6 +7,10 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+# Explicit native-window diagnostic; omitted from ordinary builds.
+native-profile = ["eframe/glow"]
+
 [[bin]]
 name = "mathcraft"
 path = "src/main.rs"

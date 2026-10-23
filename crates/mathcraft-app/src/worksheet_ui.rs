@@ -25,6 +25,8 @@ use mathcraft_document::{
 };
 use mathcraft_editor::{BinaryOp, Direction, Editor, NodeKind, PortableTree};
 use original_shortcuts::consume_exact_key;
+#[cfg(feature = "native-profile")]
+pub(crate) mod native_scroll_profile;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
