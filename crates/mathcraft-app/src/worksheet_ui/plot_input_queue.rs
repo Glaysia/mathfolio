@@ -8,6 +8,10 @@
 use eframe::egui::{Event, Key, Modifiers, RawInput};
 use std::collections::VecDeque;
 
+#[cfg(test)]
+#[path = "plot_input_queue_scroll_tests.rs"]
+mod scroll_tests;
+
 #[derive(Default)]
 pub(super) struct PlotInputQueue {
     pending: VecDeque<QueuedEvent>,
@@ -315,12 +319,22 @@ impl PlotInputQueue {
                             .iter()
                             .position(|event| changes_before_command(event));
                         first.map_or(events.len(), |first| {
+                            // Wheel input needs no intervening text publication.
+                            // Deliver its whole ordered run in one native frame,
+                            // stopping before any text/IME/key/click boundary.
+                            // Keep the native IME provenance classification above
+                            // unchanged: this only removes artificial drain frames.
+                            let scrolling = matches!(events[first], Event::MouseWheel { .. });
                             first
                                 + 1
                                 + events
                                     .iter()
                                     .skip(first + 1)
-                                    .take_while(|event| !changes_before_command(event))
+                                    .take_while(|event| {
+                                        !changes_before_command(event)
+                                            || (scrolling
+                                                && matches!(event, Event::MouseWheel { .. }))
+                                    })
                                     .count()
                         })
                     }

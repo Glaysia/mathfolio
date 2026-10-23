@@ -650,6 +650,9 @@ fn run_scene(report: &mut serde_json::Value) -> Result<(), String> {
         wait_future(initialize::initialize_primary_only())??;
     report["initialize_host_wall_ns"] = serde_json::json!(initialize_start.elapsed().as_nanos());
     report["graphics"] = gpu_report;
+    if report["graphics"]["diagnostic_dithering_override"].is_boolean() {
+        report["configuration"] = "Diagnostic dithering variant; otherwise NativeOptions defaults except primary-only headless request and Bgra8Unorm target".into();
+    }
     let constructor_start = Instant::now();
     let mut frames = OffscreenFrames::new(&device, options)?;
     report["renderer_constructor_host_wall_ns"] =

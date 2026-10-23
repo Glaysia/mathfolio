@@ -1,5 +1,7 @@
 # Mathcad 호환성 구현과 측정
 
+**2026-10-23 스크롤 입력 수정:** [서식 있는 Text의 휠 입력 대기](analysis/0208-scroll-input-backlog.md)를 제거했다. Windows2180·peets2181 정상 검사, fmt·Clippy·workspace 빌드·참조38건과 Windows release 빌드를 통과했다. GUI·원본 런타임은 실행하지 않았다. 같은 release 테스트 실행체의 offscreen 디더링 비교에서는 개선 근거가 없어 제품 렌더러 설정을 유지했다. 이 결과를 실제 화면 FPS나 모든 스크롤 지연의 해결 판정으로 확대하지 않는다.
+
 **UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
 
 **XY 첫 수식 후속:** [0181 계약](analysis/0181-xy-typed-expression-contract.md)·[0182 통합](analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.

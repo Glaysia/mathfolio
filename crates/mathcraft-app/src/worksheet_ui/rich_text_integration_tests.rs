@@ -32,7 +32,7 @@ fn temporary() -> PathBuf {
 
 /// Generate a valid plain Text owner/relationships with our normal exporter,
 /// then replace the target package + catalog without private set_part access.
-fn native_fixture(directory: &Path) -> PathBuf {
+pub(super) fn native_fixture(directory: &Path) -> PathBuf {
     native_fixture_with(directory, SOURCE_PACKAGE)
 }
 fn native_fixture_with(directory: &Path, source_package: &[u8]) -> PathBuf {

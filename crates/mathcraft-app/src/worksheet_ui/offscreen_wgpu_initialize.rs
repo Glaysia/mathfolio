@@ -16,7 +16,7 @@ pub(super) async fn initialize_primary_only() -> Result<
     String,
 > {
     let native = eframe::NativeOptions::default();
-    let renderer = RendererOptions {
+    let mut renderer = RendererOptions {
         msaa_samples: native.multisampling as _,
         depth_stencil_format: eframe::egui_wgpu::depth_format_from_bits(
             native.depth_buffer,
@@ -25,6 +25,18 @@ pub(super) async fn initialize_primary_only() -> Result<
         dithering: native.dithering,
         ..Default::default()
     };
+    // Opt-in unread offscreen comparison only. No production renderer setting
+    // is changed here; record the exact experimental option in the receipt.
+    let dithering_override = match std::env::var("MATHCRAFT_GRAPHICS_DITHERING") {
+        Ok(value) if value == "on" => Some(true),
+        Ok(value) if value == "off" => Some(false),
+        Ok(_) => return Err("Dithering diagnostic accepts only on/off".into()),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => return Err(format!("Dithering diagnostic variable: {error}")),
+    };
+    if let Some(value) = dithering_override {
+        renderer.dithering = value;
+    }
     let surface = serde_json::json!({"configured_present_mode":format!("{:?}",native.wgpu_options.surface.present_mode),
         "configured_maximum_frame_latency":native.wgpu_options.surface.desired_maximum_frame_latency,
         "surface_created":false,"present_called":false});
@@ -85,6 +97,7 @@ pub(super) async fn initialize_primary_only() -> Result<
         "excluded_gl":configured.contains(wgpu::Backends::GL),"adapter":{"name":info.name.chars().take(128).collect::<String>(),"driver":info.driver.chars().take(128).collect::<String>(),"driver_info":info.driver_info.chars().take(128).collect::<String>(),
         "backend":format!("{:?}",info.backend),"device_type":format!("{:?}",info.device_type),"vendor":info.vendor,"device":info.device},
         "surface_defaults_only":surface,"instance_configuration":instance_configuration,"actual_gui_selected":null,"headless_format":"Bgra8Unorm",
+        "diagnostic_dithering_override":dithering_override,
         "renderer":{"msaa_samples":renderer.msaa_samples,"depth_stencil":format!("{:?}",renderer.depth_stencil_format),
         "dithering":renderer.dithering,"predictable_texture_filtering":renderer.predictable_texture_filtering}});
     Ok((instance, device, queue, renderer, report))

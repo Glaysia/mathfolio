@@ -53,6 +53,8 @@ cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
 
 ## 다음 작업
 
+2026-10-23: [서식 있는 Text 선택 후 휠 입력이 프레임마다 밀리는 문제](docs/analysis/0208-scroll-input-backlog.md)를 수정했다. 현재 스크롤 성능 작업의 첫 수정이며, 기존 키·계산·저장 의미를 유지한다.
+
 1. [스크롤 버벅임 개선](docs/PERFORMANCE.md): release의 실제 병목을 분리 측정하고 같은 조건에서 전후를 확인한다.
 2. [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md): 공통 편집 컴포넌트와 호스트를 분리하고, 기존 키와 계산 의미를 유지하며 도구·속성·안내를 정리한다.
 

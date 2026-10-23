@@ -589,3 +589,6 @@ fn full_app_frames_keep_saved_values_source_history_and_generation_inert() {
 
 #[path = "idle_repaint_probe.rs"]
 mod idle_repaint_probe;
+
+#[path = "scroll_input_tests.rs"]
+mod scroll_input_tests;
