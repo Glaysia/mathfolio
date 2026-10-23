@@ -1,5 +1,12 @@
 //! Host-independent chrome styling. Worksheet source colours stay in the document.
 use eframe::egui::{self, Color32};
+mod host;
+pub(crate) use host::initialize;
+pub use host::{
+    HostTheme, ThemeMode, has_host_theme, set_host_theme, set_theme, set_theme_mode, theme_mode,
+};
+#[cfg(test)]
+mod host_tests;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Theme {
@@ -14,9 +21,22 @@ pub(crate) struct Palette {
     pub surface: Color32,
     pub edge: Color32,
     pub accent: Color32,
+    pub button: Color32,
+    pub button_text: Color32,
 }
 
 pub(crate) fn palette(ctx: &egui::Context) -> Palette {
+    if let Some(h) = host::active_theme(ctx) {
+        return Palette {
+            workspace: host::color(h.workspace),
+            panel: host::color(h.panel),
+            surface: host::color(h.surface),
+            edge: host::color(h.border),
+            accent: host::color(h.accent),
+            button: host::color(h.button),
+            button_text: host::color(h.button_text),
+        };
+    }
     if ctx.global_style().visuals.dark_mode {
         Palette {
             workspace: Color32::from_rgb(24, 26, 33),
@@ -24,6 +44,8 @@ pub(crate) fn palette(ctx: &egui::Context) -> Palette {
             surface: Color32::from_rgb(43, 45, 56),
             edge: Color32::from_rgb(65, 68, 82),
             accent: Color32::from_rgb(158, 147, 255),
+            button: Color32::from_rgb(101, 83, 207),
+            button_text: Color32::WHITE,
         }
     } else {
         Palette {
@@ -32,12 +54,14 @@ pub(crate) fn palette(ctx: &egui::Context) -> Palette {
             surface: Color32::from_rgb(247, 247, 252),
             edge: Color32::from_rgb(225, 226, 236),
             accent: Color32::from_rgb(101, 83, 207),
+            button: Color32::from_rgb(101, 83, 207),
+            button_text: Color32::WHITE,
         }
     }
 }
 
 /// Applies only UI style, without loading files, creating windows or changing document state.
-pub fn set_theme(ctx: &egui::Context, theme: Theme) {
+fn apply_theme(ctx: &egui::Context, theme: Theme) {
     ctx.set_visuals(match theme {
         Theme::Light => egui::Visuals::light(),
         Theme::Dark => egui::Visuals::dark(),

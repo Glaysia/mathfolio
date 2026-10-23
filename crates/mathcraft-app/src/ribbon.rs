@@ -11,8 +11,6 @@ use eframe::egui::{
 };
 use mathcraft_document::canvas::{ComplexFormat, MathFormat};
 
-const MUTED: Color32 = Color32::from_rgb(143, 148, 153);
-const PANEL: Color32 = Color32::from_rgb(240, 244, 247);
 const GROUP_HEIGHT: f32 = 85.;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -484,7 +482,7 @@ fn icon_button(
     let color = if enabled {
         ui.visuals().text_color()
     } else {
-        MUTED
+        ui.visuals().weak_text_color()
     };
     let icon_rect = if large {
         Rect::from_center_size(
@@ -504,7 +502,7 @@ fn icon_button(
         if enabled {
             crate::theme::palette(ui.ctx()).accent
         } else {
-            MUTED
+            ui.visuals().weak_text_color()
         },
     );
     if !label.is_empty() {
@@ -1749,7 +1747,11 @@ fn paint_icon(p: &egui::Painter, rect: Rect, icon: Icon, color: Color32) {
         }
         Icon::Recalculate => {
             p.circle_stroke(q(16., 16.), 11. * unit, stroke);
-            p.rect_filled(Rect::from_min_max(q(17., 1.), q(31., 13.)), 0., PANEL);
+            p.rect_filled(
+                Rect::from_min_max(q(17., 1.), q(31., 13.)),
+                0.,
+                p.ctx().global_style().visuals.panel_fill,
+            );
             line((25., 5.), (27., 14.));
             line((27., 14.), (18., 12.));
         }

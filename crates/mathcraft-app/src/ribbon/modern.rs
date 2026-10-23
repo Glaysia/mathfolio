@@ -47,25 +47,7 @@ pub(super) fn show(
                             menu_command(ui, current, action, &mut actions);
                         }
                         if narrow {
-                            let dark = ui.visuals().dark_mode;
-                            if ui
-                                .button(if dark {
-                                    "밝은 테마"
-                                } else {
-                                    "어두운 테마"
-                                })
-                                .clicked()
-                            {
-                                theme::set_theme(
-                                    ui.ctx(),
-                                    if dark {
-                                        theme::Theme::Light
-                                    } else {
-                                        theme::Theme::Dark
-                                    },
-                                );
-                                ui.close();
-                            }
+                            theme_menu(ui);
                         }
                     });
                     for (title, action) in [
@@ -132,21 +114,7 @@ pub(super) fn show(
                         state.inspector_open = !state.inspector_open;
                     }
                     if !narrow {
-                        let dark = ui.visuals().dark_mode;
-                        if ui
-                            .button(if dark { "밝게" } else { "어둡게" })
-                            .on_hover_text("화면 테마만 바꿉니다. 문서의 색상과 출력은 유지됩니다.")
-                            .clicked()
-                        {
-                            theme::set_theme(
-                                ui.ctx(),
-                                if dark {
-                                    theme::Theme::Light
-                                } else {
-                                    theme::Theme::Dark
-                                },
-                            );
-                        }
+                        theme_menu(ui);
                     }
                 },
             );
@@ -183,13 +151,9 @@ pub(super) fn show(
                             ui.separator();
                             let response = ui.add(
                                 egui::Button::new(
-                                    egui::RichText::new("계산  F5").color(Color32::WHITE),
+                                    egui::RichText::new("계산  F5").color(p.button_text),
                                 )
-                                .fill(if ui.visuals().dark_mode {
-                                    Color32::from_rgb(101, 83, 207)
-                                } else {
-                                    p.accent
-                                }),
+                                .fill(p.button),
                             );
                             if response
                                 .on_hover_text(catalog::tooltip(RibbonAction::CalculateNow, "계산"))
@@ -329,6 +293,33 @@ pub(super) fn show(
             });
     }
     actions
+}
+
+fn theme_menu(ui: &mut Ui) {
+    ui.menu_button("테마", |ui| {
+        let selected = theme::theme_mode(ui.ctx());
+        for (mode, title) in [
+            (theme::ThemeMode::FollowHost, "호스트 테마 따르기"),
+            (theme::ThemeMode::Light, "밝게"),
+            (theme::ThemeMode::Dark, "어둡게"),
+            (theme::ThemeMode::Nord, "Nord"),
+        ] {
+            if ui.selectable_label(selected == mode, title).clicked() {
+                theme::set_theme_mode(ui.ctx(), mode);
+                ui.close();
+            }
+        }
+        if !theme::has_host_theme(ui.ctx()) {
+            ui.separator();
+            ui.small(
+                "호스트가 테마를 전달하면 자동으로 적용합니다. 현재는 기본 테마를 사용합니다.",
+            );
+        }
+    })
+    .response
+    .on_hover_text(
+        "테마 설정 · 호스트의 배경·글자·강조색을 따르거나 밝게/어둡게를 직접 선택합니다.",
+    );
 }
 
 fn button(ui: &mut Ui, current: &RibbonContext<'_>, action: RibbonAction, label: &str) -> Response {

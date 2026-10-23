@@ -217,3 +217,84 @@ fn embedded_width_keeps_header_actions_inside_the_viewport() {
         }
     }
 }
+
+#[test]
+fn live_host_theme_does_not_commit_a_formula_or_change_document_colours() {
+    let (mut app, ctx, id) = fixture();
+    let document = app.document.clone();
+    let editor = app.editors[&id].to_portable().unwrap();
+    let history = app.undo.len();
+    let generation = app.background.submitted_generation();
+    let zoom = app.zoom;
+    let mut host = crate::HostTheme::for_theme(crate::Theme::Dark);
+    host.workspace = [10, 25, 35, 255];
+    host.accent = [20, 220, 160, 255];
+    for mode in [
+        crate::ThemeMode::FollowHost,
+        crate::ThemeMode::Light,
+        crate::ThemeMode::Dark,
+        crate::ThemeMode::Nord,
+        crate::ThemeMode::FollowHost,
+    ] {
+        crate::set_host_theme(&ctx, Some(host)).unwrap();
+        crate::set_theme_mode(&ctx, mode);
+        frame(&mut app, &ctx, vec![]);
+        host.panel[0] += 1;
+    }
+    assert_eq!(app.document, document);
+    assert_eq!(app.editors[&id].to_portable().unwrap(), editor);
+    assert_eq!(app.undo.len(), history);
+    assert_eq!(app.background.submitted_generation(), generation);
+    assert_eq!(app.zoom, zoom);
+    assert_eq!(
+        crate::theme::palette(&ctx).workspace.to_array(),
+        host.workspace
+    );
+}
+
+#[test]
+fn host_button_tokens_reach_the_actual_calculate_button() {
+    fn scan(shape: &egui::Shape, h: &crate::HostTheme, fill: &mut bool, text: &mut bool) {
+        match shape {
+            egui::Shape::Rect(rect) => *fill |= rect.fill.to_array() == h.button,
+            egui::Shape::Text(t) if t.galley.text() == "계산  F5" => {
+                *text |= t
+                    .galley
+                    .job
+                    .sections
+                    .iter()
+                    .any(|s| s.format.color.to_array() == h.button_text);
+            }
+            egui::Shape::Vec(shapes) => {
+                for shape in shapes {
+                    scan(shape, h, fill, text);
+                }
+            }
+            _ => {}
+        }
+    }
+    let (mut app, ctx, _) = fixture();
+    let mut h = crate::HostTheme::for_theme(crate::Theme::Dark);
+    h.button = [240, 210, 30, 255];
+    h.button_text = [20, 30, 40, 255];
+    crate::set_host_theme(&ctx, Some(h)).unwrap();
+    let (mut fill, mut text) = (false, false);
+    for _ in 0..3 {
+        let output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1180., 900.))),
+                ..Default::default()
+            },
+            |ui| app.app_ui_frame(ui),
+        );
+        for s in &output.shapes {
+            scan(&s.shape, &h, &mut fill, &mut text);
+        }
+        output.drop_without_applying_deltas();
+    }
+    assert!(fill, "primary button must use host background");
+    assert!(
+        text,
+        "primary button must use host foreground rather than fixed white"
+    );
+}

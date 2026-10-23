@@ -1,0 +1,9 @@
+{
+  "project": "Nord",
+  "palette_source": "https://www.nordtheme.com/docs/colors-and-palettes/",
+  "upstream": "https://github.com/nordtheme/nord",
+  "license": "MIT",
+  "license_source": "https://raw.githubusercontent.com/nordtheme/nord/develop/license",
+  "license_sha256": "25ac8188d670bd2ad2ce2f4f55ab88573010ee9f7a4502543cb1eea1e2274f8a",
+  "use": "Published palette values; Mathcraft-specific semantic placement"
+}

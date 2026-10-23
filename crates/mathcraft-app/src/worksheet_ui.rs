@@ -2879,15 +2879,15 @@ impl WorksheetApp {
                 egui::containers::Sides::new().shrink_left().truncate().show(ui,
                     |ui| {
                         if calculation_running {
-                            ui.colored_label(Color32::from_rgb(54, 99, 145), "계산 중…");
+                            ui.colored_label(crate::theme::palette(ui.ctx()).accent, "계산 중…");
                         } else if calculation_pending {
-                            ui.colored_label(Color32::from_rgb(124, 91, 23), "계산 대기 중");
+                            ui.colored_label(ui.visuals().warn_fg_color, "계산 대기 중");
                         } else if let Some(error) = &calculation_error {
-                            ui.colored_label(RED, "계산을 완료하지 못했습니다").on_hover_text(error);
+                            ui.colored_label(ui.visuals().error_fg_color, "계산을 완료하지 못했습니다").on_hover_text(error);
                         } else if errors > 0 {
-                            ui.colored_label(RED, format!("오류 {errors}개")).on_hover_text("수식의 오류 표시에 마우스를 올리면 상세 내용을 볼 수 있습니다.");
+                            ui.colored_label(ui.visuals().error_fg_color, format!("오류 {errors}개")).on_hover_text("수식의 오류 표시에 마우스를 올리면 상세 내용을 볼 수 있습니다.");
                         } else if warnings > 0 {
-                            ui.colored_label(AMBER, format!("재정의 경고 {warnings}개"));
+                            ui.colored_label(ui.visuals().warn_fg_color, format!("재정의 경고 {warnings}개"));
                         } else { ui.small(if dirty { "변경됨" } else { "준비" }); }
                         ui.separator();
                         ui.add(egui::Label::new(&hint).truncate()).on_hover_text(if hint_details.is_empty() { &hint } else { &hint_details });

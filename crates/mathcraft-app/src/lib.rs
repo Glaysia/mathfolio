@@ -5,7 +5,10 @@ use eframe::egui;
 mod calculation_worker;
 mod command_catalog;
 mod theme;
-pub use theme::{Theme, set_theme};
+pub use theme::{
+    HostTheme, Theme, ThemeMode, has_host_theme, set_host_theme, set_theme, set_theme_mode,
+    theme_mode,
+};
 mod formula;
 #[cfg(test)]
 #[path = "worksheet_ui/frame_profile.rs"]
@@ -86,9 +89,15 @@ fn configure(ctx: &egui::Context) {
     configure_surface(ctx, native_fonts::load(), Theme::Light);
 }
 
-/// Configures the shared surface using fonts supplied by its host, without OS IO.
-pub fn configure_surface(ctx: &egui::Context, mut fonts: egui::FontDefinitions, theme: Theme) {
-    set_theme(ctx, theme);
+/// Configures a surface using supplied fonts, without OS IO. Initially follows
+/// host tokens; `fallback_theme` is used until a host provides them. Reconfiguring
+/// fonts preserves any explicit light/dark override selected on this surface.
+pub fn configure_surface(
+    ctx: &egui::Context,
+    mut fonts: egui::FontDefinitions,
+    fallback_theme: Theme,
+) {
+    theme::initialize(ctx, fallback_theme);
     // Worksheet zoom must not steal Ctrl+- (literal identifier subscript).
     ctx.options_mut(|options| options.zoom_with_keyboard = false);
     typography::install(&mut fonts);

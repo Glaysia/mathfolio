@@ -6,6 +6,8 @@
 
 **UI 1차 개편:** [간결한 도구 모음·선택 속성·테마·검색 도움말](docs/analysis/0212-shared-native-chrome.md)을 공통 Rust egui로 적용했다. 기존 키와 Enter 확정을 유지하며 검색/속성 입력을 문서 명령과 격리한다. Windows/peets 회귀와 실제 Windows 화면을 확인했다. WASM 실행은 아직 미검증이며, 스크롤 비교의 추가 그리기 비용도 기록했다.
 
+[호스트 색상 연동·Nord](docs/HOST-THEMES.md): UI 테마 메뉴와 Rust 색 토큰 계약을 제공한다. CSS 수집·설정 저장과 실제 내장 연결은 별도 플러그인 레포의 후속 범위다.
+
 **현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. 전체 WASM·두 호스트 실행은 아직 미검증이다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.

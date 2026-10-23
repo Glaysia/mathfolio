@@ -36,6 +36,10 @@ text is in [LICENSE](LICENSE).
 - STIX Two Math and Text fonts retain the SIL Open Font License 1.1. Preserve
   [OFL.txt](assets/fonts/stix/OFL.txt) and
   [SOURCE.json](assets/fonts/stix/SOURCE.json).
+- Nord palette values are credited to Sven Greb and the Nord project (MIT).
+  Preserve [LICENSE-MIT](assets/themes/nord/LICENSE-MIT) and
+  [SOURCE.json](assets/themes/nord/SOURCE.json). The semantic UI mapping is
+  Mathcraft's implementation; no Nord CSS runtime or web engine is bundled.
 - Other dependencies retain the licenses and copyright notices supplied by
   their respective authors. This project-level notice does not relicense
   third-party materials, including interoperability reference fixtures.

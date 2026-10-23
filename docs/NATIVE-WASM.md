@@ -52,6 +52,8 @@ Windows / Kubuntu 독립 실행판           공통 TS SDK
 
 ## 호스트 API 계약
 
+테마 경계의 실제 Rust 구현과 모드/Nord·색 토큰 계약은 [HOST-THEMES.md](HOST-THEMES.md)를 따른다. host CSS 수집·WASM 바인딩·플러그인 실행은 여전히 후속이다.
+
 세션 단위로 명시적인 API를 제공한다. 아래 이름은 설계 예시이며 구현·타입 생성 때 확정한다.
 
 | 조작 | 계약 |
