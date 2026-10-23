@@ -2831,10 +2831,13 @@ impl WorksheetApp {
                 paragraph_alignment,
             },
         );
+        if std::mem::take(&mut self.ribbon.help_requested) {
+            self.show_shortcuts = true;
+        }
         for command in commands {
             self.ribbon_command(ui.ctx(), command);
         }
-        let hint = if self.status.is_empty() {
+        let hint = if self.status.is_empty() || self.status.starts_with("Opened ") {
             self.context_hint().to_string()
         } else {
             self.status.clone()
@@ -2869,8 +2872,9 @@ impl WorksheetApp {
                 .count()
         };
         let dirty = self.dirty;
-        egui::Panel::bottom("worksheet-status").exact_size(25.)
-            .frame(egui::Frame::new().fill(Color32::from_rgb(232, 238, 243)).inner_margin(egui::Margin::symmetric(10, 3)))
+        let hint_details = self.status.clone();
+        egui::Panel::bottom("worksheet-status").exact_size(32.)
+            .frame(egui::Frame::new().fill(crate::theme::palette(ui.ctx()).panel).inner_margin(egui::Margin::symmetric(14, 5)))
             .show(ui, |ui| {
                 egui::containers::Sides::new().shrink_left().truncate().show(ui,
                     |ui| {
@@ -2886,7 +2890,7 @@ impl WorksheetApp {
                             ui.colored_label(AMBER, format!("재정의 경고 {warnings}개"));
                         } else { ui.small(if dirty { "변경됨" } else { "준비" }); }
                         ui.separator();
-                        ui.add(egui::Label::new(&hint).truncate()).on_hover_text(&hint);
+                        ui.add(egui::Label::new(&hint).truncate()).on_hover_text(if hint_details.is_empty() { &hint } else { &hint_details });
                     },
                     |ui| {
                         egui::ComboBox::from_id_salt("worksheet-zoom").width(68.)
@@ -4014,7 +4018,7 @@ impl WorksheetApp {
             }) {
                 "도표 편집 · 축의 식 입력 · Esc 영역 선택"
             } else {
-                "수식 편집 · Space 범위 선택 · Enter 다음 영역"
+                "수식 편집 · Enter 수정 확정 · Space 선택 확장 · Ctrl+− 이름 아래첨자"
             }
         } else if self.selected.is_some() {
             "방향키 이동 · Enter 편집 · Delete 삭제 · 우클릭 메뉴"
@@ -4057,6 +4061,7 @@ impl WorksheetApp {
         }
         if ctx.input_mut(|i| consume_exact_key(i, egui::Modifiers::NONE, egui::Key::F1)) {
             self.show_shortcuts = !self.show_shortcuts;
+            self.ribbon.help_focus = self.show_shortcuts;
         }
         if ctx.input_mut(|i| consume_exact_key(i, egui::Modifiers::CTRL, egui::Key::F5)) {
             self.recalculate();
@@ -4238,37 +4243,15 @@ impl WorksheetApp {
         }
     }
     fn shortcuts_ui(&mut self, ctx: &egui::Context) {
-        if self.show_shortcuts {
-            egui::Window::new("키보드로 작성하기")
-                .open(&mut self.show_shortcuts)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    egui::Grid::new("shortcut-list")
-                        .spacing(vec2(24., 10.))
-                        .show(ui, |ui| {
-                            for (key, action) in [
-                                (": / =", "정의 / 계산"),
-                                ("/ · ^ · √", "분수 · 거듭제곱 · 제곱근"),
-                                ("Space", "부분식 선택 범위 확장"),
-                                ("Tab / Shift+Tab", "다음 / 이전 입력 칸"),
-                                ("↑ / ↓", "수식의 위 / 아래 입력 칸"),
-                                ("Shift+← / →", "문자 범위 선택"),
-                                ("Enter / Esc", "다음 수식 / 영역 선택"),
-                                ("Ctrl+T", "텍스트 영역 삽입"),
-                                ("Ctrl+2", "XY 도표 삽입"),
-                                ("Shift+Enter / Space", "행렬 행 / 열 삽입"),
-                                ("Ctrl+Z / Ctrl+Y", "실행 취소 / 다시 실행"),
-                                ("Ctrl+−", "이름의 문자 아래첨자 전환"),
-                                ("Ctrl+F1", "리본 최소화 / 복원"),
-                                ("F5", "지금 계산 · 보이는 영역"),
-                                ("Ctrl+F5", "워크시트 전체 다시 계산"),
-                            ] {
-                                ui.label(egui::RichText::new(key).strong());
-                                ui.label(action);
-                                ui.end_row();
-                            }
-                        });
-                });
+        if !self.show_shortcuts {
+            return;
+        }
+        let actions = ribbon::show_help(ctx, &mut self.ribbon, &mut self.show_shortcuts);
+        if !self.show_shortcuts && actions.is_empty() {
+            self.focus_new = self.editing_region.or(self.selected);
+        }
+        for action in actions {
+            self.ribbon_command(ctx, action);
         }
     }
 
@@ -4525,8 +4508,10 @@ impl WorksheetApp {
                         Rect::from_min_size(origin+geometry.to_paper(region.left,region.top).to_vec2(),vec2(self.region_widths.get(&region.id).copied().unwrap_or(280.),self.region_heights.get(&region.id).copied().unwrap_or(22.))).contains(position)
                     })
                 }));
-        let can_edit =
-            pointer_commits_table || pointer_commits_area || input_intent::page_may_edit(self, ui);
+        let can_edit = ui.is_enabled()
+            && (pointer_commits_table
+                || pointer_commits_area
+                || input_intent::page_may_edit(self, ui));
         if can_edit {
             self.retain_committed_input();
         }
@@ -5620,6 +5605,12 @@ impl WorksheetApp {
         }
         #[cfg(test)]
         let commit_timing = crate::frame_profile::scope(crate::frame_profile::Phase::Commit);
+        // A host/modal may suspend interaction without unloading the document.
+        // Rendering must not turn the temporary focus loss into an edit commit.
+        if !ui.is_enabled() {
+            self.editing_region = previous_editing;
+            return;
+        }
         for (id, gesture) in matrix_gestures {
             self.matrix_view_gesture(id, gesture);
         }
@@ -6426,7 +6417,9 @@ impl WorksheetApp {
 
 impl eframe::App for WorksheetApp {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
-        self.prepare_plot_input(ctx, raw);
+        if !self.show_shortcuts && !self.chrome_owns_keyboard(ctx) {
+            self.prepare_plot_input(ctx, raw);
+        }
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.app_ui_frame(ui);
@@ -6434,6 +6427,10 @@ impl eframe::App for WorksheetApp {
 }
 
 impl WorksheetApp {
+    fn chrome_owns_keyboard(&self, ctx: &egui::Context) -> bool {
+        ctx.memory(|m| self.ribbon.input_ids.iter().any(|id| m.has_focus(*id)))
+    }
+
     fn app_ui_frame(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         self.retire_authored_select_all_before_commands(&ctx);
@@ -6465,7 +6462,22 @@ impl WorksheetApp {
         if self.closing {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
-        if self.pending.is_none() {
+        let help_was_open = self.show_shortcuts;
+        let chrome_owned_input = self.chrome_owns_keyboard(&ctx);
+        if help_was_open
+            && ctx.input_mut(|i| {
+                consume_exact_key(i, egui::Modifiers::NONE, egui::Key::Escape)
+                    || consume_exact_key(i, egui::Modifiers::NONE, egui::Key::F1)
+            })
+        {
+            self.show_shortcuts = false;
+            self.focus_new = self.editing_region.or(self.selected);
+        }
+        // Help owns all input for the frame, including its closing keystroke.
+        // The editor still paints, retaining caches and its pending source.
+        let mut held_events =
+            help_was_open.then(|| ctx.input_mut(|i| std::mem::take(&mut i.events)));
+        if self.pending.is_none() && !help_was_open && !chrome_owned_input {
             if ctx.input_mut(|i| {
                 consume_exact_key(
                     i,
@@ -6497,13 +6509,35 @@ impl WorksheetApp {
             self.document_history_shortcuts(&ctx);
             self.region_clipboard_shortcuts(&ctx);
         }
-        if self.pending.is_some() {
+        if self.pending.is_some() || help_was_open {
             ui.disable();
         }
         self.chrome_ui(ui);
+        let suspend_workspace = help_was_open
+            || self.show_shortcuts
+            || chrome_owned_input
+            || self.chrome_owns_keyboard(&ctx);
+        if suspend_workspace && held_events.is_none() {
+            held_events = Some(ctx.input_mut(|i| std::mem::take(&mut i.events)));
+        }
+        let focus_before_workspace = ctx.memory(|m| m.focused());
         egui::CentralPanel::default()
-            .frame(egui::Frame::NONE.fill(Color32::from_rgb(192, 192, 192)))
-            .show(ui, |ui| self.workspace_ui(ui));
+            .frame(egui::Frame::NONE.fill(crate::theme::palette(&ctx).workspace))
+            .show(ui, |ui| {
+                if suspend_workspace {
+                    ui.disable();
+                }
+                self.workspace_ui(ui);
+            });
+        if let Some(events) = held_events {
+            if let Some(focus) = focus_before_workspace {
+                ctx.memory_mut(|m| m.request_focus(focus));
+            }
+            ctx.input_mut(|i| i.events = events);
+        }
+        if chrome_owned_input && !self.chrome_owns_keyboard(&ctx) && !self.show_shortcuts {
+            self.focus_new = self.editing_region.or(self.selected);
+        }
         self.shortcuts_ui(&ctx);
         self.page_sections_ui(&ctx);
         self.printing_ui(&ctx);
@@ -9726,6 +9760,8 @@ mod inert_string_result;
 mod inline_plot_ui;
 #[cfg(test)]
 mod lcc_workspace_profile;
+#[cfg(test)]
+mod modern_chrome_tests;
 mod native_plot_source;
 mod native_plot_warnings;
 mod numeric_cache;

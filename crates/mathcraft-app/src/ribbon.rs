@@ -1,8 +1,8 @@
-//! Independent rendering of the ribbon hierarchy recovered from Prime's BAML.
-//! See docs/analysis/0019-prime-ribbon.md for source facts and approximations.
+//! Shared native/Web egui chrome; existing source-admitted command groups remain available.
 #[cfg(test)]
 #[path = "matrix_indices_ribbon_tests.rs"]
 mod matrix_indices_ribbon_tests;
+mod modern;
 #[cfg(test)]
 #[path = "text_format_tests.rs"]
 mod text_format_tests;
@@ -11,10 +11,7 @@ use eframe::egui::{
 };
 use mathcraft_document::canvas::{ComplexFormat, MathFormat};
 
-const INK: Color32 = Color32::from_rgb(39, 49, 58);
 const MUTED: Color32 = Color32::from_rgb(143, 148, 153);
-const EDGE: Color32 = Color32::from_rgb(174, 184, 192);
-const BLUE: Color32 = Color32::from_rgb(51, 105, 143);
 const PANEL: Color32 = Color32::from_rgb(240, 244, 247);
 const GROUP_HEIGHT: f32 = 85.;
 
@@ -68,6 +65,13 @@ pub(crate) struct RibbonState {
     pub tab: RibbonTab,
     pub minimized: bool,
     text_format: TextFormatDraft,
+    pub tools_open: bool,
+    pub inspector_open: bool,
+    pub help_requested: bool,
+    pub help_focus: bool,
+    pub help_query: String,
+    command_states: Vec<Option<&'static str>>,
+    pub input_ids: Vec<egui::Id>,
 }
 
 /// Source-admitted nonempty selection only. This is not a default/typing format.
@@ -365,7 +369,6 @@ pub(crate) enum RibbonAction {
 
 #[derive(Clone, Copy)]
 enum Icon {
-    New,
     Open,
     Save,
     Undo,
@@ -402,134 +405,22 @@ pub(crate) fn show(
     state: &mut RibbonState,
     current: &RibbonContext<'_>,
 ) -> Vec<RibbonAction> {
-    let mut actions = Vec::new();
-    state.text_format.sync(current.text_format);
-    egui::Panel::top("prime_ribbon")
-        .frame(egui::Frame::NONE.fill(PANEL))
-        .show(parent_ui, |ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(2., 0.);
-            ui.spacing_mut().button_padding = egui::vec2(5., 2.);
-            ui.horizontal(|ui| {
-                ui.set_height(27.);
-                ui.add_space(7.);
-                for (icon, title, action, enabled) in [
-                    (Icon::New, "새로 만들기  Ctrl+N", RibbonAction::New, true),
-                    (Icon::Open, "열기  Ctrl+O", RibbonAction::Open, true),
-                    (Icon::Save, "저장  Ctrl+S", RibbonAction::Save, true),
-                    (
-                        Icon::Undo,
-                        "실행 취소  Ctrl+Z",
-                        RibbonAction::Undo,
-                        current.can_undo,
-                    ),
-                    (
-                        Icon::Redo,
-                        "다시 실행  Ctrl+Y",
-                        RibbonAction::Redo,
-                        current.can_redo,
-                    ),
-                ] {
-                    if icon_button(ui, icon, "", title, enabled, false, false).clicked() {
-                        actions.push(action);
-                    }
-                }
-                ui.add_space(12.);
-                ui.label(
-                    egui::RichText::new(format!("{} — Mathcraft", current.document_name))
-                        .size(12.)
-                        .color(INK),
-                );
-            });
-            ui.horizontal(|ui| {
-                ui.set_height(29.);
-                ui.add_space(5.);
-                let file = tab_button(ui, "파일", false, true);
-                egui::Popup::menu(&file).show(|ui| {
-                    ui.set_min_width(210.);
-                    for (label, action) in [
-                        ("새로 만들기\tCtrl+N", RibbonAction::New),
-                        ("열기…\tCtrl+O", RibbonAction::Open),
-                        ("저장\tCtrl+S", RibbonAction::Save),
-                        ("다른 이름으로 저장…", RibbonAction::SaveAs),
-                        ("Mathcad 워크시트로 내보내기…", RibbonAction::ExportMcdx),
-                        ("인쇄…\tCtrl+P", RibbonAction::Print),
-                        ("PDF로 저장…", RibbonAction::ExportPdf),
-                        ("페이지 설정…", RibbonAction::PageSetup),
-                    ] {
-                        if ui.button(label).clicked() {
-                            actions.push(action);
-                            ui.close();
-                        }
-                    }
-                });
-                egui::ScrollArea::horizontal()
-                    .id_salt("ribbon_tabs")
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            for tab in RibbonTab::ALL {
-                                if tab_button(ui, tab.label(), state.tab == tab, false).clicked() {
-                                    state.tab = tab;
-                                }
-                            }
-                        });
-                    });
-            });
-            let top = ui.cursor().min.y;
-            ui.painter()
-                .hline(ui.max_rect().x_range(), top, Stroke::new(1., EDGE));
-            if state.minimized {
-                return;
-            }
-            egui::ScrollArea::horizontal()
-                .id_salt("ribbon_groups")
-                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                .show(ui, |ui| {
-                    ui.set_height(GROUP_HEIGHT);
-                    ui.horizontal(|ui| {
-                        ui.set_height(GROUP_HEIGHT);
-                        ui.add_space(4.);
-                        match state.tab {
-                            RibbonTab::Math => math_tab(ui, current, &mut actions),
-                            RibbonTab::InputOutput => io_tab(ui, &mut actions),
-                            RibbonTab::Functions => functions_tab(ui, &mut actions),
-                            RibbonTab::Matrices => matrices_tab(ui, current, &mut actions),
-                            RibbonTab::Plots => plots_tab(ui, current, &mut actions),
-                            RibbonTab::MathFormatting => math_format_tab(ui, current, &mut actions),
-                            RibbonTab::TextFormatting => {
-                                text_format_tab(ui, current, &mut state.text_format, &mut actions)
-                            }
-                            RibbonTab::Calculation => calculation_tab(ui, current, &mut actions),
-                            RibbonTab::Document => document_tab(ui, current, &mut actions),
-                            RibbonTab::Resources => resources_tab(ui),
-                        }
-                        ui.add_space(4.);
-                    });
-                });
-        });
-    actions
+    modern::show(parent_ui, state, current)
 }
 
-fn tab_button(ui: &mut Ui, label: &str, selected: bool, file: bool) -> Response {
-    let text = egui::RichText::new(label)
-        .size(12.)
-        .color(if file { Color32::WHITE } else { INK });
+pub(crate) fn show_help(
+    ctx: &egui::Context,
+    state: &mut RibbonState,
+    open: &mut bool,
+) -> Vec<RibbonAction> {
+    modern::help(ctx, state, open)
+}
+
+fn tab_button(ui: &mut Ui, label: &str, selected: bool, _file: bool) -> Response {
     ui.add(
-        egui::Button::new(text)
-            .min_size(egui::vec2(if file { 49. } else { 0. }, 28.))
-            .fill(if file {
-                BLUE
-            } else if selected {
-                Color32::WHITE
-            } else {
-                Color32::TRANSPARENT
-            })
-            .stroke(if selected {
-                Stroke::new(1., EDGE)
-            } else {
-                Stroke::NONE
-            })
-            .corner_radius(egui::CornerRadius::ZERO),
+        egui::Button::new(label)
+            .selected(selected)
+            .min_size(egui::vec2(0., 28.)),
     )
 }
 
@@ -551,12 +442,12 @@ fn group(ui: &mut Ui, title: &str, width: f32, content: impl FnOnce(&mut Ui)) {
         egui::Align2::CENTER_CENTER,
         title,
         FontId::proportional(11.),
-        Color32::from_rgb(92, 103, 113),
+        ui.visuals().weak_text_color(),
     );
     ui.painter().vline(
         rect.max.x,
         rect.min.y + 4. ..=rect.max.y - 4.,
-        Stroke::new(1., Color32::from_rgb(207, 214, 219)),
+        Stroke::new(1., crate::theme::palette(ui.ctx()).edge),
     );
 }
 
@@ -582,15 +473,19 @@ fn icon_button(
         .inner;
     let p = ui.painter();
     if response.hovered() && enabled {
-        p.rect_filled(response.rect, 2., Color32::from_rgb(222, 237, 248));
+        p.rect_filled(response.rect, 2., ui.visuals().widgets.hovered.weak_bg_fill);
         p.rect_stroke(
             response.rect,
             2.,
-            Stroke::new(1., Color32::from_rgb(154, 191, 216)),
+            ui.visuals().widgets.hovered.bg_stroke,
             egui::StrokeKind::Inside,
         );
     }
-    let color = if enabled { INK } else { MUTED };
+    let color = if enabled {
+        ui.visuals().text_color()
+    } else {
+        MUTED
+    };
     let icon_rect = if large {
         Rect::from_center_size(
             response.rect.center_top() + egui::vec2(0., 21.),
@@ -602,7 +497,16 @@ fn icon_button(
             Vec2::splat(16.),
         )
     };
-    paint_icon(p, icon_rect, icon, if enabled { BLUE } else { MUTED });
+    paint_icon(
+        p,
+        icon_rect,
+        icon,
+        if enabled {
+            crate::theme::palette(ui.ctx()).accent
+        } else {
+            MUTED
+        },
+    );
     if !label.is_empty() {
         p.text(
             if large {
@@ -636,7 +540,9 @@ fn icon_button(
             Stroke::NONE,
         ));
     }
-    response.on_hover_text(tooltip)
+    response
+        .on_hover_text(tooltip)
+        .on_disabled_hover_text(tooltip)
 }
 
 fn command(
@@ -648,7 +554,11 @@ fn command(
     large: bool,
     actions: &mut Vec<RibbonAction>,
 ) {
-    if icon_button(ui, icon, label, label, enabled, large, false).clicked() {
+    let mut tooltip = crate::command_catalog::tooltip(action, label);
+    if !enabled {
+        tooltip.push_str("\n선택한 영역 또는 현재 편집 위치에서 사용할 수 없습니다.");
+    }
+    if icon_button(ui, icon, label, &tooltip, enabled, large, false).clicked() {
         actions.push(action);
     }
 }
@@ -685,7 +595,11 @@ fn menu_enabled(
 }
 
 fn menu_action(ui: &mut Ui, label: &str, action: RibbonAction, actions: &mut Vec<RibbonAction>) {
-    if ui.button(label).clicked() {
+    if ui
+        .button(label)
+        .on_hover_text(crate::command_catalog::tooltip(action, label))
+        .clicked()
+    {
         actions.push(action);
         ui.close();
     }
@@ -1686,7 +1600,7 @@ fn paint_icon(p: &egui::Painter, rect: Rect, icon: Icon, color: Color32) {
         );
     };
     match icon {
-        Icon::New | Icon::Page | Icon::Text | Icon::Math => {
+        Icon::Page | Icon::Text | Icon::Math => {
             p.add(egui::Shape::convex_polygon(
                 vec![q(6., 2.), q(22., 2.), q(27., 7.), q(27., 30.), q(6., 30.)],
                 Color32::WHITE,

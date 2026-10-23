@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[lib]
+name = "mathcraft_ui"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
 [features]
 # Explicit native-window diagnostic; omitted from ordinary builds.
 native-profile = ["eframe/glow"]

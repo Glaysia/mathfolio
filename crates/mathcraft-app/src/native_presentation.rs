@@ -21,32 +21,10 @@ pub(crate) fn install_fonts(fonts: &mut egui::FontDefinitions) {
         .get(&FontFamily::Name("worksheet-text".into()))
         .cloned()
         .unwrap_or_else(|| fonts.families[&FontFamily::Proportional].clone());
-    for (name, regular, bold_paths) in [
-        (
-            "native",
-            None,
-            &[
-                "C:/Windows/Fonts/tahomabd.ttf",
-                "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-            ][..],
-        ),
-        (
-            "tahoma",
-            Some("worksheet-text"),
-            &[
-                "C:/Windows/Fonts/tahomabd.ttf",
-                "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-            ][..],
-        ),
-        (
-            "malgun",
-            Some("cjk"),
-            &[
-                "C:/Windows/Fonts/malgunbd.ttf",
-                "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-                "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-            ][..],
-        ),
+    for (name, regular) in [
+        ("native", None),
+        ("tahoma", Some("worksheet-text")),
+        ("malgun", Some("cjk")),
     ] {
         let mut faces = fallback.clone();
         if let Some(face) = regular.filter(|n| fonts.font_data.contains_key(*n)) {
@@ -56,15 +34,9 @@ pub(crate) fn install_fonts(fonts: &mut egui::FontDefinitions) {
             FontFamily::Name(format!("{name}-text").into()),
             faces.clone(),
         );
-        for path in bold_paths {
-            if let Ok(bytes) = std::fs::read(path) {
-                let key = format!("{name}-text-bold");
-                fonts
-                    .font_data
-                    .insert(key.clone(), egui::FontData::from_owned(bytes).into());
-                faces.insert(0, key);
-                break;
-            }
+        let key = format!("{name}-text-bold");
+        if fonts.font_data.contains_key(&key) {
+            faces.insert(0, key);
         }
         fonts
             .families

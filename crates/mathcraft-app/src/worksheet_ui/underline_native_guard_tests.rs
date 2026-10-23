@@ -145,6 +145,7 @@ fn imported_absent_decoration_actual_ribbon_click_publishes_one_source_edit() {
     }
     let mut f = Fixture::new();
     f.app.ribbon.tab = ribbon::RibbonTab::TextFormatting;
+    f.app.ribbon.tools_open = true;
     let c = f.context();
     assert!(!c.underline_enabled && c.underline_set_enabled);
     // The complete ribbon's horizontal ScrollArea needs its initial layout

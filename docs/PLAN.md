@@ -1,15 +1,17 @@
 # Mathcraft 개발 계획
 
-**2026-10-23 진행:** 보고된 Windows 스크롤 지연은 [0211](analysis/0211-windows-scroll-renderer-fix.md)에서 수정·사용자 확인·양 OS 회귀 검증을 마쳤다. 다음 단계는 기존 계획의 현대적인 UI/UX다.
+**2026-10-23 진행:** 보고된 Windows 스크롤 지연은 [0211](analysis/0211-windows-scroll-renderer-fix.md)에서 수정·사용자 확인·양 OS 회귀 검증을 마쳤다. [UI 1차 개편](analysis/0212-shared-native-chrome.md)에 공통 egui 도구·속성·테마·검색 도움말·입력 격리와 글꼴 경계, 양 OS 검사와 실제 창 결과를 기록했다. 새 UI의 사용자 확인과 WASM 실행은 후속이다. 같은 회차 대비 추가 그리기 비용과 도움말 간격 outlier도 공개하며 전체 성능 동등을 완료로 선언하지 않는다.
+
+**2026-10-23 구조 합의:** [네이티브·WASM 공통 구현 계획](NATIVE-WASM.md)을 따른다. 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 네이티브 앱으로 유지한다. 계산·문서·편집·조판·egui UI는 공통 Rust로 두고, 같은 구현의 WASM SDK를 별도 Obsidian·VS Code TS 플러그인에 연결한다. library 추출의 native 회귀는 위0212에서 통과했다. 전체 WASM·Worker·두 호스트 실행은 미검증이다.
 
 **현재 우선순위 — 2026-10-22:** 사용자가 현재 기능을 다음 단계의 기준선으로 수용했다. 다음 작업은 아래 두 가지로 고정한다. **기존 단축키는 변경하지 않는다.** [CLI·MCP·skill 연동](AGENT-INTEGRATION.md)은 보관된 후속 계획이다.
 
 | 우선순위 | 작업 | 완료 기준 |
 | --- | --- | --- |
 | 1 | [스크롤 버벅임 개선](PERFORMANCE.md) | release의 입력→조판→그리기→GPU/표시 지연을 분리하고, 실제 병목을 수정한 같은 조건의 전후 자료를 남긴다. |
-| 2 | [현대적인 UI/UX와 옵시디언 내장 구조](UI-MODERNIZATION.md) | 문서 중심 도구·속성·단축키 안내를 정리하고, 같은 Rust 편집·계산 구현과 내장 컴포넌트를 standalone/Obsidian에서 검증한다. |
+| 2 | [현대적인 UI/UX](UI-MODERNIZATION.md)와 [네이티브·WASM 구조](NATIVE-WASM.md) | 문서 중심 도구·속성·단축키 안내를 정리하고, 같은 Rust 구현을 Windows/Kubuntu 독립판과 Obsidian/VS Code Desktop에서 검증한다. 독립판에는 웹 실행 엔진을 넣지 않는다. |
 
-진행 순서는 **스크롤 재현·측정 → 확인된 병목 수정 → 작은 내장/WASM 검증 → 현대적인 UI 적용 → 양 환경 회귀 확인**이다. 현재 기능 기준선과 기존 검증 기록은 유지한다. 스크롤 수정 결과는 위0211에 기록하며 나머지는 후속 계획이다.
+진행 순서는 **수정된 native 기준선·library 추출 검증 → 호스트/계산 작업 경계 분리 → 실제 WASM·Worker와 두 호스트 최소 검증 → 공통 egui UI 개선 → 두 OS·두 호스트 회귀 확인**이다. 현재 기능 기준선과 기존 검증 기록은 유지한다. 스크롤 수정 결과는 위0211에 기록하며 나머지는 후속 계획이다.
 
 **UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
 
@@ -26,7 +28,7 @@ Mathcad Prime의 워크시트·구조 수식 편집·계산·문서 동작을 Ru
 
 개발은 현재 Windows PC에서 진행한다. 필수 실행 환경은 Windows와 Kubuntu 26.04이며 Linux 검증 대상은 `ssh peets`다. macOS는 우선 검증 대상에서 제외하되 코어의 플랫폼 종속성은 최소화한다.
 
-Obsidian 플러그인과 VS Code 확장은 별도 프로젝트로 유지한다. 이번 UI 작업에서 Obsidian에 내장할 공통 편집 컴포넌트와 최소 어댑터 검증을 먼저 설계한다.
+Obsidian 플러그인과 VS Code 확장은 별도 프로젝트로 유지한다. 이번 UI 작업에서는 양쪽에 내장할 공통 Rust/egui 컴포넌트·WASM SDK와 최소 어댑터 검증을 진행한다. 호스트 IO·작업 실행·수명만 분리하고 TS에 계산·편집을 재구현하지 않는다. API·산출물·단계별 통과 조건은 [구조 계획](NATIVE-WASM.md)을 따른다.
 
 Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행 표본으로 존재와 의미를 확인한다. 불명확한 내부 경로를 추정해 호환 기능으로 부르지 않는다. 새 UI와 단축키 안내, 후속 AI 연동은 사용자 지시에 따른 Mathcraft 제품 설계로 구분한다. 원본 코드·리소스·글꼴은 제품에 복제하지 않는다.
 

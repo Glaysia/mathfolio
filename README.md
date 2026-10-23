@@ -4,7 +4,9 @@
 
 **2026-10-23:** [Windows 스크롤 지연 수정](docs/analysis/0211-windows-scroll-renderer-fix.md)을 반영했다. 같은 실행체의 native 간격을 약219ms에서6.5ms로 줄였고 사용자가 개선을 확인했다.
 
-**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md). 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
+**UI 1차 개편:** [간결한 도구 모음·선택 속성·테마·검색 도움말](docs/analysis/0212-shared-native-chrome.md)을 공통 Rust egui로 적용했다. 기존 키와 Enter 확정을 유지하며 검색/속성 입력을 문서 명령과 격리한다. Windows/peets 회귀와 실제 Windows 화면을 확인했다. WASM 실행은 아직 미검증이며, 스크롤 비교의 추가 그리기 비용도 기록했다.
+
+**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. 전체 WASM·두 호스트 실행은 아직 미검증이다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
 
@@ -14,11 +16,11 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했으며, 보고된 Windows 스크롤 지연을 수정했으며 내장 가능한 UI/UX 개편을 다음 단계로 둔다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
+- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했고 Windows 스크롤 지연을 수정했다. 공통 egui UI/UX의 1차 개편을 반영했으며, WASM/호스트 경계 분리를 계속한다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
 
 UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하며, Mathcad 방식의 수식 편집·계산 의미와 기존 단축키는 유지한다.
 
-2026-10-22 사용자 지시에 따라 스크롤 버벅임과 현대적인 UI/UX, 두 작업에 집중한다. UI는 향후 옵시디언에서도 같은 편집 화면을 사용할 수 있게 분리하며, 기존 단축키의 설명·툴팁·도움말을 강화한다. [CLI·MCP·skill](docs/AGENT-INTEGRATION.md)은 보관된 후속 계획이다. 작업 범위와 검증 기준은 [개발 계획](docs/PLAN.md)을 따른다.
+2026-10-22 사용자 지시에 따라 스크롤 버벅임과 현대적인 UI/UX, 두 작업에 집중한다. 2026-10-23 합의한 구조에 따라 UI는 Rust egui로 유지하고 Obsidian·VS Code에서도 같은 WASM 편집 화면을 사용할 수 있게 분리하며, 기존 단축키의 설명·툴팁·도움말을 강화한다. [CLI·MCP·skill](docs/AGENT-INTEGRATION.md)은 보관된 후속 계획이다. 작업 범위와 검증 기준은 [개발 계획](docs/PLAN.md)을 따른다.
 
 제품의 중심은 종이에 쓰듯 수식을 작성하고 고치는 경험이다. 계산 엔진은 그 흐름을 지탱한다. [작성 경험의 기준](docs/DESIGN.md)에 원본 근거와 구현·검증 범위를 연결했다.
 
@@ -58,7 +60,7 @@ cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
 2026-10-23: [서식 있는 Text 선택 후 휠 입력이 프레임마다 밀리는 문제](docs/analysis/0208-scroll-input-backlog.md)를 수정했다. 현재 스크롤 성능 작업의 첫 수정이며, 기존 키·계산·저장 의미를 유지한다.
 
 1. [스크롤 버벅임 개선](docs/PERFORMANCE.md): release의 실제 병목을 분리 측정하고 같은 조건에서 전후를 확인한다.
-2. [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md): 공통 편집 컴포넌트와 호스트를 분리하고, 기존 키와 계산 의미를 유지하며 도구·속성·안내를 정리한다.
+2. [현대적인 UI/UX](docs/UI-MODERNIZATION.md)와 [네이티브·WASM 투트랙](docs/NATIVE-WASM.md): 공통 Rust 세션·egui 화면과 호스트를 분리하고, native 회귀→WASM/Worker→두 호스트 검증 후 기존 키와 계산 의미를 유지하며 도구·속성·안내를 정리한다.
 
 ## 기존 기능의 남은 공백과 구현 이력
 

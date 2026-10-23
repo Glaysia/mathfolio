@@ -60,19 +60,8 @@ pub(crate) fn body_font() -> FontId {
 
 pub(crate) fn install(fonts: &mut egui::FontDefinitions) {
     let mut body_faces = fonts.families[&FontFamily::Proportional].clone();
-    for path in [
-        "C:/Windows/Fonts/tahoma.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Tahoma.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ] {
-        if let Ok(bytes) = std::fs::read(path) {
-            fonts.font_data.insert(
-                "worksheet-text".into(),
-                egui::FontData::from_owned(bytes).into(),
-            );
-            body_faces.insert(0, "worksheet-text".into());
-            break;
-        }
+    if fonts.font_data.contains_key("worksheet-text") {
+        body_faces.insert(0, "worksheet-text".into());
     }
     fonts
         .families

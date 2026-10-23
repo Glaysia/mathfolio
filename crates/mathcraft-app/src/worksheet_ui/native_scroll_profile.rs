@@ -21,6 +21,19 @@ pub(crate) struct Request {
     #[serde(default)]
     hold: bool,
     zoom: Option<f32>,
+    #[serde(default)]
+    chrome: ChromeScenario,
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ChromeScenario {
+    #[default]
+    Compact,
+    Inspector,
+    DarkInspector,
+    Tools,
+    Help,
 }
 impl Request {
     pub(crate) fn load() -> Option<Self> {
@@ -89,6 +102,27 @@ impl ProfiledApp {
         if let Some(zoom) = request.zoom {
             assert!((0.5..=2.).contains(&zoom));
             app.zoom = zoom;
+        }
+        match request.chrome {
+            ChromeScenario::Compact => {}
+            ChromeScenario::Inspector | ChromeScenario::DarkInspector => {
+                app.ribbon.inspector_open = true;
+                app.selected = app
+                    .document
+                    .regions
+                    .iter()
+                    .find(|r| matches!(r.content, CanvasContent::Math(_)))
+                    .map(|r| r.id);
+                if matches!(request.chrome, ChromeScenario::DarkInspector) {
+                    crate::set_theme(&cc.egui_ctx, crate::Theme::Dark);
+                }
+            }
+            ChromeScenario::Tools => app.ribbon.tools_open = true,
+            ChromeScenario::Help => {
+                app.show_shortcuts = true;
+                app.ribbon.help_focus = true;
+                app.ribbon.help_query = "아래첨자".into();
+            }
         }
         assert!(output.is_absolute(), "absolute fresh output path required");
         assert!(!output.exists(), "diagnostic never overwrites output");

@@ -440,6 +440,7 @@ fn actual_ribbon_pointer_four_alignments_and_disabled_context_preserve_transacti
     let mut f = Fixture::new();
     f.frame(vec![egui::Event::Text("ABCD".into())]);
     f.app.ribbon.tab = ribbon::RibbonTab::TextFormatting;
+    f.app.ribbon.tools_open = true;
     draw(&mut f, vec![], "가운데"); // settle actual ribbon ScrollArea layout
     let initial = f.xml();
     let generation = f.app.background.submitted_generation();
