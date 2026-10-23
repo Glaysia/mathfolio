@@ -2,6 +2,8 @@
 
 라이선스: **[GNU AGPLv3 only](LICENSE)** (`AGPL-3.0-only`). Mathcraft 자체 작성 소스와 문서에 적용하며, 포함된 제3자 구성요소의 원래 라이선스는 [NOTICE.md](NOTICE.md)를 따른다.
 
+**2026-10-23:** [Windows 스크롤 지연 수정](docs/analysis/0211-windows-scroll-renderer-fix.md)을 반영했다. 같은 실행체의 native 간격을 약219ms에서6.5ms로 줄였고 사용자가 개선을 확인했다.
+
 **현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX·옵시디언 내장 구조](docs/UI-MODERNIZATION.md). 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
@@ -12,7 +14,7 @@ Mathcad Prime의 워크시트·수식 편집·계산·문서 동작을 맞추는
 - 개발 위치: 이 Windows PC의 `C:\Users\harry\Projects\mathcraft`
 - 필수 실행 환경: Windows, Kubuntu 26.04 (`ssh peets`)
 - macOS: 우선 검증 대상에서 제외하되 플랫폼 종속 설계는 최소화
-- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했으며, 스크롤 반응성과 내장 가능한 UI/UX를 개선하는 계획 단계다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
+- 현재 단계: 사용자가 현재 기능을 기준선으로 수용했으며, 보고된 Windows 스크롤 지연을 수정했으며 내장 가능한 UI/UX 개편을 다음 단계로 둔다. 원본 전체 호환 범위는 기능 목록에 별도로 기록한다.
 
 UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하며, Mathcad 방식의 수식 편집·계산 의미와 기존 단축키는 유지한다.
 

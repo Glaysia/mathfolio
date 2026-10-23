@@ -1,0 +1,21 @@
+[package]
+name = "egui_software_backend"
+version = "0.0.3"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "CPU rasterizer for egui, ported to the locked Mathcraft egui version"
+repository = "https://github.com/DGriffin91/egui_software_backend"
+publish = false
+[dependencies]
+egui = { version = "0.36.2", default-features = false }
+strength_reduce = "0.2.4"
+constify = { path = "constify", version = "0.0.1" }
+ahash = { version = "0.8", default-features = false, features = ["no-rng"] }
+rayon = { version = "1.11", optional = true }
+log = { version = "0.4", optional = true }
+[features]
+default = ["std"]
+std = ["ahash/std"]
+rayon = ["dep:rayon"]
+log = ["dep:log"]
+raster_stats = ["std"]

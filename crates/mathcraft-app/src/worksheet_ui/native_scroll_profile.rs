@@ -15,6 +15,12 @@ pub(crate) struct Request {
     blank: bool,
     latency: Option<u32>,
     immediate: Option<bool>,
+    snapshot: Option<PathBuf>,
+    #[serde(default)]
+    force_gpu: bool,
+    #[serde(default)]
+    hold: bool,
+    zoom: Option<f32>,
 }
 impl Request {
     pub(crate) fn load() -> Option<Self> {
@@ -27,6 +33,9 @@ impl Request {
         let request: Self = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         assert!(request.scene.is_absolute() && request.scene.is_file());
         assert!(request.output.is_absolute() && !request.output.exists());
+        if let Some(snapshot) = &request.snapshot {
+            assert!(snapshot.is_absolute() && !snapshot.exists());
+        }
         Some(request)
     }
     pub(crate) fn configure(&self, options: &mut eframe::NativeOptions) {
@@ -35,6 +44,9 @@ impl Request {
         }
         #[cfg(windows)]
         {
+            if self.force_gpu {
+                options.wgpu_options.windows_cpu_fallback = false;
+            }
             if let Some(latency) = self.latency {
                 assert!((1..=3).contains(&latency));
                 options.wgpu_options.surface.desired_maximum_frame_latency = Some(latency);
@@ -44,7 +56,7 @@ impl Request {
             }
         }
         #[cfg(not(windows))]
-        let _ = (self.latency, self.immediate);
+        let _ = (self.latency, self.immediate, self.force_gpu);
     }
 }
 
@@ -63,17 +75,30 @@ pub(crate) struct ProfiledApp {
     rows: Vec<Value>,
     finished: bool,
     blank: bool,
+    snapshot: Option<PathBuf>,
+    hold: bool,
 }
 
 impl ProfiledApp {
     pub(crate) fn new(
         cc: &eframe::CreationContext<'_>,
-        app: WorksheetApp,
+        mut app: WorksheetApp,
         request: Request,
     ) -> Self {
         let output = request.output;
+        if let Some(zoom) = request.zoom {
+            assert!((0.5..=2.).contains(&zoom));
+            app.zoom = zoom;
+        }
         assert!(output.is_absolute(), "absolute fresh output path required");
         assert!(!output.exists(), "diagnostic never overwrites output");
+        assert_eq!(
+            app.path.as_deref(),
+            Some(request.scene.as_path()),
+            "diagnostic document did not open"
+        );
+        cc.egui_ctx
+            .data_mut(|data| data.insert_temp(egui::Id::new("native-software-statistics"), true));
         let graphics = {
             #[cfg(windows)]
             {
@@ -112,6 +137,8 @@ impl ProfiledApp {
             rows: Vec::with_capacity(112),
             finished: false,
             blank: request.blank,
+            snapshot: request.snapshot,
+            hold: request.hold,
         }
     }
 
@@ -142,6 +169,21 @@ impl ProfiledApp {
 
 impl eframe::App for ProfiledApp {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        if self.finished {
+            self.app.raw_input_hook(ctx, raw);
+            return;
+        }
+        if let Some(path) = &self.snapshot {
+            for event in &raw.events {
+                if let egui::Event::Screenshot { image, .. } = event {
+                    let bytes: Vec<u8> = image.pixels.iter().flat_map(|p| p.to_array()).collect();
+                    image::RgbaImage::from_raw(image.size[0] as u32, image.size[1] as u32, bytes)
+                        .unwrap()
+                        .save(path)
+                        .unwrap();
+                }
+            }
+        }
         let now = Instant::now();
         self.interval_ms = self
             .last
@@ -165,6 +207,10 @@ impl eframe::App for ProfiledApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if self.finished {
+            self.app.ui(ui, frame);
+            return;
+        }
         let start = Instant::now();
         if self.blank {
             ui.painter().rect_filled(ui.max_rect(), 0., Color32::WHITE);
@@ -172,13 +218,30 @@ impl eframe::App for ProfiledApp {
             self.app.ui(ui, frame);
         }
         let elapsed = start.elapsed().as_secs_f64() * 1000.;
+        #[cfg(windows)]
+        let software = ui
+            .ctx()
+            .data(|data| {
+                data.get_temp::<eframe::egui_wgpu::software::FrameStats>(egui::Id::new(
+                    "native-software-last-frame",
+                ))
+            })
+            .map(|s| json!({"raster_ms":s.raster_ms,"present_ms":s.present_ms,"size":s.size}));
+        #[cfg(not(windows))]
+        let software: Option<Value> = None;
         self.rows.push(json!({"frame":self.index,"start_ms":self.raw_at.duration_since(self.started).as_secs_f64()*1000.,
             "interval_ms":self.interval_ms,"ui_ms":elapsed,"previous_eframe_cpu_ms":frame.info().cpu_usage.map(|v|v*1000.),
             "visible_regions":self.app.visible_regions.len(),"pixels_per_point":ui.ctx().pixels_per_point(),
-            "viewport":[ui.ctx().viewport_rect().width(),ui.ctx().viewport_rect().height()],"zoom":self.app.zoom}));
+            "viewport":[ui.ctx().viewport_rect().width(),ui.ctx().viewport_rect().height()],"zoom":self.app.zoom,"software":software}));
+        if self.index == 10 && self.snapshot.is_some() {
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
+        }
         if self.index >= 112 {
             self.finish();
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+            if !self.hold {
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+            }
         } else {
             ui.ctx().request_repaint();
         }

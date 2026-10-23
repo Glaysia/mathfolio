@@ -1,5 +1,7 @@
 # Mathcad 호환성 구현과 측정
 
+**2026-10-23 Windows 스크롤 수정 완료:** [CPU 어댑터의 2D 표시 경로](analysis/0211-windows-scroll-renderer-fix.md)로 동일 실행체의 native 간격 중앙값을218.968ms에서6.464ms(반복5.872ms)로 줄였다. 사용자가 부드러움을 확인했고 출력 이미지·200% 확대·두 문서·소스 불변과 Windows2183/peets2181 검사가 통과했다. 모니터 scanout FPS나 모든 문서의 보장은 아니다.
+
 **동일 환경 원본 비교에 따른 판정 정정:** 사용자는 같은 Windows의 Mathcad에서는 지연이 없다고 확인했다. GPU 부재를 근본 원인으로 확정하지 않는다. 원본 CIL에서 visible-pages 범위가 같을 때 갱신을 건너뛰고, 바뀔 때 앞/뒤 페이지를 차이만큼 추가·제거하는 경로를 확인했다. [0210 비교 기록](analysis/0210-mathcad-scroll-comparison.md)은 정적 근거와 아직 측정하지 못한 하부 렌더링 비용을 구분한다.
 
 **2026-10-23 Windows native 진단:** GUI 허용 후 실제 창의 어댑터가 DX12 CPU fallback임을 확인했다. 전체 App의 native 프레임 시작 간격 약219ms와 UI 약1ms를 분리했고, 빈 화면·latency2·AutoNoVsync를 비교했다. [결과와 제한](analysis/0209-windows-native-software-rendering.md)에 기록한다. 소프트웨어 렌더링 경로의 병목을 확인한 단계이며 해결 완료나 실제 표시 FPS로 판정하지 않는다.

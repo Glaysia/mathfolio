@@ -1,10 +1,12 @@
 # 스크롤 성능 개선 계획
 
+**2026-10-23 Windows 스크롤 수정 완료:** [CPU 어댑터의 2D 표시 경로](analysis/0211-windows-scroll-renderer-fix.md)로 동일 실행체의 native 간격 중앙값을218.968ms에서6.464ms(반복5.872ms)로 줄였다. 사용자가 부드러움을 확인했고 출력 이미지·200% 확대·두 문서·소스 불변과 Windows2183/peets2181 검사가 통과했다. 모니터 scanout FPS나 모든 문서의 보장은 아니다.
+
 2026-10-22 계획, 2026-10-23 실행 갱신. 사용자가 보고한 **스크롤 버벅임**을 첫 대상으로 삼는다. 현재 기능 기준선을 유지하면서 입력부터 화면 표시까지 지연이 생기는 경로를 줄인다. 아래 목표 수치는 실측 결과가 아니다.
 
 첫 수정은 [서식 있는 Text의 휠 입력 대기 제거](analysis/0208-scroll-input-backlog.md)다. 한 프레임에 한 개씩만 전달하던 휠 구간을 같은 native 묶음에서 처리한다. 실제 App의 전체 이동량과 편집·계산·이력 불변을 확인했다. 렌더러 디더링 on/off 비교에서는 개선 근거가 없어 제품 설정을 유지했다. 나머지 표시 지연의 완료 판정은 아래 기준을 따른다.
 
-GUI 허용 후 [Windows 실제 창 비교](analysis/0209-windows-native-software-rendering.md)에서 DX12 CPU 어댑터 선택을 확인했다. 전체 App의 UI 중앙값은 약1ms지만 native 프레임 시작 간격은 약219ms였고, 빈 화면도 약63ms였다. latency2·AutoNoVsync는 해결 근거가 없었다. 사용자는 같은 Windows에서 원본은 부드럽다고 확인했다. [원본의 범위 차이 갱신](analysis/0210-mathcad-scroll-comparison.md)을 추가 확인했으며, GPU 부재를 근본 원인으로 확정하거나 렌더러 교체를 필수로 정하지 않는다. 같은 환경의 원본을 기준으로 그리기·재사용·제출·표시 비용을 더 분리한다. 전체 스크롤 지연 해결은 아직 미완료다.
+수정 전 GUI 허용 후 [Windows 실제 창 비교](analysis/0209-windows-native-software-rendering.md)에서 DX12 CPU 어댑터 선택을 확인했다. 전체 App의 UI 중앙값은 약1ms지만 native 프레임 시작 간격은 약219ms였고, 빈 화면도 약63ms였다. latency2·AutoNoVsync는 해결 근거가 없었다. 사용자는 같은 Windows에서 원본은 부드럽다고 확인했다. [원본의 범위 차이 갱신](analysis/0210-mathcad-scroll-comparison.md)을 추가 확인했으며, GPU 부재를 근본 원인으로 확정하거나 렌더러 교체를 필수로 정하지 않는다. 같은 환경의 원본을 기준으로 그리기·재사용·제출·표시 비용을 더 분리한다. 당시에는 미완료였으며 현재 수정은 위0211 기록을 따른다.
 
 ## 먼저 확인할 경로
 

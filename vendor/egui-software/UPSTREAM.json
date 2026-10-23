@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/DGriffin91/egui_software_backend",
+  "commit": "c70e02d3d95c75a82733deb97e516b13a6c86dc6",
+  "changes": [
+    "Port ordered texture delta batches to egui0.36.2",
+    "Refresh UV-zero texel and sampler after partial uploads",
+    "Render large clipped paper in fixed-size direct buffer",
+    "Use existing eframe host, not separate upstream winit integration",
+    "Disable primitive hash cache in Mathcraft"
+  ]
+}

@@ -31,6 +31,10 @@ fn main() -> eframe::Result {
             .with_min_inner_size([850., 600.]),
         ..Default::default()
     };
+    #[cfg(windows)]
+    {
+        options.wgpu_options.windows_cpu_fallback = true;
+    }
     #[cfg(feature = "native-profile")]
     if let Some(request) = &profile {
         request.configure(&mut options);

@@ -27,6 +27,12 @@ text is in [LICENSE](LICENSE).
   [LICENSE-APACHE](vendor/egui-winit/LICENSE-APACHE) and the provenance and patch
   notes in [UPSTREAM.json](vendor/egui-winit/UPSTREAM.json) and
   [MATHCRAFT.md](vendor/egui-winit/MATHCRAFT.md).
+- The original vendored `egui-wgpu`, `egui_software_backend` and `constify`
+  sources retain their MIT OR Apache-2.0 licenses. Preserve their bundled
+  license texts and provenance in [egui-wgpu](vendor/egui-wgpu/MATHCRAFT.md)
+  and [egui-software](vendor/egui-software/MATHCRAFT.md). The new Mathcraft
+  Windows surface module and its regression tests are AGPL-3.0-only, as
+  identified in their source headers.
 - STIX Two Math and Text fonts retain the SIL Open Font License 1.1. Preserve
   [OFL.txt](assets/fonts/stix/OFL.txt) and
   [SOURCE.json](assets/fonts/stix/SOURCE.json).
