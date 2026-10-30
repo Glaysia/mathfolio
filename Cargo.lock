@@ -1262,7 +1262,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "mathfolio-app"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "eframe",
  "egui_plot",
@@ -1290,7 +1290,7 @@ dependencies = [
 
 [[package]]
 name = "mathfolio-cli"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "mathfolio-compat",
  "mathfolio-core",
@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "mathfolio-compat"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "mathfolio-core",
  "mathfolio-editor",
@@ -1313,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "mathfolio-core"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "num-complex",
  "serde",
@@ -1321,7 +1321,7 @@ dependencies = [
 
 [[package]]
 name = "mathfolio-document"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "mathfolio-compat",
  "mathfolio-core",
@@ -1336,7 +1336,7 @@ dependencies = [
 
 [[package]]
 name = "mathfolio-editor"
-version = "0.1.2-dev"
+version = "0.1.2-rc1"
 dependencies = [
  "serde",
  "serde_json",

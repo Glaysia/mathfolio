@@ -4382,7 +4382,7 @@ impl WorksheetApp {
             self.zoom = (self.zoom * ui.input(|i| i.zoom_delta())).clamp(0.5, 2.);
         }
         let available = ui.available_width();
-        egui::ScrollArea::both()
+        let scroll_area = egui::ScrollArea::both()
             .id_salt("free-worksheet")
             .show(ui, |ui| {
                 let size = self.paper_size();
@@ -4397,7 +4397,9 @@ impl WorksheetApp {
                     origin + vec2(self.document.width as f32 * self.zoom - 12., -22.),
                     vec2(26., 20.),
                 );
-                if (self.expand_right || self.right_content_edge() > self.document.width as f32)
+                let toggle_visible =
+                    self.expand_right || self.right_content_edge() > self.document.width as f32;
+                if toggle_visible
                     && ui
                         .put(
                             toggle,
@@ -4425,6 +4427,8 @@ impl WorksheetApp {
                     * egui::emath::TSTransform::from_scaling(self.zoom);
                 ui.ctx().set_sublayer(ui.layer_id(), layer);
                 ui.ctx().set_transform_layer(layer, transform);
+                self.region_selection.start_exclusion =
+                    toggle_visible.then(|| transform.inverse() * toggle);
                 let mut page = ui.new_child(
                     UiBuilder::new()
                         .id_salt("paper-content")
@@ -4442,6 +4446,7 @@ impl WorksheetApp {
                     ui.scroll_to_rect(target, None);
                 }
             });
+        self.region_selection.scroll_area = Some(scroll_area.id);
     }
     fn page_ui(&mut self, ui: &mut egui::Ui) {
         self.prepare_rich_text();

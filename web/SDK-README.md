@@ -1,4 +1,4 @@
-# Mathfolio WASM SDK 0.1.2-dev / protocol 1
+# Mathfolio WASM SDK 0.1.2-rc1 / protocol 1
 
 The native Rust worksheet editor, calculator, unit system, history, formatting
 and vector PDF writer, hosted on a Canvas. No separate TS math/editor model.

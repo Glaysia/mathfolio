@@ -1,6 +1,6 @@
 # WASM SDK
 
-2026-10-30. 작업 버전 **0.1.2-dev / 프로토콜 1** (공개 릴리즈 0.1.1). 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
+2026-10-30. 작업 버전 **0.1.2-rc1 / 프로토콜 1** (공개 릴리즈 0.1.1). 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
 
 ## 빌드와 실행
 
@@ -21,7 +21,7 @@ python web/serve.py --fixtures artifacts/rea/unit-selected-sources --output arti
 | 경로 | 내용 |
 | --- | --- |
 | `dist/wasm-sdk/` | `sdk.js`, 생성 TS 타입, WASM/glue, Worker, 선택 한글 글꼴, 라이선스 |
-| `dist/mathfolio-wasm-sdk-0.1.2-dev.tar.gz` | 현재 작업 버전을 다른 레포에서 가져갈 패키지 |
+| `dist/mathfolio-wasm-sdk-0.1.2-rc1.tar.gz` | 현재 작업 버전을 다른 레포에서 가져갈 패키지 |
 | `dist/wasm-sdk-size.json` | 파일별 바이트·SHA-256, 최적화 전후·gzip·패키지 크기와 도구 버전 |
 
 빌드는 Cargo.lock과 wasm-bindgen CLI 버전 일치를 검사한다. Binaryen 132.0.0의 `-O2`를 적용하고, 더 커지면 최적화 전 파일을 유지한다. 입력·도구·옵션·출력 해시가 일치할 때만 최적화 캐시를 재사용한다. `--skip-opt`는 개발용 비최적화 빌드다. 네이티브 release 프로필은 변경하지 않았다.
@@ -93,4 +93,4 @@ stopState(); stopRequests(); editor.dispose();
 
 원본 전체 호환 범위는 [기능 목록](FEATURES.md)을 그대로 따른다. SDK에서 파일 수정시각/로캘 저장 날짜 주입, PDF 페이지 범위 API, 읽기 전용 미리보기 API와 공용 계산 스케줄러는 후속 범위다. 두 호스트 플러그인이 이미 완성됐다고 주장하지 않는다.
 
-0.1.1의 실측 용량·브라우저/네이티브 검증은 [0215 기록](analysis/0215-mathfolio-0.1.1.md)에 보존한다. 현재 변경과 검증은 [0216 기록](analysis/0216-cad-region-selection.md)을 따른다.
+0.1.1의 실측 용량·브라우저/네이티브 검증은 [0215 기록](analysis/0215-mathfolio-0.1.1.md), 0.1.2-dev의 다중 선택은 [0216 기록](analysis/0216-cad-region-selection.md)에 보존한다. 0.1.2-rc1의 워크시트 바깥 선택 수정과 검증은 [0217 기록](analysis/0217-rc1-workspace-selection.md)을 따른다.

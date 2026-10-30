@@ -11,6 +11,9 @@ pub(super) struct State {
     pub bounds: HashMap<u64, Rect>,
     pub layer: Option<egui::LayerId>,
     pub paper_origin: egui::Pos2,
+    /// Workspace controls excluded from marquee starts, in page-layer coordinates.
+    pub start_exclusion: Option<Rect>,
+    pub scroll_area: Option<egui::Id>,
     marquee: Option<Marquee>,
     moving: Option<GroupMove>,
 }
@@ -314,21 +317,36 @@ impl WorksheetApp {
             });
             if let Some(press) = press {
                 let point = Self::page_pointer(ui, paper, press);
-                let on_body = geometry.to_body(point).is_some()
-                    || (self.expand_right
-                        && point.x >= geometry.margins[0]
-                        && point.x < paper.width()
-                        && geometry
-                            .to_body(pos2(geometry.margins[0], point.y))
-                            .is_some());
+                // A selection gesture belongs to the whole visible workspace,
+                // including margins, page gaps and the canvas outside the paper.
+                // Body-coordinate validation is only for inserting content.
+                let layer_point = point + paper.min.to_vec2();
+                let on_control = self
+                    .region_selection
+                    .start_exclusion
+                    .is_some_and(|rect| rect.contains(layer_point));
+                // Floating bars overlap the viewport. Respect their actual
+                // interaction rectangles rather than subtracting a fixed strip.
+                let on_scroll_bar = self.region_selection.scroll_area.is_some_and(|id| {
+                    (0_usize..2).any(|axis| {
+                        ui.ctx().read_response(id.with(axis)).is_some_and(|bar| {
+                            let transform = ui
+                                .ctx()
+                                .layer_transform_from_global(bar.layer_id)
+                                .unwrap_or_default();
+                            bar.interact_rect.contains(transform * press)
+                        })
+                    })
+                });
                 let on_region = self.document.regions.iter().any(|r| {
                     self.selection_rect(r, geometry).is_some_and(|b| {
                         State::hit_bounds(b, self.region_selection.contains(self.selected, r.id))
                             .contains(point)
                     })
                 });
-                if on_body
-                    && ui.clip_rect().contains(point + paper.min.to_vec2())
+                if ui.clip_rect().contains(layer_point)
+                    && !on_control
+                    && !on_scroll_bar
                     && !on_region
                     && self.dragging.is_none()
                 {

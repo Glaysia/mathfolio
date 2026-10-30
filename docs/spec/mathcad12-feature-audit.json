@@ -4772,7 +4772,7 @@
       "kind": "worksheet",
       "feature": "드래그 사각형으로 영역 다중 선택",
       "status": "구현됨",
-      "limits": "사용자 지정 CAD 규칙: 왼쪽→오른쪽 완전 포함, 오른쪽→왼쪽 교차. 수식 내부 선택과 별개. 원본은 양방향 교차이며 이 차이는 명시적 요청에 따른다.",
+      "limits": "사용자 지정 CAD 규칙: 왼쪽→오른쪽 완전 포함, 오른쪽→왼쪽 교차. 페이지 여백·페이지 사이·종이 밖에서도 시작 가능. 수식 내부 선택과 별개. 원본은 양방향 교차이며 이 차이는 명시적 요청에 따른다.",
       "implementation_paths": [
         "crates/mathfolio-app/src/ribbon.rs",
         "crates/mathfolio-app/src/worksheet_ui.rs",

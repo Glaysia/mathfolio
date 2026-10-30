@@ -14,7 +14,7 @@ export async function verifyRegionSelection(editor, canvas, assert) {
     { id: 2, left: 230, top: 180, content: { Text: "group clipboard text" }, source_region: null },
     { id: 3, left: 500, top: 350, content: { Math: { kind: { Number: "9999" }, children: [] } }, source_region: null },
   ];
-  editor.loadDocument("group-selection.mathfolio", encode({ ...initial, title: "CAD selection test", next_id: 4, native_archive: null, calculation_cache: null, regions }), true);
+  editor.loadDocument("group-selection.mathfolio", encode({ ...initial, title: "CAD selection test", width: 800, height: 1100, page_setup: null, next_id: 4, native_archive: null, calculation_cache: null, regions }), true);
   await until(() => editor.inspectRegionBounds().length === 3, "measured region geometry");
   const bounds = () => new Map(editor.inspectRegionBounds().map(r => [r.id, r]));
   const pointer = (type, point, buttons) => {
@@ -34,6 +34,21 @@ export async function verifyRegionSelection(editor, canvas, assert) {
   const a = bounds().get(1), b = bounds().get(2);
   const from = { x: a.left - 20, y: a.top - 20 }, to = { x: (b.left + b.right) / 2, y: b.bottom + 20 };
   const clean = editor.inspectDocument(), cleanState = editor.state();
+  // At the default 1x zoom the first source anchor is (100,100),
+  // with 94.5-point metric margins. These starts are 45 points outside
+  // the body, or 12 points outside the paper; measured bounds locate them.
+  for (const [label, start] of [
+    ["left page margin", { x: a.left - 145, y: a.top - 20 }],
+    ["top page margin", { x: a.left - 20, y: a.top - 145 }],
+    ["canvas left of the paper", { x: a.left - 206, y: a.top - 20 }],
+    ["canvas above the paper", { x: a.left - 20, y: a.top - 206 }],
+  ]) {
+    await drag(start, { x: b.right + 20, y: b.bottom + 20 });
+    assert(JSON.stringify(editor.state().selected_regions) === "[1,2]" && editor.inspectDocument() === clean
+      && editor.state().undo === cleanState.undo && !editor.state().dirty
+      && editor.state().calculation_generation === cleanState.calculation_generation,
+      `WASM marquee starts in ${label} without editing source or starting calculation`, editor.state());
+  }
   await drag(from, to);
   assert(JSON.stringify(editor.state().selected_regions) === "[1]", "WASM CAD left-to-right requires complete enclosure", editor.state());
   await drag(to, from);

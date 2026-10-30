@@ -8,7 +8,7 @@ fn frame(
     ctx.run_ui(
         egui::RawInput {
             events,
-            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1500., 1100.))),
+            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(2400., 2700.))),
             ..Default::default()
         },
         |ui| {
@@ -325,6 +325,148 @@ fn crossing_can_start_in_the_blank_space_immediately_right_of_a_region() {
     assert_eq!(app.selected_region_ids(), vec![ids[0]]);
     assert!(!app.dirty);
     assert!(app.undo.is_empty());
+}
+
+#[test]
+fn marquee_can_start_in_page_margins_and_outside_the_paper_at_three_zooms() {
+    for zoom in [0.5, 1., 2.] {
+        for case in 0..7 {
+            let (mut app, ctx, ids) = fixture(zoom);
+            let geometry = app.page_geometry();
+            let a = rect(&app, ids[0]);
+            let b = rect(&app, ids[1]);
+            let start = match case {
+                0 => pos2(geometry.margins[0] / 2., a.top() - 20.),
+                1 => pos2(a.left() - 20., geometry.margins[1] / 2.),
+                2 => pos2(-12., a.top() - 20.),
+                3 => pos2(a.left() - 20., -12.),
+                4 => pos2(geometry.width - geometry.margins[2] / 2., a.top() - 20.),
+                5 => pos2(geometry.width + 12., a.top() - 20.),
+                _ => pos2(geometry.width + 12., app.paper_size().y + 12.),
+            };
+            let end = if case >= 4 {
+                pos2(
+                    a.left() - 20.,
+                    if case == 6 { -12. } else { b.bottom() + 20. },
+                )
+            } else {
+                b.right_bottom() + vec2(20., 20.)
+            };
+            let before = app.document.clone();
+            let generation = app.background.submitted_generation();
+            drag(&mut app, &ctx, start, end);
+            assert_eq!(
+                app.selected_region_ids(),
+                ids[..if case == 6 { 3 } else { 2 }],
+                "case={case} zoom={zoom}"
+            );
+            assert_eq!(app.document, before);
+            assert!(app.undo.is_empty());
+            assert!(!app.dirty);
+            assert_eq!(app.background.submitted_generation(), generation);
+        }
+    }
+}
+
+#[test]
+fn pointer_press_outside_the_workspace_cannot_start_a_marquee() {
+    let (mut app, ctx, ids) = fixture(1.);
+    let end = world(&ctx, rect(&app, ids[1]).right_bottom() + vec2(20., 20.));
+    let outside = pos2(-50., -50.);
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::PointerMoved(outside), button(outside, true)],
+    )
+    .drop_without_applying_deltas();
+    frame(&mut app, &ctx, vec![egui::Event::PointerMoved(end)]).drop_without_applying_deltas();
+    assert!(!app.region_selection.busy());
+    frame(&mut app, &ctx, vec![button(end, false)]).drop_without_applying_deltas();
+    assert!(app.selected_region_ids().is_empty());
+}
+
+#[test]
+fn marquee_can_start_in_the_gap_between_pages() {
+    let (mut app, ctx, _) = fixture(1.);
+    let geometry = app.page_geometry();
+    let id = app
+        .document
+        .add_math(100., geometry.body_height_exact() + 100.);
+    frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+    frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+    let bounds = rect(&app, id);
+    let before = app.document.clone();
+    drag(
+        &mut app,
+        &ctx,
+        pos2(bounds.left() - 20., geometry.height + geometry.grid / 2.),
+        bounds.right_bottom() + vec2(20., 20.),
+    );
+    assert_eq!(app.selected_region_ids(), vec![id]);
+    assert_eq!(app.document, before);
+    assert!(app.undo.is_empty());
+    assert!(!app.dirty);
+}
+
+#[test]
+fn page_view_toggle_owns_its_press_instead_of_starting_a_marquee() {
+    for zoom in [0.5, 1., 2.] {
+        let (mut app, ctx, _) = fixture(zoom);
+        app.expand_right = true;
+        frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+        frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+        let point = world(
+            &ctx,
+            pos2(app.document.width as f32 + 1. / zoom, -12. / zoom),
+        );
+        frame(
+            &mut app,
+            &ctx,
+            vec![egui::Event::PointerMoved(point), button(point, true)],
+        )
+        .drop_without_applying_deltas();
+        assert!(!app.region_selection.busy(), "toggle press zoom={zoom}");
+        frame(&mut app, &ctx, vec![button(point, false)]).drop_without_applying_deltas();
+        assert!(!app.expand_right);
+        assert!(app.selected_region_ids().is_empty());
+    }
+}
+
+#[test]
+fn floating_scrollbar_press_scrolls_without_starting_a_marquee() {
+    let (mut app, ctx, _) = fixture(1.);
+    app.document.add_math(100., 10_000.);
+    frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+    frame(&mut app, &ctx, vec![]).drop_without_applying_deltas();
+    let id = app.region_selection.scroll_area.unwrap();
+    let bar = ctx
+        .read_response(id.with(1_usize))
+        .expect("vertical scrollbar");
+    let point = ctx
+        .layer_transform_to_global(bar.layer_id)
+        .unwrap_or_default()
+        * bar.rect.center();
+    let before = app.document.clone();
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::PointerMoved(point), button(point, true)],
+    )
+    .drop_without_applying_deltas();
+    assert!(!app.region_selection.busy(), "scrollbar owns the press");
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::PointerMoved(point - vec2(0., 40.))],
+    )
+    .drop_without_applying_deltas();
+    assert!(!app.region_selection.busy());
+    frame(&mut app, &ctx, vec![button(point - vec2(0., 40.), false)])
+        .drop_without_applying_deltas();
+    assert!(egui::scroll_area::State::load(&ctx, id).unwrap().offset.y > 0.);
+    assert_eq!(app.document, before);
+    assert!(app.undo.is_empty());
+    assert!(!app.dirty);
 }
 
 #[test]
