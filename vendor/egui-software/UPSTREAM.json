@@ -6,6 +6,6 @@
     "Refresh UV-zero texel and sampler after partial uploads",
     "Render large clipped paper in fixed-size direct buffer",
     "Use existing eframe host, not separate upstream winit integration",
-    "Disable primitive hash cache in Mathcraft"
+    "Disable primitive hash cache in Mathfolio"
   ]
 }

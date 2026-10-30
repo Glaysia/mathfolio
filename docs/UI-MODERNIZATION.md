@@ -8,7 +8,7 @@
 
 **1차 구현:** [0212](analysis/0212-shared-native-chrome.md)에 간결한 헤더/작성 도구·선택 속성·테마·검색 도움말과 입력 격리, native 글꼴 공급 경계 및 양 OS 회귀 결과를 기록했다. 기존 키를 유지한다. WASM/Worker·호스트 IO 분리와 두 플러그인 검증은 남아 있으며, 실제 창 비교에서 관찰한 추가 그리기 비용도 같은 기록에 공개한다.
 
-Excalidraw처럼 작업 내용이 중심이 되는 간결하고 현대적인 화면으로 개선한다. 참고 대상은 [Excalidraw](https://github.com/excalidraw/excalidraw)의 제품 경험이며, Mathcraft는 Rust 기반의 공학 계산 워크시트와 정밀한 수식 조판을 유지한다.
+Excalidraw처럼 작업 내용이 중심이 되는 간결하고 현대적인 화면으로 개선한다. 참고 대상은 [Excalidraw](https://github.com/excalidraw/excalidraw)의 제품 경험이며, Mathfolio는 Rust 기반의 공학 계산 워크시트와 정밀한 수식 조판을 유지한다.
 
 기존의 Prime 외형 재현 방침을 UI 표현층에서 대체한다. 수식 편집 의미, 계산 확정, 단위, 문서 형식과 기존 단축키는 계속 호환 기준으로 삼는다. 계산·문서·편집의 Rust 구현을 재사용하고, UI를 호스트 창과 분리된 편집 컴포넌트로 만든다. 플러그인 프로젝트는 별도로 유지하되 내장 가능성은 이번 UI 설계 단계에서 검증한다.
 

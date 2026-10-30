@@ -71,7 +71,7 @@ The original writer can emit an empty Data for empty TraceDataPoints; the XSD se
 
 ## Bounded independent implementation
 
-[new native_plot_result.rs](../../crates/mathcraft-document/src/native_plot_result.rs) provides:
+[new native_plot_result.rs](../../crates/mathfolio-document/src/native_plot_result.rs) provides:
 
 - `finite_unitless_xml(&[[f64;2]])`: a namespace-bound direct Trace2dResult for nonempty finite already-dimensionless points, with one Columns/Numeric vector per axis. It derives Min/Max from those fresh points. Empty input returns None; invalid/budgeted data returns an error. Bare f64 cannot establish dimensionlessness, so that proof belongs to the caller.
 - `read_result(roxmltree::Node)`: accepts only direct Vector/Columns/Numeric Count 1 pairs with equal positive lengths, finite values, finite ordered axis metadata containing the samples, exact attribute/child structure and no units. Unknown supported-native shapes return None; malformed dimensions/JSON/structure return an error.

@@ -8,13 +8,13 @@
 - **두 실행 환경, 하나의 제품 구현.** 계산·단위·문서·편집·확정·Undo/Redo·조판·서식·명령 처리는 Rust를 단일 기준으로 삼는다. egui 화면도 공통으로 유지한다. TS에 별도 계산기, 문서 모델, 수식 편집기나 DOM 기반 대체 UI를 만들지 않는다.
 - **호스트 차이만 어댑터로 분리한다.** 파일·인쇄·클립보드·글꼴 공급·작업 실행·창 수명은 각 환경에서 구현하되, 계산·편집 의미를 바꾸지 않는다.
 - **기존 동작과 성능을 보존한다.** Enter 확정, 저장 결과/Pending, F5/Ctrl+F5, 기존 키, 단위와 MCDX 보존이 우선이다. UI 개편을 이유로 문서를 다시 계산하거나 입력마다 계산을 확정하지 않는다.
-- Obsidian·VS Code 플러그인의 본 제품은 별도 프로젝트로 유지한다. Mathcraft 저장소는 공통 Rust 구현, WASM SDK와 작은 호스트 검증 도구를 제공한다. CLI·MCP·skill 확장은 [보관 계획](AGENT-INTEGRATION.md)으로 남긴다.
+- Obsidian·VS Code 플러그인의 본 제품은 별도 프로젝트로 유지한다. Mathfolio 저장소는 공통 Rust 구현, WASM SDK와 작은 호스트 검증 도구를 제공한다. CLI·MCP·skill 확장은 [보관 계획](AGENT-INTEGRATION.md)으로 남긴다.
 
 ## 현재 상태 (2026-10-24)
 
 | 확인한 상태 | 후속 범위 |
 | --- | --- |
-| `mathcraft-core/editor/compat/document`와 같은 egui 화면을 native/WASM에서 사용한다. | 별도 TS 계산기/문서 모델을 만들지 않는다. |
+| `mathfolio-core/editor/compat/document`와 같은 egui 화면을 native/WASM에서 사용한다. | 별도 TS 계산기/문서 모델을 만들지 않는다. |
 | WASM target의 창/파일 대화상자/직접 OS 저장·인쇄를 제외하고 bytes API와 호스트 요청을 연결했다. | Vault/workspace IO·외부 변경 충돌·backup은 각 플러그인이 연결한다. |
 | 같은 Rust 계산 실행을 native persistent thread와 WASM Worker에서 사용한다. Worker 실제 중지·재생성·이전 generation 차단을 브라우저에서 검사했다. | 소스 delta 전송·공용 Worker pool은 후속 범위다. |
 | Canvas mount/dispose, 타입이 있는 TS SDK, 글꼴·테마·저장 승인·벡터 PDF API를 제공한다. | 물리 IME·호스트 단축키·리소스 URI/CSP·미리보기는 실제 플러그인에서 검증한다. |
@@ -25,9 +25,9 @@
 ## 목표 의존 구조
 
 ```text
-mathcraft-core / mathcraft-editor
+mathfolio-core / mathfolio-editor
                  ↓
-mathcraft-compat / mathcraft-document
+mathfolio-compat / mathfolio-document
                  ↓
 공통 Rust 편집 세션 + egui 화면 + 계산 작업 계약
                  ↑                         ↑
@@ -133,4 +133,4 @@ PDF의 벡터 생성은 공통 Rust에 유지한다. 네이티브는 OS 인쇄�
 - [wasm-bindgen 공식 가이드](https://rustwasm.github.io/docs/wasm-bindgen/): Rust/Web 바인딩과 Worker 통합. 바인딩은 WASM 타깃에만 둔다.
 - [VS Code Custom Editor](https://code.visualstudio.com/api/extension-guides/custom-editors): 문서·편집 뷰·저장/Undo/backup의 host 계약. 단순 Webview만 띄운 것을 편집기 통합 완료로 보지 않는다.
 - [Obsidian 공식 API](https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts): custom View·Vault·Markdown renderer·lifecycle 접점.
-- [PhotoCraft](https://github.com/storytold/photocraft#under-the-hood)와 [craft-ui](https://github.com/storytold/craft-libs#readme)는 native/WASM 공통 Rust와 egui 구성의 참고 사례다. 해당 프로젝트의 기능 완성도나 구현을 Mathcraft의 검증 증거로 대신하지 않는다.
+- [PhotoCraft](https://github.com/storytold/photocraft#under-the-hood)와 [craft-ui](https://github.com/storytold/craft-libs#readme)는 native/WASM 공통 Rust와 egui 구성의 참고 사례다. 해당 프로젝트의 기능 완성도나 구현을 Mathfolio의 검증 증거로 대신하지 않는다.

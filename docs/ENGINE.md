@@ -5,11 +5,11 @@
 계산 엔진은 [Mathcad 작성 경험](DESIGN.md)을 지탱한다. 현재 우선순위는 REA로 편집 명령·문맥 라벨·계산 피드백을 추적하고 편집→계산→수정 흐름에 연결하는 것이다. Windows와 peets 모두 GUI·스크린샷을 사용하지 않고 정적 분석과 headless 검사를 진행한다.
 
 ```sh
-cargo run -p mathcraft-cli --locked -- features
-cargo run -p mathcraft-cli --locked -- features --all
-cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
-cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
-cargo run -p mathcraft-cli --locked -- conformance tests/reference/mathcad12.json
+cargo run -p mathfolio-cli --locked -- features
+cargo run -p mathfolio-cli --locked -- features --all
+cargo run -p mathfolio-cli --locked -- mathml-run examples/engineering.xml
+cargo run -p mathfolio-cli --locked -- native-run INPUT.mcdx
+cargo run -p mathfolio-cli --locked -- conformance tests/reference/mathcad12.json
 ```
 
 `mathml-run`과 `native-run`은 MathML 구조를 직접 실행한다. 기존 문자열 `eval`/`run` 경로는 초기 실험 엔진이므로 새 기능의 검증에 사용하지 않는다. `features`의 `bounded-subset` 표시는 제한된 구현이며 전체 호환을 뜻하지 않는다. 분석 목록과 실제 구현 상태를 구분한다.

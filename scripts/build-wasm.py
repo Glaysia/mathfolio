@@ -1,7 +1,7 @@
 """Build the shared Rust editor SDK. Output stays in ignored dist/wasm-sdk.
 
 Prerequisites: rustup target add wasm32-unknown-unknown; wasm-bindgen-cli matching
-Cargo.lock; npm ci --prefix web. No Node/JS runtime is added to native Mathcraft.
+Cargo.lock; npm ci --prefix web. No Node/JS runtime is added to native Mathfolio.
 """
 from pathlib import Path
 import argparse, gzip, hashlib, json, shutil, subprocess, tarfile, tomllib
@@ -18,12 +18,16 @@ def main():
     actual=subprocess.check_output([bindgen,'--version'],text=True).strip()
     if actual != 'wasm-bindgen '+expected: raise SystemExit(f'Install matching tool: cargo install wasm-bindgen-cli --version {expected} --locked')
     out=ROOT/'dist/wasm-sdk'; out.mkdir(parents=True,exist_ok=True)
-    raw=ROOT/'target/wasm32-unknown-unknown/release/mathcraft_ui.wasm'
-    if not args.skip_build: run([cargo,'build','--locked','--release','-p','mathcraft-app','--lib','--target','wasm32-unknown-unknown'])
-    run([bindgen,raw,'--target','web','--out-dir',out,'--out-name','mathcraft'])
-    bound=out/'mathcraft_bg.wasm'; before=bound.read_bytes()
+    version=tomllib.loads((ROOT/'Cargo.toml').read_text(encoding='utf-8'))['workspace']['package']['version']
+    raw=ROOT/'target/wasm32-unknown-unknown/release/mathfolio_ui.wasm'
+    if not args.skip_build: run([cargo,'build','--locked','--release','-p','mathfolio-app','--lib','--target','wasm32-unknown-unknown'])
+    run([bindgen,raw,'--target','web','--out-dir',out,'--out-name','mathfolio'])
+    # Remove only obsolete generator-owned files from the pre-rename SDK.
+    for legacy in ['mathcraft.js','mathcraft.d.ts','mathcraft_bg.wasm','mathcraft_bg.wasm.d.ts']:
+        (out/legacy).unlink(missing_ok=True)
+    bound=out/'mathfolio_bg.wasm'; before=bound.read_bytes()
     # Separate candidate so a failed optimization never replaces a valid module.
-    optimized=ROOT/'target/wasm32-unknown-unknown/release/mathcraft-optimized.wasm'
+    optimized=ROOT/'target/wasm32-unknown-unknown/release/mathfolio-optimized.wasm'
     flags=['-O2','--enable-bulk-memory','--enable-nontrapping-float-to-int','--enable-sign-ext','--enable-reference-types','--enable-multivalue']
     meta=optimized.with_suffix('.json')
     key={'input_sha256':hashlib.sha256(before).hexdigest(),'binaryen':json.loads((ROOT/'web/node_modules/binaryen/package.json').read_text(encoding='utf-8'))['version'],'flags':flags}
@@ -46,12 +50,12 @@ def main():
     # CJK is external to WASM: applications can replace it via provideFont.
     font=ROOT/'assets/fonts/nanum';
     if font.exists(): shutil.copytree(font,out/'fonts/nanum',dirs_exist_ok=True)
-    (out/'package.json').write_text(json.dumps({'name':'@mathcraft/wasm-sdk','version':'0.1.0','type':'module','license':'AGPL-3.0-only','exports':{'.':{'types':'./sdk.d.ts','default':'./sdk.js'},'./bindings':'./mathcraft.js','./mathcraft_bg.wasm':'./mathcraft_bg.wasm','./worker.js':'./worker.js'}},indent=2)+'\n',encoding='utf-8')
+    (out/'package.json').write_text(json.dumps({'name':'@mathfolio/wasm-sdk','version':version,'type':'module','license':'AGPL-3.0-only','exports':{'.':{'types':'./sdk.d.ts','default':'./sdk.js'},'./bindings':'./mathfolio.js','./mathfolio_bg.wasm':'./mathfolio_bg.wasm','./worker.js':'./worker.js'}},indent=2)+'\n',encoding='utf-8')
     # Reports live outside the package, so repeated builds cannot archive a stale report.
     if (out/'size-report.json').exists(): (out/'size-report.json').unlink()
     files={str(p.relative_to(out)).replace('\\','/'):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(out.rglob('*')) if p.is_file()}
     report={'raw_rust_wasm_bytes':raw.stat().st_size,'bindgen_wasm_bytes':len(before),'optimized_candidate_bytes':len(after),'shipped_wasm_bytes':bound.stat().st_size,'wasm_gzip_bytes':len(gzip.compress(bound.read_bytes(),mtime=0)),'package_uncompressed_bytes':sum(f['bytes'] for f in files.values()),'files':files}
-    archive=ROOT/'dist/mathcraft-wasm-sdk-0.1.0.tar.gz'
+    archive=ROOT/f'dist/mathfolio-wasm-sdk-{version}.tar.gz'
     with archive.open('wb') as stream:
         with gzip.GzipFile(fileobj=stream,mode='wb',mtime=0) as zipped:
             with tarfile.open(fileobj=zipped,mode='w') as tar: tar.add(out,arcname='package')

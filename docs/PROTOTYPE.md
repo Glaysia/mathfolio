@@ -1,4 +1,4 @@
-# Mathcraft 워크시트 프로토타입
+# Mathfolio 워크시트 프로토타입
 
 **UI 개편 전 기능 체크포인트:** [현재 보존 범위](CHECKPOINT-2026-10-20.md). 다음 작업은 [현대적인 UI와 기존 단축키 안내 개선](UI-MODERNIZATION.md)이다. 기존 r222 고정 검증은 [입력 행렬 편집·조판·인쇄](analysis/0207-typed-source-matrix-window.md)에 보존한다. 아래 이름 붙은 이전 검증은 당시 이력이다.
 
@@ -17,11 +17,11 @@
 
 ## 실행과 입력
 
-Windows 기본 실행은 release 빌드를 사용하며 실행 파일은 `target/release/mathcraft.exe`다. 과거 행 기반 실험의 `mathcraft-app.exe`와 구분한다.
+Windows 기본 실행은 release 빌드를 사용하며 실행 파일은 `target/release/mathfolio.exe`다. 과거 행 기반 실험의 `mathfolio-app.exe`와 구분한다.
 
 ```powershell
 ./scripts/run.ps1
-./scripts/run.ps1 -Open 'worksheet.mathcraft'
+./scripts/run.ps1 -Open 'worksheet.mathfolio'
 ```
 
 종이에서 클릭한 뒤 바로 입력한다.
@@ -46,7 +46,7 @@ Space 범위는 시작 방향과 원래 커서를 기억하며 최대 범위 다
 
 아래 배율 메뉴에서 종이를 확대·축소하거나 너비를 맞춘다. Ctrl+-는 이름 아래첨자이며 배율을 바꾸지 않는다. Ctrl+=는 비교의 같음, Ctrl+9/0은 ≤/≥, Ctrl+Shift+1/2/5/7은 NOT/OR/XOR/AND, Ctrl+Shift+Z는 ∞ 입력이다. F1은 단축키 안내, Ctrl+F1은 리본 그룹 숨김/복원이다. 문서 탭에서 눈금선을 표시한다. F5는 보이는 활성 영역과 마지막 보이는 계산 영역까지, Ctrl+F5는 워크시트 전체를 계산한다. [원본 단축키 계약과 제한](analysis/0057-shortcut-and-subscript-contract.md)을 따른다.
 
-Save/Open은 `.mathcraft` v2에 수식 구조·위치·텍스트를 저장하고 다시 연다. 수식 표시를 문자열로 평탄화하거나 편집기 내부 undo 기록을 저장하지 않는다. 미완성 숫자처럼 현재 저장 검증을 통과하지 못하는 수식은 오류를 알리고 저장을 막는다. 저장하지 않은 문서를 닫거나 다른 문서를 열 때 확인한다.
+Save/Open은 `.mathfolio` v2에 수식 구조·위치·텍스트를 저장하고 다시 연다. 수식 표시를 문자열로 평탄화하거나 편집기 내부 undo 기록을 저장하지 않는다. 미완성 숫자처럼 현재 저장 검증을 통과하지 못하는 수식은 오류를 알리고 저장을 막는다. 저장하지 않은 문서를 닫거나 다른 문서를 열 때 확인한다.
 
 계산된 수식·기호·도표의 표시 캐시도 저장하고 열기 때 계산 없이 복원한다. 표시 캐시가 없는 기존 예제/문서는 Ctrl+F5로 계산한 뒤 저장하면 다음 열기부터 결과가 복원된다. 캐시가 없다는 이유로 자동 재계산하지 않는다.
 
@@ -54,10 +54,10 @@ Save/Open은 `.mathcraft` v2에 수식 구조·위치·텍스트를 저장하고
 
 ## 공학 계산서 작성
 
-[engineering-worksheet.mathcraft](../examples/engineering-worksheet.mathcraft)는 중력·질량·힘의 단위 계산, 행렬 determinant, 사용자 함수와 범위, XY 도표를 포함한다. 아래 명령으로 열 수 있다.
+[engineering-worksheet.mathfolio](../examples/engineering-worksheet.mathfolio)는 중력·질량·힘의 단위 계산, 행렬 determinant, 사용자 함수와 범위, XY 도표를 포함한다. 아래 명령으로 열 수 있다.
 
 ```powershell
-./scripts/run.ps1 -Open 'examples/engineering-worksheet.mathcraft'
+./scripts/run.ps1 -Open 'examples/engineering-worksheet.mathfolio'
 ```
 
 계산 서식 지정 탭에서 선택한 수식의 글꼴 크기(4–72pt), 소수 자릿수(0–15), 일반·소수·과학·공학 표시를 변경한다. 표시 반올림은 계산값을 바꾸지 않는다. 기본은 원본에서 확인한 3자리·일반 형식이다. 결과는 단위 분수와 위첨자를 조판하며, 변수·단위 레이블 변경은 계산 의미도 바꾸고 Undo로 복원한다.
@@ -78,7 +78,7 @@ Ctrl+2 또는 도표 탭의 XY 도표로 삽입한다. 새 도표는 원본처�
 
 MCDX 열기는 일부 기본 수식의 구조 편집과 텍스트 표시를 지원한다. 명시 라벨, 괄호, 분수·지수, 정의·평가와 표시 단위를 보존하며, 표현하지 못하는 영역은 편집 불가로 표시한다. 원본 ZIP 바이트도 v2 문서 안에 그대로 남긴다. 편집기가 읽지 못한 native math도 지원 엔진으로 계산하며, 미지원 영역 하나 때문에 독립된 모든 영역 계산을 중단하지 않는다. 실패한 정의는 종속 계산으로 오류를 전파하고 이전 캐시를 새 계산처럼 보여주지 않는다. 상징 결과와 풀이 블록 요약에도 계산된 값을 표시한다.
 
-현재 저장 형식은 `.mathcraft` v2이며 Export MCDX와 CLI `sheet-export`가 새 MCDX로 편집 내용을 내보낸다. 원본 parts·관계를 보존하고 결과 캐시를 Pending으로 무효화한다. 생성 구조의 XSD 검사는 통과했지만 원본 앱에서 다시 열기는 검증하지 않았다. v1 행 기반 실험 문서와 형식이 다르다. 원본 MCDX 파일은 변경하지 않는다. 가져오기 원본은 현재 16 MiB로 제한한다.
+현재 저장 형식은 `.mathfolio` v2이며 Export MCDX와 CLI `sheet-export`가 새 MCDX로 편집 내용을 내보낸다. 원본 parts·관계를 보존하고 결과 캐시를 Pending으로 무효화한다. 생성 구조의 XSD 검사는 통과했지만 원본 앱에서 다시 열기는 검증하지 않았다. v1 행 기반 실험 문서와 형식이 다르다. 원본 MCDX 파일은 변경하지 않는다. 가져오기 원본은 현재 16 MiB로 제한한다.
 
 ## 인쇄와 페이지 설정
 

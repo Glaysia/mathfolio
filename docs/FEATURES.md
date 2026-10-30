@@ -82,7 +82,7 @@
 
 ### 워크시트와 계산 상태
 
-[원본·구현 근거](analysis/0015-worksheet-feedback.md) · [페이지](analysis/0029-result-visibility.md) · [앱 코드·회귀 검사](../crates/mathcraft-app/src/worksheet_ui.rs)
+[원본·구현 근거](analysis/0015-worksheet-feedback.md) · [페이지](analysis/0029-result-visibility.md) · [앱 코드·회귀 검사](../crates/mathfolio-app/src/worksheet_ui.rs)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -97,7 +97,7 @@
 
 ### 수식 작성과 편집
 
-[원본 계약](spec/mathcad12-editor-contract.json) · [편집 분석](analysis/0002-editor-semantics.md) · [선택](analysis/0014-expression-scope.md) · [문맥 명령](analysis/0017-contextual-commands.md) · [구조 입력](analysis/0026-structured-program-calculus-editing.md) · [편집 코드·검사](../crates/mathcraft-editor/src/lib.rs) · [위젯·검사](../crates/mathcraft-app/src/formula.rs)
+[원본 계약](spec/mathcad12-editor-contract.json) · [편집 분석](analysis/0002-editor-semantics.md) · [선택](analysis/0014-expression-scope.md) · [문맥 명령](analysis/0017-contextual-commands.md) · [구조 입력](analysis/0026-structured-program-calculus-editing.md) · [편집 코드·검사](../crates/mathfolio-editor/src/lib.rs) · [위젯·검사](../crates/mathfolio-app/src/formula.rs)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -119,7 +119,7 @@
 
 ### 기본 계산·이름·프로그램
 
-[원본 표본](../tests/reference/mathcad12.json) · [계산 분석](analysis/0003-calculation-semantics.md) · [프로그램](analysis/0006-programming-semantics.md) · [계산 코드](../crates/mathcraft-compat/src/lib.rs) · [검사](../crates/mathcraft-compat/tests/structured.rs)
+[원본 표본](../tests/reference/mathcad12.json) · [계산 분석](analysis/0003-calculation-semantics.md) · [프로그램](analysis/0006-programming-semantics.md) · [계산 코드](../crates/mathfolio-compat/src/lib.rs) · [검사](../crates/mathfolio-compat/tests/structured.rs)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -139,7 +139,7 @@
 
 ### 단위와 배열·선형대수
 
-[단위 사실](analysis/0010-unit-semantics.md) · [배열](analysis/0005-array-semantics.md) · [선형계](analysis/0025-linear-systems.md) · [고유계](analysis/0026-symmetric-eigensystems.md) · [코드](../crates/mathcraft-compat/src/arrays.rs) · [검사](../crates/mathcraft-compat/tests/arrays.rs)
+[단위 사실](analysis/0010-unit-semantics.md) · [배열](analysis/0005-array-semantics.md) · [선형계](analysis/0025-linear-systems.md) · [고유계](analysis/0026-symmetric-eigensystems.md) · [코드](../crates/mathfolio-compat/src/arrays.rs) · [검사](../crates/mathfolio-compat/tests/arrays.rs)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -157,7 +157,7 @@
 
 ### 미적분·통계·풀이·상징
 
-[수치](analysis/0007-numerics-semantics.md) · [통계](analysis/0009-statistics-semantics.md) · [풀이](analysis/0011-solve-semantics.md) · [상징](analysis/0012-symbolics-semantics.md) · [극한](analysis/0024-symbolic-limits.md) · [엔진 검사](../crates/mathcraft-compat/tests)
+[수치](analysis/0007-numerics-semantics.md) · [통계](analysis/0009-statistics-semantics.md) · [풀이](analysis/0011-solve-semantics.md) · [상징](analysis/0012-symbolics-semantics.md) · [극한](analysis/0024-symbolic-limits.md) · [엔진 검사](../crates/mathfolio-compat/tests)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -185,7 +185,7 @@
 
 ### 도표
 
-[원본 근거·한계](analysis/0027-multi-trace-xy-plots.md) · [초기 도표 분석](analysis/0023-xy-plots.md) · [코드·검사](../crates/mathcraft-app/src/plots.rs)
+[원본 근거·한계](analysis/0027-multi-trace-xy-plots.md) · [초기 도표 분석](analysis/0023-xy-plots.md) · [코드·검사](../crates/mathfolio-app/src/plots.rs)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |
@@ -198,7 +198,7 @@
 
 ### 페이지·문서·출력
 
-[문서 분석](analysis/0004-document-semantics.md) · [페이지](analysis/0020-prime-page-appearance.md) · [머리글/바닥글](analysis/0025-page-sections.md) · [문서 코드](../crates/mathcraft-document/src) · [서식](analysis/0022-math-formatting.md)
+[문서 분석](analysis/0004-document-semantics.md) · [페이지](analysis/0020-prime-page-appearance.md) · [머리글/바닥글](analysis/0025-page-sections.md) · [문서 코드](../crates/mathfolio-document/src) · [서식](analysis/0022-math-formatting.md)
 
 | ID | 원본 기능 | 상태 | 구현 범위와 남은 차이 |
 | --- | --- | --- | --- |

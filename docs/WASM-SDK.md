@@ -1,6 +1,6 @@
 # WASM SDK
 
-2026-10-24. 버전 **0.1.0 / 프로토콜 1**. 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
+2026-10-30. 버전 **0.1.1 / 프로토콜 1**. 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
 
 ## 빌드와 실행
 
@@ -21,7 +21,7 @@ python web/serve.py --fixtures artifacts/rea/unit-selected-sources --output arti
 | 경로 | 내용 |
 | --- | --- |
 | `dist/wasm-sdk/` | `sdk.js`, 생성 TS 타입, WASM/glue, Worker, 선택 한글 글꼴, 라이선스 |
-| `dist/mathcraft-wasm-sdk-0.1.0.tar.gz` | 다른 레포에서 가져갈 패키지 |
+| `dist/mathfolio-wasm-sdk-0.1.1.tar.gz` | 다른 레포에서 가져갈 패키지 |
 | `dist/wasm-sdk-size.json` | 파일별 바이트·SHA-256, 최적화 전후·gzip·패키지 크기와 도구 버전 |
 
 빌드는 Cargo.lock과 wasm-bindgen CLI 버전 일치를 검사한다. Binaryen 132.0.0의 `-O2`를 적용하고, 더 커지면 최적화 전 파일을 유지한다. 입력·도구·옵션·출력 해시가 일치할 때만 최적화 캐시를 재사용한다. `--skip-opt`는 개발용 비최적화 빌드다. 네이티브 release 프로필은 변경하지 않았다.
@@ -29,9 +29,9 @@ python web/serve.py --fixtures artifacts/rea/unit-selected-sources --output arti
 ## 별도 호스트에서 사용
 
 ```ts
-import { MathcraftEditor } from "@mathcraft/wasm-sdk";
+import { MathfolioEditor } from "@mathfolio/wasm-sdk";
 
-const editor = await MathcraftEditor.mount({
+const editor = await MathfolioEditor.mount({
   canvas,
   wasm: wasmResourceUrl,
   workerUrl: workerResourceUrl,
@@ -62,7 +62,7 @@ stopState(); stopRequests(); editor.dispose();
 
 `loadDocument(name, bytes, discardUnsaved)`는 dirty 문서 교체를 기본 거절한다. 명시적 버리기 승인과 입력 검증 후에만 기존 문서를 교체하고, 이전 확인창·속성 초안·계산 전송을 정리한다. `name`은 표시·내보내기 메타데이터이며 filesystem 권한이 아니다. 저장 결과를 여는 것만으로 계산하지 않는다.
 
-`exportDocument("mathcraft" | "mcdx")`는 기존 저장 명령처럼 편집을 확정하고 현재 결과 캐시를 직렬화한다. 저장됨으로 표시하지는 않는다. `exportPdf()`는 계산을 실행하지 않고 기존 표현을 벡터 PDF bytes로 반환한다. 현재 SDK API는 PDF 전체 페이지를 출력하며, OS 인쇄 대화상자·스풀러는 호스트 쪽에서 연결한다.
+`exportDocument("mathfolio" | "mcdx")`는 기존 저장 명령처럼 편집을 확정하고 현재 결과 캐시를 직렬화한다. 저장됨으로 표시하지는 않는다. `exportPdf()`는 계산을 실행하지 않고 기존 표현을 벡터 PDF bytes로 반환한다. 현재 SDK API는 PDF 전체 페이지를 출력하며, OS 인쇄 대화상자·스풀러는 호스트 쪽에서 연결한다.
 
 명령은 `calculate_now`, `calculate_worksheet`, `stop`, `undo`, `redo`, `new`, `open`, `save`, `close`다. 기존 UI/키의 같은 핸들러에 연결한다. UI의 열기·저장·다른 이름 저장·MCDX 내보내기·PDF·인쇄·닫기는 ID가 붙은 `onRequest`로 전달된다. 호스트의 닫기를 브라우저 전체 창 닫기로 바꾸지 않는다.
 
@@ -92,4 +92,4 @@ stopState(); stopRequests(); editor.dispose();
 
 원본 전체 호환 범위는 [기능 목록](FEATURES.md)을 그대로 따른다. SDK에서 파일 수정시각/로캘 저장 날짜 주입, PDF 페이지 범위 API, 읽기 전용 미리보기 API와 공용 계산 스케줄러는 후속 범위다. 두 호스트 플러그인이 이미 완성됐다고 주장하지 않는다.
 
-실측 용량·브라우저/네이티브 검증과 한계는 [0214 기록](analysis/0214-wasm-sdk.md)을 따른다.
+실측 용량·브라우저/네이티브 검증과 한계는 [0215 기록](analysis/0215-mathfolio-0.1.1.md)을 따른다.

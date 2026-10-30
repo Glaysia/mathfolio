@@ -2,7 +2,7 @@
 
 2026-10-19. [0181 계약](0181-xy-typed-expression-contract.md)을 첫 math 편집·계산·native 왕복·벡터 출력에 연결하는 typed-xy-r193 단계다. Windows workspace1484+backend2, peets1486검사가 통과했다. 최종 정상 실패0/ignored80, fmt·workspace/backend Clippy -D warnings·build·reference38saved/38input·Windows release가 통과했다. 양 OS98MCDX의490parts와 별도10XML, 합계500XSD 검사 오류0이며58PDF에서 image object0와 fitz/pypdf 텍스트 추출을 확인했다. 이전 완료 검증은 [r184](0180-xy-slot-key-integration.md)에 보존한다. GUI·스크린샷·원본 runtime 실행은 없다.
 
-[실제 컨트롤러 회귀](../../crates/mathcraft-app/src/worksheet_ui/typed_plot_integration.rs)는 VARIABLE `x`와 문자 아래첨자 `dc𝛼`, physical X=[1,2,3]m, Y=x²에서 시작한다. X의 명시 배율은 in, Y는 m²다. native 저장 후 cold open에서 입력을 계산하지 않고 [2/0.0254,4]를 복원하며 native copy의 worksheet/result 바이트가 같다.
+[실제 컨트롤러 회귀](../../crates/mathfolio-app/src/worksheet_ui/typed_plot_integration.rs)는 VARIABLE `x`와 문자 아래첨자 `dc𝛼`, physical X=[1,2,3]m, Y=x²에서 시작한다. X의 명시 배율은 in, Y는 m²다. native 저장 후 cold open에서 입력을 계산하지 않고 [2/0.0254,4]를 복원하며 native copy의 worksheet/result 바이트가 같다.
 
 실제 End·ShiftLeft·Text·Tab으로 Y 지수와 단위 지수를2→3으로 수정한다. Enter 전 문서·계산 generation·저장된 곡선·문서 Undo는 그대로다. Enter 후 한 문서 Undo, 이전 곡선 Pending, source의 라벨·문자 아래첨자 보존을 검사한다. Undo/Redo와 Pending own/native 저장, own cold open의 실행0, 명시 재계산 후 [2/0.0254,8], native cold 결과 복원과 PDF 출력을 이어서 검사한다.
 

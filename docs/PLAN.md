@@ -1,4 +1,4 @@
-# Mathcraft 개발 계획
+# Mathfolio 개발 계획
 
 **2026-10-24 SDK:** [WASM SDK 0.1.0](WASM-SDK.md)의 실제 Canvas·Worker·문서 bytes·저장 승인·벡터 PDF를 브라우저에서 검증했다. [0214](analysis/0214-wasm-sdk.md)에 크기와 Windows 전후 성능, 양 OS 회귀를 기록한다. 플러그인 자체와 실제 호스트 통합 검증은 별도 레포에서 진행한다.
 
@@ -32,7 +32,7 @@ Mathcad Prime의 워크시트·구조 수식 편집·계산·문서 동작을 Ru
 
 Obsidian 플러그인과 VS Code 확장은 별도 프로젝트로 유지한다. 이번 UI 작업에서는 양쪽에 내장할 공통 Rust/egui 컴포넌트·WASM SDK와 최소 어댑터 검증을 진행한다. 호스트 IO·작업 실행·수명만 분리하고 TS에 계산·편집을 재구현하지 않는다. API·산출물·단계별 통과 조건은 [구조 계획](NATIVE-WASM.md)을 따른다.
 
-Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행 표본으로 존재와 의미를 확인한다. 불명확한 내부 경로를 추정해 호환 기능으로 부르지 않는다. 새 UI와 단축키 안내, 후속 AI 연동은 사용자 지시에 따른 Mathcraft 제품 설계로 구분한다. 원본 코드·리소스·글꼴은 제품에 복제하지 않는다.
+Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행 표본으로 존재와 의미를 확인한다. 불명확한 내부 경로를 추정해 호환 기능으로 부르지 않는다. 새 UI와 단축키 안내, 후속 AI 연동은 사용자 지시에 따른 Mathfolio 제품 설계로 구분한다. 원본 코드·리소스·글꼴은 제품에 복제하지 않는다.
 
 ## 현재 상태
 
@@ -77,12 +77,12 @@ Mathcad 호환 기능은 REA 기록·설치 도움말·XSD·기존 원본 실행
 
 ## 구조와 검증 경계
 
-- `mathcraft-editor`: 안정 ID의 구조 수식, 캐럿·선택·명령 이력.
-- `mathcraft-document`: 원본 MCDX ZIP parts·관계 보존, 문서 모델과 편집 export.
-- `mathcraft-compat`: 라벨·scope·MathML 직접 실행과 참조 비교.
-- `mathcraft-app`: 자유 배치 워크시트·수식 조판·리본·문서 입출력.
-- `mathcraft-cli`: GUI 없는 MathML/native 실행과 검증.
-- `mathcraft-core`: 값·차원 기반과 초기 문자열 엔진. 새 호환 기능은 문자열 평탄화 경로로 판정하지 않는다.
+- `mathfolio-editor`: 안정 ID의 구조 수식, 캐럿·선택·명령 이력.
+- `mathfolio-document`: 원본 MCDX ZIP parts·관계 보존, 문서 모델과 편집 export.
+- `mathfolio-compat`: 라벨·scope·MathML 직접 실행과 참조 비교.
+- `mathfolio-app`: 자유 배치 워크시트·수식 조판·리본·문서 입출력.
+- `mathfolio-cli`: GUI 없는 MathML/native 실행과 검증.
+- `mathfolio-core`: 값·차원 기반과 초기 문자열 엔진. 새 호환 기능은 문자열 평탄화 경로로 판정하지 않는다.
 
 원본의 기존 38개 실행 표본은 제한된 차등 기준이다. 새 수치 기능의 독립 수학 기대값, 편집 상태/저장 불변식 검사와 구분한다. MCDX는 미편집 parts를 보존하고 편집 시 지원 구조만 생성하며 결과 캐시를 무효화한다. XSD 통과와 원본 앱 재열기는 별도 검증이다.
 

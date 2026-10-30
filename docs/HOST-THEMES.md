@@ -6,17 +6,17 @@ Obsidian·VS Code용 TS 구현과 설정 저장은 **각 플러그인의 별도 
 
 ## Rust API
 
-공개 API는 `mathcraft_ui::{HostTheme, ThemeMode, set_host_theme, set_theme_mode, theme_mode, has_host_theme}`다. 기존 `set_theme(ctx, Theme::Light/Dark)`는 명시적인 밝게/어둡게 선택으로 유지한다.
+공개 API는 `mathfolio_ui::{HostTheme, ThemeMode, set_host_theme, set_theme_mode, theme_mode, has_host_theme}`다. 기존 `set_theme(ctx, Theme::Light/Dark)`는 명시적인 밝게/어둡게 선택으로 유지한다.
 
 ```rust
-let mut tokens = mathcraft_ui::HostTheme::for_theme(mathcraft_ui::Theme::Dark);
+let mut tokens = mathfolio_ui::HostTheme::for_theme(mathfolio_ui::Theme::Dark);
 tokens.panel = [30, 30, 30, 255];
 tokens.text = [220, 220, 220, 255];
 tokens.accent = [0, 180, 150, 255];
 tokens.button = [0, 100, 80, 255];
 tokens.button_text = [255, 255, 255, 255];
-mathcraft_ui::set_host_theme(&ctx, Some(tokens))?;
-mathcraft_ui::set_theme_mode(&ctx, mathcraft_ui::ThemeMode::FollowHost);
+mathfolio_ui::set_host_theme(&ctx, Some(tokens))?;
+mathfolio_ui::set_theme_mode(&ctx, mathfolio_ui::ThemeMode::FollowHost);
 ```
 
 `HostTheme`와 `ThemeMode`는 serde 직렬화를 지원한다. 모드의 wire 값은 `follow_host`, `light`, `dark`, `nord`다. 토큰은 CSS 문자열 대신 sRGB RGBA 배열을 사용한다. workspace/panel/surface/button 배경은 불투명해야 하므로, CSS 투명도는 호스트의 실제 부모 배경에 합성해서 넘긴다. 빠진 호스트 변수는 `HostTheme::for_theme`의 대응 기본값으로 보충한다.

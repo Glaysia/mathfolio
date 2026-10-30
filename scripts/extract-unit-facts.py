@@ -232,7 +232,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence-root", type=pathlib.Path, default=ROOT/"artifacts/rea/engine")
     parser.add_argument("--output", type=pathlib.Path, default=ROOT/"docs/spec/mathcad12-si-units.json")
-    parser.add_argument("--rust", type=pathlib.Path, default=ROOT/"crates/mathcraft-core/src/units.rs")
+    parser.add_argument("--rust", type=pathlib.Path, default=ROOT/"crates/mathfolio-core/src/units.rs")
     parser.add_argument("--check", action="store_true", help="Verify existing facts and Rust table without changing files (ignores Rust formatting whitespace)")
     args = parser.parse_args()
     base = StaticModule(args.evidence_root/"unit-system-members.json")

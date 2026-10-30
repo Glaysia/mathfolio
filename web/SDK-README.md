@@ -1,13 +1,13 @@
-# Mathcraft WASM SDK 0.1.0 / protocol 1
+# Mathfolio WASM SDK 0.1.1 / protocol 1
 
 The native Rust worksheet editor, calculator, unit system, history, formatting
 and vector PDF writer, hosted on a Canvas. No separate TS math/editor model.
 Obsidian and VS Code plugins belong to separate repositories.
 
 ```ts
-import { MathcraftEditor } from "./sdk.js";
+import { MathfolioEditor } from "./sdk.js";
 
-const editor = await MathcraftEditor.mount({
+const editor = await MathfolioEditor.mount({
   canvas,
   fonts: [{ name: "Nanum Gothic", bytes: koreanFontBytes }],
 });
@@ -29,7 +29,7 @@ try {
 editor.dispose();
 ```
 
-Serve/package `sdk.js`, `mathcraft.js`, `mathcraft_bg.wasm`, and `worker.js`
+Serve/package `sdk.js`, `mathfolio.js`, `mathfolio_bg.wasm`, and `worker.js`
 together. Default URLs are resolved relative to sdk.js; override workerUrl and
 wasm for host resource URIs. If using a custom worker entry, it must initialize
 the same SDK module/version. Keep worker.js and its sibling WASM/glue resolvable.
@@ -75,5 +75,5 @@ Browser integration is tested by the repository's web/example/verify.js. Actual
 Obsidian/VS Code host integration, host conflict/backup policy, physical Korean
 IME workflows and host keybinding arbitration must be verified in plugin repos.
 
-Mathcraft: AGPL-3.0-only (LICENSE). Third-party fonts/palette retain their own
+Mathfolio: AGPL-3.0-only (LICENSE). Third-party fonts/palette retain their own
 licenses under licenses/ and fonts/nanum/. Preserve these with distributions.

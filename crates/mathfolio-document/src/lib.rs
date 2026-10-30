@@ -1,0 +1,212 @@
+use mathfolio_core::{Environment, LineValue, Result};
+
+/// The new extension and the original extension share the unchanged wire format.
+pub fn is_own_extension(extension: &str) -> bool {
+    extension.eq_ignore_ascii_case("mathfolio") || extension.eq_ignore_ascii_case("mathcraft")
+}
+use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
+use std::io::Write;
+use std::{io::Read, path::Path};
+
+pub mod area;
+pub mod area_authoring;
+pub mod canvas;
+pub mod export;
+pub mod matrix_result_format;
+mod mcdx;
+pub mod native;
+pub mod native_calculation;
+pub mod native_plot;
+pub mod native_plot_result;
+pub mod native_plot_units;
+pub mod native_result;
+pub mod native_save;
+pub mod page_break;
+pub mod plot_axis_presentation;
+pub mod plot_snapshot;
+pub mod rich_text_source;
+#[cfg(not(target_arch = "wasm32"))]
+pub use mcdx::import_mcdx;
+pub use mcdx::import_mcdx_bytes;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Row {
+    pub input: String,
+    #[serde(default)]
+    pub note: bool,
+    #[serde(default)]
+    pub imported: Option<Imported>,
+}
+impl Row {
+    pub fn math(input: impl Into<String>) -> Self {
+        Self {
+            input: input.into(),
+            note: false,
+            imported: None,
+        }
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Imported {
+    pub region_id: String,
+    pub left: f64,
+    pub top: f64,
+    pub unsupported: Option<String>,
+    pub cached_display: Option<String>,
+    pub cached_value: Option<num_complex::Complex64>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Worksheet {
+    pub version: u32,
+    pub title: String,
+    pub rows: Vec<Row>,
+}
+impl Default for Worksheet {
+    fn default() -> Self {
+        Self::demo()
+    }
+}
+impl Worksheet {
+    pub fn demo() -> Self {
+        Self {version:1,title:"Resonant circuit · engineering worksheet".into(),rows:vec![
+            Row {input:"An independent Rust calculation prototype. Edit any expression to recalculate below.".into(),note:true,imported:None},
+            Row::math("f := 360 kHz -> kHz"),Row::math("omega := 2*pi*f -> rad/s"),
+            Row::math("L := 15 uH -> uH"),Row::math("C := 1/(omega^2*L) -> nF"),
+            Row::math("R := 50 ohm -> ohm"),Row::math("Z := R + i*(omega*L - 1/(omega*C)) -> ohm"),
+            Row::math("abs(Z) -> ohm"),Row::math("period := 1/f -> us"),
+            Row {input:"Functions, complex values and dimensional checks".into(),note:true,imported:None},
+            Row::math("response(x) := sin(x)*exp(-0.15*x)"),Row::math("response(pi/2)"),
+            Row::math("distance := 3 m + 20 cm -> cm"),
+        ]}
+    }
+    pub fn empty() -> Self {
+        Self {
+            version: 1,
+            title: "Untitled worksheet".into(),
+            rows: vec![Row::math("")],
+        }
+    }
+    pub fn calculate(&self) -> (Environment, Vec<Result<Option<LineValue>>>) {
+        let mut env = Environment::default();
+        let results = self
+            .rows
+            .iter()
+            .map(|row| {
+                if row.note {
+                    return Ok(None);
+                }
+                if let Some(reason) = row.imported.as_ref().and_then(|i| i.unsupported.as_ref()) {
+                    return Err(format!("Unsupported import: {reason}"));
+                }
+                env.line(&row.input)
+            })
+            .collect();
+        (env, results)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn save(&self, path: &Path) -> Result<()> {
+        if !path
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(is_own_extension)
+        {
+            return Err(
+                "Use the .mathfolio extension; original Mathcad documents are never overwritten"
+                    .into(),
+            );
+        }
+        self.validate()?;
+        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
+        // Write a sibling temporary file first. Preserve the old file on serialization failure.
+        let temp = path.with_extension("mathfolio.tmp");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+            .map_err(|e| e.to_string())?;
+        file.write_all(&bytes)
+            .and_then(|_| file.sync_all())
+            .map_err(|e| e.to_string())?;
+        drop(file);
+        std::fs::rename(&temp, path).map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn load(path: &Path) -> Result<Self> {
+        if path
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(|s| s.eq_ignore_ascii_case("mcdx"))
+        {
+            return import_mcdx(path);
+        }
+        let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        if file.metadata().map_err(|e| e.to_string())?.len() > 8 * 1024 * 1024 {
+            return Err("Document exceeds 8 MiB".into());
+        }
+        let doc: Self = serde_json::from_reader(file).map_err(|e| e.to_string())?;
+        doc.validate()?;
+        Ok(doc)
+    }
+    pub fn validate(&self) -> Result<()> {
+        if self.version != 1 {
+            return Err(format!("Unsupported document version {}", self.version));
+        }
+        if self.rows.len() > 1000 {
+            return Err("At most 1000 rows are supported".into());
+        }
+        if self.title.len() > 1024 || self.rows.iter().any(|r| r.input.len() > 4096) {
+            return Err("Document text exceeds prototype limits".into());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn demo_calculates_and_serialization_preserves_results() {
+        let doc = Worksheet::demo();
+        assert!(doc.calculate().1.iter().all(|r| r.is_ok()));
+        let json = serde_json::to_string(&doc).unwrap();
+        let restored: Worksheet = serde_json::from_str(&json).unwrap();
+        let results = restored.calculate().1;
+        assert!(results.iter().all(|r| r.is_ok()));
+        assert_eq!(
+            results[12].as_ref().unwrap().as_ref().unwrap().text,
+            "320 cm"
+        );
+    }
+    #[test]
+    fn future_version_is_rejected() {
+        let mut d = Worksheet::empty();
+        d.version = 2;
+        assert!(d.validate().is_err());
+    }
+    #[test]
+    fn save_open_and_replace_preserve_document() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "mathfolio-test-{}-{nonce}.mathfolio",
+            std::process::id()
+        ));
+        let mut doc = Worksheet::demo();
+        doc.save(&path).unwrap();
+        assert_eq!(Worksheet::load(&path).unwrap().rows.len(), doc.rows.len());
+        doc.title = "Updated".into();
+        doc.save(&path).unwrap();
+        assert_eq!(Worksheet::load(&path).unwrap().title, "Updated");
+        std::fs::remove_file(path).unwrap();
+    }
+}
+
+pub mod formatting;
+pub mod native_visual;
+pub mod spec_table;
+
+#[cfg(test)]
+mod radix_source_tests;

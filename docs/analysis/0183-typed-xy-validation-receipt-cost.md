@@ -6,7 +6,7 @@
 
 `expression_field::stage_expression`은 변경한 Editor를 PortableTree로 변환하고 `PlotExpression::from_tree`로 검증한다. 이어서 draft 전체를 검증하는데 각 축의 validate가 수행된 뒤 aggregate loop에서 같은 축의 validate와 source JSON 직렬화가 반복됐다. 16X/16Y·2080노드 fixture에서 한 Text 이벤트에 validate_tree65회, source_bytes32회가 관찰됐다. idle은 두 검사 모두0회였으며 Editor revision·draft 생성·원문을 바꾸지 않았다. 이 구간의 idle 문제가 매 프레임 전체 tree clone이라는 가정은 확인되지 않았다.
 
-[소스 carrier](../../crates/mathcraft-document/src/plot_expression.rs)의 private Box에 검증된 node 수와 정확한 source JSON byte 수만 추가한다. `from_tree`와 Deserialize는 기존 PortableTree·문법·텍스트·MathML·깊이/노드 예산 검사를 먼저 모두 수행한다. JSON 길이는 같은 serde writer로 한 번 계산하며 JSON 버퍼를 보관하지 않는다. typed tree의 mutable 접근자는 없으므로 같은 immutable carrier의 구조 검증 결과만 재사용한다. mutable LegacyText는 계속 매 admission에서 검사한다.
+[소스 carrier](../../crates/mathfolio-document/src/plot_expression.rs)의 private Box에 검증된 node 수와 정확한 source JSON byte 수만 추가한다. `from_tree`와 Deserialize는 기존 PortableTree·문법·텍스트·MathML·깊이/노드 예산 검사를 먼저 모두 수행한다. JSON 길이는 같은 serde writer로 한 번 계산하며 JSON 버퍼를 보관하지 않는다. typed tree의 mutable 접근자는 없으므로 같은 immutable carrier의 구조 검증 결과만 재사용한다. mutable LegacyText는 계속 매 admission에서 검사한다.
 
 aggregate는 같은 source 순서로 정확한 node/JSON byte 수를 더하고 기존 node-before-byte 오류 순서를 유지한다. serialization 오류의 `usize::MAX` 처리도 그대로다. receipt는 wire에 쓰거나 외부 입력에서 받지 않는다. label/context 해석·prepared query·결과·print cache의 증명이 아니며, Arc·공유 tree·hash/pointer cache·평가 memo는 추가하지 않았다. tree 복제 정책은 그대로다.
 
@@ -41,7 +41,7 @@ actual WorksheetApp 입력 프로브도 별도로0/4000 offscreen Math와 작은
 
 ## 독립 oracle와 산출물
 
-[receipt tests](../../crates/mathcraft-document/src/plot_expression_receipt_tests.rs)는 r193의 이전 validator·aggregate loop를 독립 보존한다. Unicode/escaping/native label/context/literal suffix·-0·invalid Number·제어문자·잘못된 arity/statement·text/node/MathML 예산·mutable legacy 변경·동일 JSON·deserialize 재검증을 대조한다. forged receipt/unknown/duplicate key·StringLiteral typed-plot 거절·깊이와 aggregate node-before-byte 우선순위도 검사한다. 계산 source/hash 예산을 낮추지 않는다.
+[receipt tests](../../crates/mathfolio-document/src/plot_expression_receipt_tests.rs)는 r193의 이전 validator·aggregate loop를 독립 보존한다. Unicode/escaping/native label/context/literal suffix·-0·invalid Number·제어문자·잘못된 arity/statement·text/node/MathML 예산·mutable legacy 변경·동일 JSON·deserialize 재검증을 대조한다. forged receipt/unknown/duplicate key·StringLiteral typed-plot 거절·깊이와 aggregate node-before-byte 우선순위도 검사한다. 계산 source/hash 예산을 낮추지 않는다.
 
 제품 채택 전 scratch document229pass/7ignored였으며, 제품 독립 oracle4pass와 document전체235pass/7ignored를 확인했다. 최초 native_calculation 옵션 컴파일 실패와 수정 뒤 정상 재시도 로그를 분리 보존했다. document all-target Clippy `-D warnings`도 통과했다. 최종 조합의 양 OS/native/PDF/release 검증은 다음 통합 revision의 책임이다. 이 문서의 검사 수를 기능 완성률로 사용하지 않는다.
 

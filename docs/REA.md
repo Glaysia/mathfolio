@@ -10,15 +10,15 @@
 - Codex MCP 등록 완료. REA가 생성한 설정 백업은 `C:\Users\harry\.codex\config.toml.rea.backup`에 있다.
 - REA workflow skill: `C:\Users\harry\.agents\skills\reverse-engineer-anything`.
 - 초기 조사는 CLI로 수행했다. 2026-10-16 현재 대화에서는 REA MCP 도구도 연결되어 `binary_session`과 `inspect_managed_artifact`를 실제 사용했으며, CLI 정적 분석과 함께 기능 목록을 확장했다.
-- Ghidra 12.1.4: `C:\Users\harry\.local\share\mathcraft-tools\ghidra_12.1.4_PUBLIC`.
+- Ghidra 12.1.4: `C:\Users\harry\.local\share\mathfolio-tools\ghidra_12.1.4_PUBLIC`.
 - Eclipse Temurin JDK 21.0.12.1+1: 같은 tools 폴더의 `jdk-21.0.12.1+1`.
 - 다운로드한 두 ZIP은 공식 배포 메타데이터의 SHA256과 대조했다. 경로와 SHA256은 `scripts/setup-rea-native.ps1`에 고정했다.
 - `MathcadPrime.exe`의 Ghidra 정적 분석 실행도 성공했다. 계산 엔진 네이티브 본문의 지원 여부는 별개다.
 - MCP 등록에 Ghidra 및 Java 경로를 반영했다. CLI는 아래 환경 변수를 설정한 터미널에서 사용한다.
 
 ```powershell
-$env:GHIDRA_INSTALL_DIR = "$env:USERPROFILE\.local\share\mathcraft-tools\ghidra_12.1.4_PUBLIC"
-$env:JAVA_HOME = "$env:USERPROFILE\.local\share\mathcraft-tools\jdk-21.0.12.1+1"
+$env:GHIDRA_INSTALL_DIR = "$env:USERPROFILE\.local\share\mathfolio-tools\ghidra_12.1.4_PUBLIC"
+$env:JAVA_HOME = "$env:USERPROFILE\.local\share\mathfolio-tools\jdk-21.0.12.1+1"
 rea doctor --provider ghidra --json
 ```
 

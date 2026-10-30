@@ -10,11 +10,11 @@
 
 ## 수정 경계
 
-[plain_text_input.rs](../../crates/mathcraft-app/src/worksheet_ui/plain_text_input.rs)는 조합 중에만 별도 draft를 만들고, 확정 전 문서 원문과 문서 Undo를 보존한다. Save·인쇄는 확정된 원문을 읽는다. Commit은 문서의 한 편집으로 저장하고, 취소는 조합 전 선택 내용을 유지한다. 수식의 Enter 확정 규칙을 텍스트에 적용하지 않는다. 일반 Enter/Shift+Enter는 줄바꿈이다.
+[plain_text_input.rs](../../crates/mathfolio-app/src/worksheet_ui/plain_text_input.rs)는 조합 중에만 별도 draft를 만들고, 확정 전 문서 원문과 문서 Undo를 보존한다. Save·인쇄는 확정된 원문을 읽는다. Commit은 문서의 한 편집으로 저장하고, 취소는 조합 전 선택 내용을 유지한다. 수식의 Enter 확정 규칙을 텍스트에 적용하지 않는다. 일반 Enter/Shift+Enter는 줄바꿈이다.
 
-[독립 검토](../../artifacts/rea/plain-text-ime-independent-review-20261019.md)는 한 프레임의 일반 Text·Preedit·Commit·커서 이동을 마지막 상태만으로 판별하면 입력 유실 또는 미확정 글자 유입이 가능하다고 지적했다. 이 지적은 정적 반례이며 수정 전 실행 실패로 포장하지 않는다. 기존 [입력 큐](../../crates/mathcraft-app/src/worksheet_ui/plot_input_queue.rs)의 단일 FIFO로 IME와 일반 입력의 경계를 RawInput 단계에서 보존한다. 일반 입력만 있는 프레임은 나누지 않고, 섞인 경계만 다음 repaint로 순서대로 전달한다. 임의 sleep이나 OS 입력 복제·누락을 넣지 않는다. 주변 문자 삭제는 조합에 의해 밀려난 원래 선택 내용을 분리해 문서에 반영한다.
+[독립 검토](../../artifacts/rea/plain-text-ime-independent-review-20261019.md)는 한 프레임의 일반 Text·Preedit·Commit·커서 이동을 마지막 상태만으로 판별하면 입력 유실 또는 미확정 글자 유입이 가능하다고 지적했다. 이 지적은 정적 반례이며 수정 전 실행 실패로 포장하지 않는다. 기존 [입력 큐](../../crates/mathfolio-app/src/worksheet_ui/plot_input_queue.rs)의 단일 FIFO로 IME와 일반 입력의 경계를 RawInput 단계에서 보존한다. 일반 입력만 있는 프레임은 나누지 않고, 섞인 경계만 다음 repaint로 순서대로 전달한다. 임의 sleep이나 OS 입력 복제·누락을 넣지 않는다. 주변 문자 삭제는 조합에 의해 밀려난 원래 선택 내용을 분리해 문서에 반영한다.
 
-[실제 이벤트 회귀](../../crates/mathcraft-app/src/worksheet_ui/plain_text_ime_tests.rs)는 저장·취소·Undo/Redo, 같은 batch의 확정 후 다음 조합, 일반 입력과의 순서, 선택 변경, 주변 삭제, 포커스·문서 전환을 확인한다. 관찰용 own 파일은 실제 앱 Save로 생성하고 다시 읽는다. 이 보강의 양 OS 고정 검증을 완료했다. 아래 완료 기록은 별도 고정 소스·로그를 기준으로 하며, 위 최초 관찰과 수정 전 실패를 그대로 보존한다.
+[실제 이벤트 회귀](../../crates/mathfolio-app/src/worksheet_ui/plain_text_ime_tests.rs)는 저장·취소·Undo/Redo, 같은 batch의 확정 후 다음 조합, 일반 입력과의 순서, 선택 변경, 주변 삭제, 포커스·문서 전환을 확인한다. 관찰용 own 파일은 실제 앱 Save로 생성하고 다시 읽는다. 이 보강의 양 OS 고정 검증을 완료했다. 아래 완료 기록은 별도 고정 소스·로그를 기준으로 하며, 위 최초 관찰과 수정 전 실패를 그대로 보존한다.
 
 문서 전환은 앱의 draft를 지우는 것만으로 충분하지 않았다. 같은 영역 ID로 다른 문서를 열고 빈 Preedit를 받으면 이전 egui 조합 상태가 새 문서의 첫 글자를 지우는 [실패도 재현](../../artifacts/rea/plain-text-ime-reused-id-red-20261019.log)했다. 새 편집 소유자에게 포커스를 줄 때 저장된 현재 커서 또는 새 끝 커서로 깨끗한 widget 상태를 설치한다.
 

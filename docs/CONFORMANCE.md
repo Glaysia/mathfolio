@@ -133,7 +133,7 @@ Windows/peets 각각 **workspace 764개 + backend 2개 = 766개 통과·실패 0
 
 최종 소스를 r89 before와 같은 PC에서 각각 5회 순서 교대했다. 캐시 있는 4,000영역 첫 Text는 **59.367→2.494ms**, Enter는 **13.737→60.982ms**, 각 실행 Text+Enter 합의 median은 **73.104→63.476ms**다. Arrow release는 **58.980→0.786ms**였다. 캐시 없는 큰 행렬의 기록한 open~Enter CPU 단계 합은 **97.749→98.815ms로 늘었다.** after 180case와 peets 별도 36case가 첫 이벤트 준비 0회·비편집 total 0회·수정 Enter 1회 계약을 통과했다. r93 결과와의 차이를 통제된 추가 개선으로 해석하지 않는다. 전체 GUI/GPU 성능이나 모든 확정 지연이 해결됐다는 뜻이 아니다.
 
-source tar는 `mathcraft-label-cycle-20261019-r94.tar`, SHA-256 `dee4f7f880b43e1d76b6e9ee4da1fa18a397e695114331017c91b6ddfb10f284`다. 제품 Rust 106개·vendor 5개를 포함한 129파일을 archive·양 호스트와 대조했다. peets root는 `/home/peets/Projects/mathcraft-label-cycle-20261019-r94`다. Windows release는 **22,016,000 bytes**, SHA-256 `3c7b28e0b4394d2e32263efc4be4d5aefc61517ad156b23796af42a4a1f30123`다. ignored `label-cycle-integration-20261019/source-validation.json`과 `peets/verification.json`에 산출물 42개·로그·성능 source identity를 기록했다. GUI·스크린샷·원본 런타임은 사용하지 않았다. EA-016은 부분 구현이며 상세 553행은 부분 구현 136·미구현 417이다. 전체 20% 달성을 판정하지 않는다.
+source tar는 `mathfolio-label-cycle-20261019-r94.tar`, SHA-256 `dee4f7f880b43e1d76b6e9ee4da1fa18a397e695114331017c91b6ddfb10f284`다. 제품 Rust 106개·vendor 5개를 포함한 129파일을 archive·양 호스트와 대조했다. peets root는 `/home/peets/Projects/mathfolio-label-cycle-20261019-r94`다. Windows release는 **22,016,000 bytes**, SHA-256 `3c7b28e0b4394d2e32263efc4be4d5aefc61517ad156b23796af42a4a1f30123`다. ignored `label-cycle-integration-20261019/source-validation.json`과 `peets/verification.json`에 산출물 42개·로그·성능 source identity를 기록했다. GUI·스크린샷·원본 런타임은 사용하지 않았다. EA-016은 부분 구현이며 상세 553행은 부분 구현 136·미구현 417이다. 전체 20% 달성을 판정하지 않는다.
 
 ## 실제 열기 뒤 첫 입력·확정·포커스 — 2026-10-19
 
@@ -141,7 +141,7 @@ source tar는 `mathcraft-label-cycle-20261019-r94.tar`, SHA-256 `dee4f7f880b43e1
 
 Ctrl+- literal 아래첨자·Manual/F5·draft 확정 계약을 유지하면서 키 해제/커서 이동의 전체 source 준비를 제거하고 첫 Matrix Tab/Shift+Tab 누락을 고쳤다. 첫 수정은 이전 입력의 raw snapshot만 보관하고, 실제 이전 값 계산이 필요한 명령에서 준비한다. [0090](analysis/0090-first-open-input-cost.md)의 동일 PC 5회 교대 측정에서 저장 cache가 있는 4,000영역 첫 Text는 **66.081→2.954ms**, Enter는 **15.196→69.195ms**, 각 실행 Text+Enter 합의 median은 **81.277→71.854ms**다. Arrow release는 **64.528→0.942ms**였다. Enter의 전체 문맥·표시 트리 비용은 남는다. 최종 Windows 180case와 peets 별도 36case가 첫 이벤트 준비 0회·비편집 total 0회·편집 Enter 1회를 통과했다. CPU 검사이며 실제 GPU frame rate나 전체 계산 완료 시간으로 확대하지 않는다.
 
-source tar는 `mathcraft-input-baseline-20261019-r93.tar`, SHA-256 `1e4d903b380f86eb784e97a8c93b5b30927f644a6b75d8bc3e59a4d088946c93`다. 제품 Rust 103개·vendor Rust 5개를 포함한 manifest 126파일을 archive·양 호스트와 대조했다. peets root는 `/home/peets/Projects/mathcraft-input-baseline-20261019-r93`다. Windows release는 **22,008,832 bytes**, SHA-256 `3c9b5d684ef5b3f8aeee6284e0ba184e4f80c9fe165db703b34922abe97626e4`다.
+source tar는 `mathfolio-input-baseline-20261019-r93.tar`, SHA-256 `1e4d903b380f86eb784e97a8c93b5b30927f644a6b75d8bc3e59a4d088946c93`다. 제품 Rust 103개·vendor Rust 5개를 포함한 manifest 126파일을 archive·양 호스트와 대조했다. peets root는 `/home/peets/Projects/mathfolio-input-baseline-20261019-r93`다. Windows release는 **22,008,832 bytes**, SHA-256 `3c9b5d684ef5b3f8aeee6284e0ba184e4f80c9fe165db703b34922abe97626e4`다.
 
 양 OS native 9건·PDF 7건씩, MCDX **18개·XML 72파트**의 설치 XSD와 원본 표 계산·색상·저장 표시 검사를 통과했다. PDF **14개 모두 이미지 0개**이며 두 reader에서 검색 텍스트를 확인했다. ignored `input-baseline-integration-20261019/source-validation.json`과 `peets/verification.json` 등에 source·산출물 37개·표준 원격 로그 5개·별도 lifecycle 로그의 해시를 기록하고 수집 후 검증했다. GUI·스크린샷·원본 런타임은 사용하지 않았다. 전체 제품 20% 달성을 판정하지 않으며 기능 553행은 부분 구현 135·미구현 418이다.
 
@@ -149,7 +149,7 @@ source tar는 `mathcraft-input-baseline-20261019-r93.tar`, SHA-256 `1e4d903b380f
 
 동일 r89 소스로 Windows와 peets 각각 **workspace 722개 + 입력 백엔드 2개 = 724개 통과·실패 0개·27개 ignored**를 확인했다. 앱 318개, compat 249개, document 70개, editor 72개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드 및 별도 backend library/test Clippy를 통과했다. Windows는 release 빌드이며 main 앱을 띄우지 않았다. frozen 원본 참조 38개는 saved/input 양쪽 각각 38/38·차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-local-functions-20261019-r89`, source tar SHA-256은 `ed5f005baafecc34b2595c9acded5edb87923ca7736384dd540014e663fb5ca0`다. 제품 Rust 100개·OSS backend Rust 5개와 Cargo/lock·검사 스크립트·vendor provenance/licenses 등 123개 manifest 파일을 archive 및 양 호스트 소스와 바이트 대조했다. Windows `target/release/mathcraft.exe`는 **21,992,448 bytes**, SHA-256 `0487f4a2d660f38e9a2adf15fc9d3f39336ef6977faa8ea276ee2cc8b0bb2185`다. manifest는 ignored `artifacts/rea/local-functions-integration-20261019-r89/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-local-functions-20261019-r89`, source tar SHA-256은 `ed5f005baafecc34b2595c9acded5edb87923ca7736384dd540014e663fb5ca0`다. 제품 Rust 100개·OSS backend Rust 5개와 Cargo/lock·검사 스크립트·vendor provenance/licenses 등 123개 manifest 파일을 archive 및 양 호스트 소스와 바이트 대조했다. Windows `target/release/mathfolio.exe`는 **21,992,448 bytes**, SHA-256 `0487f4a2d660f38e9a2adf15fc9d3f39336ef6977faa8ea276ee2cc8b0bb2185`다. manifest는 ignored `artifacts/rea/local-functions-integration-20261019-r89/source-validation.json`이다.
 
 [0085](analysis/0085-local-function-authoring-contract.md)·[0086](analysis/0086-local-function-calculation-contract.md)의 원본 descriptor·writer·도움말의 실제 native 예제를 따라 named 지역 함수 선언을 연결했다. 프로그램 statement에 `f(x)`를 쓰고 원본 단축키 `{`를 누르면 Function LHS로 바꾸고 `←` 오른쪽에 입력한다. 같은 command는 이름·named Index/Row/Column의 LHS 방향·단일 Undo를 보존한다. 비Program·잘못된 target·표 expression-only 문맥·행렬 범위에서는 정의를 만들지 않는다. 문자 아래첨자 안의 `{`는 이름 문자다.
 
@@ -169,7 +169,7 @@ peets 소스는 `/home/peets/Projects/mathcraft-local-functions-20261019-r89`, s
 
 동일 r84 소스로 Windows와 peets 각각 **workspace 691개 + 입력 백엔드 2개 = 693개 통과·실패 0개·26개 ignored**를 확인했다. 앱 307개, compat 233개, document 70개, editor 68개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드와 별도 backend Clippy를 통과했다. Windows는 release 빌드이며 main 앱을 띄우지 않았다. frozen 원본 참조 38개는 양쪽 saved/input 각각 38/38·차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-array-slices-20261019-r84`, source tar SHA-256은 `8ea524c6c29853d2e74d30b1af97bf2ad74e9e58b68be709995cfc7068071ceb`다. 제품 Rust 95개·OSS backend Rust 5개 및 Cargo/lock·검사 스크립트·vendor provenance/licenses 등 118개 manifest 파일을 archive 및 양 호스트 소스와 바이트 대조했다. Windows `target/release/mathcraft.exe`는 **21,905,408 bytes**, SHA-256 `796e348b7cd8c90c9f261127e6be1ee24b59ab9d9e1276f2e00ce2761a56d711`다. manifest는 ignored `artifacts/rea/array-slices-integration-20261019/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-array-slices-20261019-r84`, source tar SHA-256은 `8ea524c6c29853d2e74d30b1af97bf2ad74e9e58b68be709995cfc7068071ceb`다. 제품 Rust 95개·OSS backend Rust 5개 및 Cargo/lock·검사 스크립트·vendor provenance/licenses 등 118개 manifest 파일을 archive 및 양 호스트 소스와 바이트 대조했다. Windows `target/release/mathfolio.exe`는 **21,905,408 bytes**, SHA-256 `796e348b7cd8c90c9f261127e6be1ee24b59ab9d9e1276f2e00ce2761a56d711`다. manifest는 ignored `artifacts/rea/array-slices-integration-20261019/source-validation.json`이다.
 
 [0081](analysis/0081-array-slice-definition-contract.md)의 원본 descriptor와 [0082](analysis/0082-array-slice-definition-calculation.md)의 setter·Lisp 증거에 따라 named Row/Column 좌변을 일반·전역·프로그램 대입에 연결했다. scalar index와 ORIGIN, 짧은 RHS의 prefix 갱신·기존 셀 유지·필요 크기 확장, alias/capture의 불변성, physical fill metadata, 오류 binding과 취소를 검사한다. Row matrix block RHS는 저수준 setter의 직접 증거이며 상위 typing 전체 일치는 미확정이다. 원본 range lowering가 미확정인 slice range index는 명시적으로 거절하고 기존 일반 indexed range는 유지한다.
 
@@ -185,7 +185,7 @@ peets 소스는 `/home/peets/Projects/mathcraft-array-slices-20261019-r84`, sour
 
 동일 r80 소스로 Windows와 peets 각각 **workspace 664개 + 입력 백엔드 2개 = 666개 통과·실패 0개·25개 ignored**를 확인했다. 앱 302개, compat 214개, document 70개, editor 65개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드와 별도 backend library/test Clippy를 통과했다. Windows는 release 빌드이며 앱을 띄우지 않았다. 기존 원본 참조 38개도 saved/input 양쪽 각각 38/38·차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-scalar-notation-20261019-r80`, 양 호스트 source tar SHA-256은 `1cadc59978bfe930566e6acd2e7cd9076e9cbc75da8f285cec5d2d0f31454504`다. 제품 Rust 92개·OSS backend Rust 5개와 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses 등 manifest 115개 파일을 archive 및 원격 소스와 바이트 대조했다. Windows `target/release/mathcraft.exe`는 **21,879,296 bytes**, SHA-256 `c5307c9d229f847497242134ac388af5f7970bec5377c98c3c48ebc158778fbb`다. source manifest는 ignored `artifacts/rea/scalar-notation-integration-20261019/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-scalar-notation-20261019-r80`, 양 호스트 source tar SHA-256은 `1cadc59978bfe930566e6acd2e7cd9076e9cbc75da8f285cec5d2d0f31454504`다. 제품 Rust 92개·OSS backend Rust 5개와 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses 등 manifest 115개 파일을 archive 및 원격 소스와 바이트 대조했다. Windows `target/release/mathfolio.exe`는 **21,879,296 bytes**, SHA-256 `c5307c9d229f847497242134ac388af5f7970bec5377c98c3c48ebc158778fbb`다. source manifest는 ignored `artifacts/rea/scalar-notation-integration-20261019/source-validation.json`이다.
 
 [0077](analysis/0077-scalar-notation-contract.md)·[0078](analysis/0078-scalar-notation-calculation.md)·[0080](analysis/0080-scalar-notation-integration.md)에 따라 Percent·Degree·Polar의 원본 descriptor·키·XML·조판·계산을 연결했다. 기존 “도·분·초 연산자” 항목은 실제 원본인 단항 Degree로 이름을 교정했다. `%`는 0.01배 계산이며 결과 Percent 서식과 별개다. `°`는 π/180배, Ctrl+Shift+P는 ∠ 입력이며 일반 Ctrl+P 인쇄에 가로채이지 않는다. Polar의 확인된 무차원 overload와 일반 곱/벡터화 차이를 보존하고 물리 단위는 완성된 phasor 뒤에 곱한다.
 
@@ -203,7 +203,7 @@ Windows headless test-profile 측정에서 4,000영역 숫자 하나 수정 후 
 
 동일 r76 소스로 Windows와 peets 각각 **workspace 621개 + 입력 백엔드 2개 = 623개 통과·실패 0개·22개 ignored**를 확인했다. 앱 289개, compat 191개, document 70개, editor 58개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드와 별도 backend library/test Clippy를 통과했다. Windows는 release 빌드이며 실행 파일을 띄우지 않았다. 원본 참조 38개는 양쪽 saved/input 각각 38/38·차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-global-vector-20261016-r76`, 양 호스트 source tar SHA-256은 `d69e2ef8cf58946c1026a906cc0010131be72a95928c2bd663806fdcf108d720`다. 제품 Rust 85개·OSS backend Rust 5개 및 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses를 archive와 바이트 대조했다. Windows `target/release/mathcraft.exe`는 **21,817,344 bytes**, SHA-256 `9c95563cebafe1851162a683f4db33f1abc8cd6e0a4bc38f218207b32e42b142`다. manifest는 ignored `artifacts/rea/global-vector-integration-20261016/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-global-vector-20261016-r76`, 양 호스트 source tar SHA-256은 `d69e2ef8cf58946c1026a906cc0010131be72a95928c2bd663806fdcf108d720`다. 제품 Rust 85개·OSS backend Rust 5개 및 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses를 archive와 바이트 대조했다. Windows `target/release/mathfolio.exe`는 **21,817,344 bytes**, SHA-256 `9c95563cebafe1851162a683f4db33f1abc8cd6e0a4bc38f218207b32e42b142`다. manifest는 ignored `artifacts/rea/global-vector-integration-20261016/source-validation.json`이다.
 
 [0073](analysis/0073-global-vector-operator-contract.md)의 descriptor·writer·키·root 제약에 따라 전역 정의, 벡터화, 외적의 전용 AST와 native MathML을 작성한다. [0074](analysis/0074-global-vector-operator-input.md)는 원본 glyph·외적의 오른쪽 결합·화살표 최소 폭과 4 DIP 배치 및 실제 앱 키 경로를 검사한다. [0075](analysis/0075-global-vector-operator-calculation.md)는 같은 shape·scalar broadcast·열 우선 오류/취소·사용자 함수의 원소별 호출과 3×1 복소/단위 벡터의 비켤레 외적을 검사한다. 새 원본 런타임 차등 검사가 아닌 정적 계약과 독립 Rust 회귀다.
 
@@ -221,7 +221,7 @@ MCDX **12개·XML 48파트**가 설치 XSD를 통과했고 실제 문서 XamlPac
 
 동일 r72 소스로 Windows와 peets 각각 **workspace 581개 + 입력 백엔드 2개 = 583개 통과·실패 0개·21개 ignored**를 확인했다. 제품 workspace는 앱 273개, compat 176개, document 70개, editor 49개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드 및 별도 백엔드 library/test Clippy가 통과했다. 기존 원본 참조 38개는 양쪽 saved/input 각각 38/38, 차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-structural-operators-20261016-r72`다. source tar SHA-256은 양 호스트 `43d9063585a32352e178f1b001514e040f4332398b2b468199a8dced30dab164`로 일치한다. 제품 Rust 80개·OSS backend Rust 5개와 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses를 archive와 바이트 대조했다. Windows release `target/release/mathcraft.exe`는 **21,725,184 bytes**, SHA-256 `d714eda1e02c2506a5dd5837d594811b44a7583153a03387f6c4678ff3231406`이다. 실행 파일을 띄우지 않았다. manifest는 ignored `artifacts/rea/structural-operators-integration-20261016/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-structural-operators-20261016-r72`다. source tar SHA-256은 양 호스트 `43d9063585a32352e178f1b001514e040f4332398b2b468199a8dced30dab164`로 일치한다. 제품 Rust 80개·OSS backend Rust 5개와 Cargo 설정/lock·검사 스크립트·vendor provenance/licenses를 archive와 바이트 대조했다. Windows release `target/release/mathfolio.exe`는 **21,725,184 bytes**, SHA-256 `d714eda1e02c2506a5dd5837d594811b44a7583153a03387f6c4678ff3231406`이다. 실행 파일을 띄우지 않았다. manifest는 ignored `artifacts/rea/structural-operators-integration-20261016/source-validation.json`이다.
 
 [0069](analysis/0069-structural-array-operators-contract.md)의 원본 descriptor·BAML·factory에 근거해 Factorial·Transpose·Conjugate·Norm·행/열 추출의 전용 AST와 native MathML을 연결했다. 절댓값/행렬식 명령은 기존 `Absolute/absval` 단선, Norm 명령은 `Determinant/determinant` 이중선이다. 원본에 없는 새 `<norm/>`를 생성하지 않으며 이전 잘못된 native alias는 파서에서 제거했다. named `norm(...)`은 별도 함수로 유지한다. 같은 precedence라도 원본이 금지한 row/column/transpose 중첩은 grouping으로 구분한다.
 
@@ -239,7 +239,7 @@ peets 소스는 `/home/peets/Projects/mathcraft-structural-operators-20261016-r7
 
 동일 r68 소스에서 Windows와 peets 각각 **549개 통과·실패 0개·20개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 257개, compat 166개, document 70개, editor 43개, core 13개다. Windows는 release 빌드이며 실행 파일을 띄우지 않았다. 기존 원본 참조 38개도 양쪽에서 saved/input 좌표 각각 38/38, 차이 0이다.
 
-peets 소스는 `/home/peets/Projects/mathcraft-matrix-workflow-20261016-r68`, 양 호스트 source tar SHA-256은 `e494015b96a1039fda02d7c45f1719890c2e17237e6ffed7fbdd61056ac221cd`다. Rust 76개와 root/crate Cargo 설정·lock을 archive와 바이트 대조했다. `target/release/mathcraft.exe`는 **21,647,872 bytes**, SHA-256 `0803137a55a6f54e1318c97dd133eed7598821703ad00277d8ee81bf0498cdf8`다. manifest는 ignored `artifacts/rea/matrix-workflow-integration-20261016/source-validation.json`이다.
+peets 소스는 `/home/peets/Projects/mathfolio-matrix-workflow-20261016-r68`, 양 호스트 source tar SHA-256은 `e494015b96a1039fda02d7c45f1719890c2e17237e6ffed7fbdd61056ac221cd`다. Rust 76개와 root/crate Cargo 설정·lock을 archive와 바이트 대조했다. `target/release/mathfolio.exe`는 **21,647,872 bytes**, SHA-256 `0803137a55a6f54e1318c97dd133eed7598821703ad00277d8ee81bf0498cdf8`다. manifest는 ignored `artifacts/rea/matrix-workflow-integration-20261016/source-validation.json`이다.
 
 [0065](analysis/0065-matrix-selection-contract.md)의 fresh REA는 일반 행렬 Typeover의 실제 Copy/Cut/Delete/Clear 및 가상 메서드 상속을 추적한다. [0066](analysis/0066-matrix-selection-application.md)은 포인터 직사각형 선택, 중첩 행렬, 확대·이동 좌표, clipboard와 Enter 확정을 연결한다. Delete/Backspace의 행·열·내부 내용·전체 1×1 분기와 리본 행/열 삭제를 구분한다. Clear는 크기를 유지한다. 원본이 거절하는 범위 Paste·일반 수식 입력은 독립 구현에서도 변경하지 않으며 Shift+Arrow에 새 직사각형 단축키를 만들지 않았다. 새 core 회귀 9개와 formula 회귀 5개를 포함한다.
 
@@ -256,10 +256,10 @@ peets 소스는 `/home/peets/Projects/mathcraft-matrix-workflow-20261016-r68`, �
 `tests/reference/mathcad12.json`은 우리가 생성한 최소 워크시트 38개를 원본에서 새로 열고 계산 완료를 확인한 결과다. 입력/출력 MCDX SHA-256, 원본 버전, 생성한 MathML, 저장된 좌표와 resultRef, 표시 수치·오류 태그·경고를 포함한다. ZIP 원본과 원본 제품 리소스는 Git에 넣지 않는다.
 
 ```sh
-cargo run -p mathcraft-cli --locked -- conformance tests/reference/mathcad12.json
+cargo run -p mathfolio-cli --locked -- conformance tests/reference/mathcad12.json
 ```
 
-`mathcraft-compat`는 문자열로 평탄화하지 않고 MathML 구조와 라벨을 직접 평가한다. 비교 항목은 표시 실수/허수/열벡터, 오류 family, 이전 오류 참조의 존재 여부, 재정의 경고다. 수치 허용 오차는 `max(1e-12, abs(expected)*1e-8)`이다. 원본이 저장한 좌표와 원본에 입력한 좌표+문서 격자 설정을 각각 실행한다. Pending·실패·비어 있는 결과를 정답으로 세지 않고, 차이가 있으면 CLI는 비정상 종료한다.
+`mathfolio-compat`는 문자열로 평탄화하지 않고 MathML 구조와 라벨을 직접 평가한다. 비교 항목은 표시 실수/허수/열벡터, 오류 family, 이전 오류 참조의 존재 여부, 재정의 경고다. 수치 허용 오차는 `max(1e-12, abs(expected)*1e-8)`이다. 원본이 저장한 좌표와 원본에 입력한 좌표+문서 격자 설정을 각각 실행한다. Pending·실패·비어 있는 결과를 정답으로 세지 않고, 차이가 있으면 CLI는 비정상 종료한다.
 
 현재 38개 표본이 두 경로에서 일치한다. 이 수치는 전체 Mathcad 호환율이 아니다. 정확한 오류 인자/노드 handle/ID, 출력 차원 자체, 모든 숫자 branch와 정밀도, 캐시·취소·수동 계산 수명 주기는 이 수치에 포함되지 않는다. 동일 위치 두 영역의 일반적인 tie 순서도 아직 확정하지 않았다.
 
@@ -274,12 +274,12 @@ cargo run -p mathcraft-cli --locked -- conformance tests/reference/mathcad12.jso
 
 ## 새 기반 계층
 
-`mathcraft-document::native`는 압축 항목의 원본 바이트를 유지하며 영역 계층, namespace·라벨·아래첨자, 좌표·크기·align 속성, 캐시 상태와 오류를 조회한다. 알 수 없는 XML/binary/relationship도 보존한다.
+`mathfolio-document::native`는 압축 항목의 원본 바이트를 유지하며 영역 계층, namespace·라벨·아래첨자, 좌표·크기·align 속성, 캐시 상태와 오류를 조회한다. 알 수 없는 XML/binary/relationship도 보존한다.
 
 ```sh
-cargo run -p mathcraft-cli --locked -- native-inspect INPUT.mcdx
-cargo run -p mathcraft-cli --locked -- native-copy INPUT.mcdx NEW.mcdx
-cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
+cargo run -p mathfolio-cli --locked -- native-inspect INPUT.mcdx
+cargo run -p mathfolio-cli --locked -- native-copy INPUT.mcdx NEW.mcdx
+cargo run -p mathfolio-cli --locked -- native-run INPUT.mcdx
 ```
 
 `native-copy`는 새 파일만 만들고 재오픈해 각 항목 이름·내용·압축 방식을 비교한다. 압축 컨테이너 전체 바이트 및 모든 ZIP extra field의 동일성은 보장하지 않는다. ZIP64·암호화·다중 볼륨·일부 압축 방식은 명시적으로 거부한다. 실제 detune의 33개 항목 보존을 확인했다. 편집 export는 아래 범위로 구현했으며 원본 앱 재열기는 검증하지 않았다. 원본 문서는 변경하지 않았다.
@@ -288,11 +288,11 @@ cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
 
 원본의 `label-is-contextual=true`는 명시 라벨과 다르다. 저장 정보는 보존하고 `worksheet_xml`이 만드는 계산 사본에서 제한된 구조·이름 규칙으로 다시 분류한다. 직접 MathML 실행에서 해결되지 않은 문맥 라벨은 cached label을 강제하지 않고 미지원으로 보고한다. 전체 자유 식별자 해석 우선순위는 미확정이다. [0016](analysis/0016-contextual-labels.md) 참고.
 
-`mathcraft-editor`는 안정 ID의 AST arena, 캐럿·부분식 선택, 분수·지수·괄호·이항 연산 삽입, scope 방향·확장 이력·진입 커서 복원, 괄호 나가기, undo/redo와 명령 단위 편집 그룹을 구현한다. 선택한 부분식의 좌우 방향에 따른 피연산자 위치를 반영했다. 근거는 `docs/spec/mathcad12-editor-contract.json`, 분석 0002·0014다. 부분 피연산자 범위와 전체 우선순위·키 전이는 미완료다.
+`mathfolio-editor`는 안정 ID의 AST arena, 캐럿·부분식 선택, 분수·지수·괄호·이항 연산 삽입, scope 방향·확장 이력·진입 커서 복원, 괄호 나가기, undo/redo와 명령 단위 편집 그룹을 구현한다. 선택한 부분식의 좌우 방향에 따른 피연산자 위치를 반영했다. 근거는 `docs/spec/mathcad12-editor-contract.json`, 분석 0002·0014다. 부분 피연산자 범위와 전체 우선순위·키 전이는 미완료다.
 
-앱 본체는 빈 종이 위에 수식·텍스트를 배치하는 워크시트다. 수식 입력→구조 편집→정의/평가→동일 영역의 결과 표시→위치 이동에 따른 재계산→저장/재열기가 연결된다. 정의 RHS의 `=`와 반복 평가 요청을 분리했고, 선택 치환·붙여넣기·텍스트 이벤트 Undo를 검사한다. `:` shortcut과 숫자 뒤 단위 입력 등은 제한된 정책이며 원본 전체 키 문맥을 재현하지 않는다. 실제 창을 띄우지 않는 egui context와 순수 상태 전이 테스트를 사용한다. 현재 기본 실행 파일은 `target/release/mathcraft.exe`다.
+앱 본체는 빈 종이 위에 수식·텍스트를 배치하는 워크시트다. 수식 입력→구조 편집→정의/평가→동일 영역의 결과 표시→위치 이동에 따른 재계산→저장/재열기가 연결된다. 정의 RHS의 `=`와 반복 평가 요청을 분리했고, 선택 치환·붙여넣기·텍스트 이벤트 Undo를 검사한다. `:` shortcut과 숫자 뒤 단위 입력 등은 제한된 정책이며 원본 전체 키 문맥을 재현하지 않는다. 실제 창을 띄우지 않는 egui context와 순수 상태 전이 테스트를 사용한다. 현재 기본 실행 파일은 `target/release/mathfolio.exe`다.
 
-`mathcraft-document::canvas` v2는 수식의 PortableTree와 좌표·텍스트·opaque 영역을 저장한다. 내부 arena/caret/undo는 저장하지 않는다. MCDX를 가져오면 원본 ZIP 바이트도 보존한다. 편집 불가/계산 미지원 영역은 raw로 남기고, 계산 의미가 있는 미지원 math wrapper 속성을 제거하여 실행하지 않는다. 자체 `.mathcraft` v2 저장과 새 파일로 MCDX 편집 export를 지원한다. export는 원본 parts·관계를 보존하며 계산 캐시를 Pending으로 무효화한다. 원본 XSD에 대한 생성 구조 검사와 Rust 재열기를 검사했고, 원본 앱 재열기는 검증하지 않았다.
+`mathfolio-document::canvas` v2는 수식의 PortableTree와 좌표·텍스트·opaque 영역을 저장한다. 내부 arena/caret/undo는 저장하지 않는다. MCDX를 가져오면 원본 ZIP 바이트도 보존한다. 편집 불가/계산 미지원 영역은 raw로 남기고, 계산 의미가 있는 미지원 math wrapper 속성을 제거하여 실행하지 않는다. 자체 `.mathfolio` v2 저장과 새 파일로 MCDX 편집 export를 지원한다. export는 원본 parts·관계를 보존하며 계산 캐시를 Pending으로 무효화한다. 원본 XSD에 대한 생성 구조 검사와 Rust 재열기를 검사했고, 원본 앱 재열기는 검증하지 않았다.
 
 검증 결과는 아래 최근 검증 기록에 별도로 남긴다. 원본 GUI 재검증과 한글 IME 검증은 headless 검사에 포함되지 않는다. 새 수학 기능의 정적 계약 테스트와 기존 원본 실행 38개 표본을 구분한다.
 
@@ -303,14 +303,14 @@ cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
 ## 검증 이력: 2026-10-15 재부팅 후
 
 - Windows: workspace fmt·Clippy(`-D warnings`)·테스트·빌드 통과. 전체 190개 통과 후 직접 MathML 문맥 라벨 거부 회귀 테스트 1개를 추가하여 해당 8개 테스트도 통과했다. 이 시점의 테스트 합계는 191개다. 이전 문서의 합산 오류를 정정했다.
-- peets(Kubuntu 26.04): 같은 소스 사본 `/home/peets/Projects/mathcraft-ux-20261015`에서 `scripts/check.sh` 전체 통과. 기존 소스 폴더를 덮어쓰지 않았으며 빌드 산출물 디렉터리만 재사용했다.
+- peets(Kubuntu 26.04): 같은 소스 사본 `/home/peets/Projects/mathfolio-ux-20261015`에서 `scripts/check.sh` 전체 통과. 기존 소스 폴더를 덮어쓰지 않았으며 빌드 산출물 디렉터리만 재사용했다.
 - 양쪽에서 기존 원본 38개 참조가 저장 좌표·입력 격자 좌표 두 경로 모두 일치했다. peets의 `engineering.xml` 20개 영역은 오류 0개이며, 값은 별도 engineering 통합 테스트로 검사한다.
 - 설치 원본에 대한 unit facts 추출 `--check`는 212개 단위·15개 상수 사실과 일치했다. 피드백 분석은 설치 DLL 5개 및 CIL 메서드 123개의 원본 바이트 해시를 재검증했다.
 - 원본 앱, GUI, 스크린샷, COM을 새로 실행하지 않았다. 이 검증은 전체 Mathcad 호환성이나 실제 IME 사용감을 입증하지 않는다.
 
 ## 작성 UI 개선 검증: 2026-10-15
 
-Windows와 peets의 `/home/peets/Projects/mathcraft-ui-20261015` 소스 사본에서 fmt, workspace Clippy(`-D warnings`), 전체 테스트 **207개**, 빌드가 통과했다. 앱 테스트는 45개, editor 테스트는 19개이며 나머지는 기존 계산·문서 회귀 검사다. Windows 실행 파일 `target/debug/mathcraft.exe`도 갱신했다.
+Windows와 peets의 `/home/peets/Projects/mathfolio-ui-20261015` 소스 사본에서 fmt, workspace Clippy(`-D warnings`), 전체 테스트 **207개**, 빌드가 통과했다. 앱 테스트는 45개, editor 테스트는 19개이며 나머지는 기존 계산·문서 회귀 검사다. Windows 실행 파일 `target/debug/mathfolio.exe`도 갱신했다.
 
 새 검사는 종이 전용 배율과 50%·100%·200% 클릭 좌표, 문자 드래그·UTF-16 선택·치환·삭제, 기하 기반 분수·행렬 수직 이동, 수식·텍스트 Undo 후 커서 위치에서 연속 입력, Esc→영역 이동→Enter, 도구막대가 있는 상태의 Tab 이동, 메뉴 열기→Esc→입력 복귀, IME 임시·확정·취소 이벤트를 포함한다. 분수 도구가 기존 선택 피연산자를 버리지 않는 동작도 검사했다.
 
@@ -318,7 +318,7 @@ UI 구조·타이포그래피·기하 이동은 독립적인 제품 정책이며
 
 ## 기본 공학 계산서 단계 검증: 2026-10-15
 
-Windows와 peets의 /home/peets/Projects/mathcraft-m20-20261015에서 workspace fmt, Clippy(경고 금지), 전체 244개 테스트, 빌드를 통과했다. 앱 71개, editor 25개, document 28개 테스트를 포함하며 기존 원본 38개 참조의 두 좌표 경로도 유지된다. 실행 파일은 Windows target/debug/mathcraft.exe, Linux /home/peets/Projects/mathcraft/target/debug/mathcraft다.
+Windows와 peets의 /home/peets/Projects/mathfolio-m20-20261015에서 workspace fmt, Clippy(경고 금지), 전체 244개 테스트, 빌드를 통과했다. 앱 71개, editor 25개, document 28개 테스트를 포함하며 기존 원본 38개 참조의 두 좌표 경로도 유지된다. 실행 파일은 Windows target/debug/mathfolio.exe, Linux /home/peets/Projects/mathfolio/target/debug/mathfolio다.
 
 새 검증은 함수·범위·도표 작성과 정의 수정/Undo에 따른 재계산, 축 편집 후 포커스, 행렬 행·열 삽입/삭제와 Shift 단축키, 서식의 저장·복사·Undo, 표시 반올림과 원본 계산값 분리, source hit ID, 확대 글꼴의 IME 좌표, 긴 행렬의 스크롤 범위, 숫자 일반 형식·0 표시 경계를 다룬다. 예제의 F=19.6133 N, det(A)=5, f(2)=8도 고정 검사한다.
 
@@ -340,7 +340,7 @@ Windows와 peets의 /home/peets/Projects/mathcraft-m20-20261015에서 workspace 
 
 ## 저장 결과와 계산 명령 구현 검증 — 2026-10-16
 
-같은 Rust 소스에서 Windows release 및 peets Linux의 workspace 테스트 **각 321개**를 통과했다. 앱 114개, 계산 호환 계층 127개, document 38개, editor 29개, core 13개다. 두 OS에서 fmt와 전체 타깃 Clippy 경고 금지 검사, workspace 빌드도 통과했다. Windows 실행 파일은 `target/release/mathcraft.exe`다. peets는 `/home/peets/Projects/mathcraft-calc-20261016-FI29GT`의 격리된 소스와 기존 target 캐시를 사용했다. 과거 244개 검증을 최신 결과로 대신한 것이 아니다.
+같은 Rust 소스에서 Windows release 및 peets Linux의 workspace 테스트 **각 321개**를 통과했다. 앱 114개, 계산 호환 계층 127개, document 38개, editor 29개, core 13개다. 두 OS에서 fmt와 전체 타깃 Clippy 경고 금지 검사, workspace 빌드도 통과했다. Windows 실행 파일은 `target/release/mathfolio.exe`다. peets는 `/home/peets/Projects/mathfolio-calc-20261016-FI29GT`의 격리된 소스와 기존 target 캐시를 사용했다. 과거 244개 검증을 최신 결과로 대신한 것이 아니다.
 
 회귀 검사는 열기/idle의 계산 실행 횟수 0, 저장 결과 signature 불일치·손상·Pending 보존, 실수/복소수/행렬/단위/기호 결과의 순수 복원, F5/Ctrl+F5 이벤트와 실제 가시 경계, 보이는 활성 영역 강제 계산, 변경 구간/전역 선행 조건, 깨진 마지막 영역 뒤의 정상 결과, 오류의 국소 전파를 포함한다. 500개 도표 표본의 문맥 재사용과 첫 수식보다 위에 있는 도표의 전역 참조도 검사했다. 최초 Linux 검사에서 발견한 headless 테스트의 `TexturesDelta` 미정리도 고쳐 최신 전체 검사를 다시 통과했다.
 
@@ -348,7 +348,7 @@ Windows와 peets의 /home/peets/Projects/mathcraft-m20-20261015에서 workspace 
 
 ## 인쇄·성능·주요 입력/계산 누락 보완 — 2026-10-16
 
-같은 소스로 Windows release와 peets에서 workspace **각 358개 통과, 3개 ignored**를 확인했다. 앱 141개, compat 128개, document 43개, editor 33개, core 13개다. ignored는 명시 실행하는 성능 benchmark 두 개와 로컬 native 문서 probe 한 개다. 두 OS의 fmt·전체 타깃 Clippy 경고 금지·workspace 빌드도 확인했다. peets 소스는 `/home/peets/Projects/mathcraft-print-20261016-r38`, build cache는 기존 `/home/peets/Projects/mathcraft/target`이다. 실제 GUI·스크린샷·원본 런타임·프린터 출력은 사용하지 않았다.
+같은 소스로 Windows release와 peets에서 workspace **각 358개 통과, 3개 ignored**를 확인했다. 앱 141개, compat 128개, document 43개, editor 33개, core 13개다. ignored는 명시 실행하는 성능 benchmark 두 개와 로컬 native 문서 probe 한 개다. 두 OS의 fmt·전체 타깃 Clippy 경고 금지·workspace 빌드도 확인했다. peets 소스는 `/home/peets/Projects/mathfolio-print-20261016-r38`, build cache는 기존 `/home/peets/Projects/mathfolio/target`이다. 실제 GUI·스크린샷·원본 런타임·프린터 출력은 사용하지 않았다.
 
 인쇄·용지/여백·날짜·프로그램 Enter·행렬 Tab·영역 비활성화 및 이전 문서의 비활성 상태 migration을 포함한다. 구조·glyph hit·표시 캐시 변경, 먼 페이지 jump와 수평 culling, 입력/Undo·계산명령 회귀도 통과했다. 이 구현 범위와 한계는 [0035 인쇄](analysis/0035-printing-implementation.md), [0036 입력](analysis/0036-program-lines-and-matrix-tab.md), [0037 비활성화](analysis/0037-disabled-regions.md), [0038 날짜](analysis/0038-saved-date-fields.md)를 따른다.
 
@@ -362,7 +362,7 @@ Windows와 peets의 /home/peets/Projects/mathcraft-m20-20261015에서 workspace 
 
 ## 백그라운드 계산·중지/재개 및 경합 검증 — 2026-10-16
 
-같은 최신 Rust 소스로 Windows release와 peets Linux에서 workspace **각 377개 통과, 3개 ignored**를 확인했다. 앱 154개, compat 134개, document 43개, editor 33개, core 13개다. 두 OS의 fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드가 통과했다. peets 소스는 `/home/peets/Projects/mathcraft-background-20261016-r41`, target cache는 기존 `/home/peets/Projects/mathcraft/target`이다. Windows 최신 실행 파일은 `target/release/mathcraft.exe`(20,544,512 bytes)다.
+같은 최신 Rust 소스로 Windows release와 peets Linux에서 workspace **각 377개 통과, 3개 ignored**를 확인했다. 앱 154개, compat 134개, document 43개, editor 33개, core 13개다. 두 OS의 fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드가 통과했다. peets 소스는 `/home/peets/Projects/mathfolio-background-20261016-r41`, target cache는 기존 `/home/peets/Projects/mathfolio/target`이다. Windows 최신 실행 파일은 `target/release/mathfolio.exe`(20,544,512 bytes)다.
 
 이번 검사는 영속 계산 worker, 최신 소스 coalescing과 오래된 회신 거부, 새 문서 epoch, 수동 준비의 실행 0, 활성 정의와 후속 도표의 동일 범위 계산을 포함한다. 프로그램·수치·행렬·solve 내부 취소, 중단행의 이전 값/바인딩 rollback, 완료 prefix와 전역 정의 재사용, 저장 함수에 이전 취소 token이 남지 않는 경우도 검사했다.
 
@@ -374,7 +374,7 @@ ignored 로그는 `artifacts/rea/background-workspace-windows-tests.log`, `backg
 
 ## 입력 확정·제공 PDF 비교·결과 서식 통합 — 2026-10-16
 
-서식 통합 시점의 동일 Rust 소스로 Windows release와 peets의 workspace **각 405개 통과, 3개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 176개, compat 134개, document 49개, editor 33개, core 13개다. peets 소스는 `/home/peets/Projects/mathcraft-background-20261016-r41`, target cache는 기존 디렉터리다. 당시 `target/release/mathcraft.exe`는 20,759,040 bytes였다. 이후 표·벡터 출력 변경의 검증은 다음 기록으로 구분한다.
+서식 통합 시점의 동일 Rust 소스로 Windows release와 peets의 workspace **각 405개 통과, 3개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 176개, compat 134개, document 49개, editor 33개, core 13개다. peets 소스는 `/home/peets/Projects/mathfolio-background-20261016-r41`, target cache는 기존 디렉터리다. 당시 `target/release/mathfolio.exe`는 20,759,040 bytes였다. 이후 표·벡터 출력 변경의 검증은 다음 기록으로 구분한다.
 
 입력 확정 검사는 일반 타이핑의 worker 작업 제출 0·Enter 후 한 번 제출, 이전 종속 결과 유지, IME/Undo·영역 이탈·수동 모드, Auto ON의 초안 제외, 가시 대상 없는 F5의 초안 보존·화면 밖 F5, 명시 `=`의 Auto OFF 대기 보존, 문서 저장의 Pending 상태를 포함한다. 원본 계약과 구현은 [0042](analysis/0042-edit-commit-contract.md)/[0044](analysis/0044-edit-commit-implementation.md)를 따른다.
 
@@ -390,7 +390,7 @@ ignored 로그는 `artifacts/rea/background-workspace-windows-tests.log`, `backg
 
 ## 최신 검증: 2026-10-16 실제 원본 표·색상·벡터 PDF·단위·정렬점
 
-같은 최종 Rust 소스로 Windows release와 peets에서 workspace **각 430개 통과, 8개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 194개, compat 137개, document 53개, editor 33개, core 13개다. peets의 격리 소스는 `/home/peets/Projects/mathcraft-native-output-20261016-r48`이며 target cache만 재사용했다. 두 호스트에 적용한 source tar의 SHA-256은 `110226773270fbc36381d03f143386128d21392378b9cd60ab3a13fd7e82501a`로 일치한다. Windows 실행 파일은 `target/release/mathcraft.exe`, 21,168,128 bytes, SHA-256 `33c96512150cd7a75c02d06b3144a47bfa1911ce4b81ecf47bee6fcebd22d861`다.
+같은 최종 Rust 소스로 Windows release와 peets에서 workspace **각 430개 통과, 8개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 194개, compat 137개, document 53개, editor 33개, core 13개다. peets의 격리 소스는 `/home/peets/Projects/mathfolio-native-output-20261016-r48`이며 target cache만 재사용했다. 두 호스트에 적용한 source tar의 SHA-256은 `110226773270fbc36381d03f143386128d21392378b9cd60ab3a13fd7e82501a`로 일치한다. Windows 실행 파일은 `target/release/mathfolio.exe`, 21,168,128 bytes, SHA-256 `33c96512150cd7a75c02d06b3144a47bfa1911ce4b81ecf47bee6fcebd22d861`다.
 
 실제 사용자 경로의 `1015_LCC_S.mcdx`/`1016_LCC_S.mcdx`를 원본 수정 없이 로컬 조사용 사본으로 검사했다. Windows와 peets에서 각각 cold open→print snapshot→벡터 PDF를 별도 명시 실행했다. 각 문서는 107영역, 저장 결과 64개 복원, 표시 대상 Pending 0개, 수식 실행 0회, A3 2쪽이다. 원본 표의 6열·55개 리터럴·5개 빈칸과 12개 이름/단위 헤더를 복원한다. 독립 PyMuPDF/pypdf 검사에서 4개 PDF 모두 실제 표 영역의 55개 값을 대조하고 마지막 awg 열, `1.00`, 한글·선택 텍스트, 보라/청록/노랑과 흰 글자, 이미지 0개와 벡터 도형을 확인했다. 1015의 94.359%와 64.267∠35°Ω도 유지된다.
 
@@ -399,7 +399,7 @@ ignored 로그는 `artifacts/rea/background-workspace-windows-tests.log`, `backg
 | 1015, A3 2쪽 | 378,847 bytes | 196,284 bytes |
 | 1016, A3 2쪽 | 378,936 bytes | 196,319 bytes |
 
-각 PDF는 벡터 도형 1,117개이며 글자 수는 글꼴별 추출 차이 때문에 2,922–2,934자다. 과거 래스터 Mathcraft PDF는 1,892,095 bytes, 원본 Mathcad PDF는 580,073 bytes였다. 폰트·구성 객체가 다른 독립 출력의 파일 크기와 글자 수를 원본 전체 외형 일치의 근거로 삼지 않는다. Windows는 TrueType subset, Linux Noto CJK는 Type3 벡터 글리프와 ToUnicode로 한글을 보존한다.
+각 PDF는 벡터 도형 1,117개이며 글자 수는 글꼴별 추출 차이 때문에 2,922–2,934자다. 과거 래스터 Mathfolio PDF는 1,892,095 bytes, 원본 Mathcad PDF는 580,073 bytes였다. 폰트·구성 객체가 다른 독립 출력의 파일 크기와 글자 수를 원본 전체 외형 일치의 근거로 삼지 않는다. Windows는 TrueType subset, Linux Noto CJK는 Type3 벡터 글리프와 ToUnicode로 한글을 보존한다.
 
 추가 Windows 검사에서는 검증된 소스의 ignored 사본에 검사 전용 모듈만 넣어 실제 앱의 열기·자체 저장/재열기·MCDX export/재열기를 실행했다. 두 저장 경로 모두 107영역의 rich document/배경색을 비교해 일치했고 계산은 0회였다. MCDX export 뒤 원본 XamlPackage 27개는 바이트 단위 동일하며 worksheet/header/footer/presentation 4파트는 설치 XSD 검증을 통과했다. 별도 검사 모듈은 제품 소스와 위 430개 회귀 합계에 포함하지 않았다. 증거는 `native-vector-output-20261016/roundtrip-1015-final.log`/`roundtrip-validation.json`이다.
 
@@ -413,9 +413,9 @@ ignored 파일 probe·PDF fixture·CPU benchmark는 workspace 430개와 별도�
 
 ## 표 셀 편집·열 계산·화면 조판·저장 결과 복원 — 2026-10-16
 
-최신 동일 소스에서 Windows와 peets 각각 workspace **454개 통과·12개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 203개, compat 144개, document 60개, editor 34개, core 13개다. Windows 배포 실행 파일은 release 빌드했으며 테스트는 최적화된 dev/test profile이다. 이전 430개 및 중간 452개 검사와 구분한다. 최종 peets 격리 소스는 `/home/peets/Projects/mathcraft-spec-table-20261016-r56`이다.
+최신 동일 소스에서 Windows와 peets 각각 workspace **454개 통과·12개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드를 확인했다. 앱 203개, compat 144개, document 60개, editor 34개, core 13개다. Windows 배포 실행 파일은 release 빌드했으며 테스트는 최적화된 dev/test profile이다. 이전 430개 및 중간 452개 검사와 구분한다. 최종 peets 격리 소스는 `/home/peets/Projects/mathfolio-spec-table-20261016-r56`이다.
 
-두 호스트의 source tar SHA-256은 `9298a81b14a2f45acf00fce906b54c460245b8a30018623edc7b79b5963a9510`으로 일치한다. 최종 67개 Rust 파일과 Cargo 설정·lock을 tar와 다시 대조했다. `target/release/mathcraft.exe`는 **21,374,464 bytes**, SHA-256 `90f7010a94478a9f9ccf5cc71a3c1346ba11c99a458d0a2790fc578e9d03d2d7`다. 파일별 해시는 `artifacts/rea/spec-table-integration-20261016/source-validation.json`에 있다.
+두 호스트의 source tar SHA-256은 `9298a81b14a2f45acf00fce906b54c460245b8a30018623edc7b79b5963a9510`으로 일치한다. 최종 67개 Rust 파일과 Cargo 설정·lock을 tar와 다시 대조했다. `target/release/mathfolio.exe`는 **21,374,464 bytes**, SHA-256 `90f7010a94478a9f9ccf5cc71a3c1346ba11c99a458d0a2790fc578e9d03d2d7`다. 파일별 해시는 `artifacts/rea/spec-table-integration-20261016/source-validation.json`에 있다.
 
 가져온 Spec Table은 [0053](analysis/0053-spec-table-editing.md)의 원본 단일 클릭·셀 이동 계약을 따라 이름·단위·데이터 셀을 구조 수식으로 편집한다. 키 입력은 초안으로 남기고 Enter·셀 이동·영역 이탈·명시 계산/저장 시 확정한다. Tab/Shift+Tab은 행 순서로 이동하고 마지막 셀 Tab은 빈 행을 추가한다. 원자적 셀 편집, 오류 시 원본 보존, draft Undo와 문서 Undo/Redo, native 표시 캐시 갱신 및 변경 열의 MCDX resultRef 무효화를 검사했다. 복합 수식 안에서 표 셀로 나가는 모든 방향키 전이는 아직 구현하지 않았다.
 
@@ -435,7 +435,7 @@ ignored 파일 probe·PDF fixture·CPU benchmark는 workspace 430개와 별도�
 
 최종 동일 소스의 Windows와 peets workspace는 **각 494개 통과·15개 ignored·실패 0개**다. 앱 234개, compat 146개, document 67개, editor 34개, core 13개다. fmt·전체 타깃 Clippy(`-D warnings`)와 workspace 빌드가 통과했다. Windows 실행 파일은 release, 테스트는 최적화된 dev/test profile이다. 소스를 변경하지 않은 같은 38개 원본 참조 표본의 좌표 두 경로도 양 OS CLI에서 모두 일치했다.
 
-새 peets 디렉터리는 `/home/peets/Projects/mathcraft-original-workflow-20261016-r60`, source tar SHA-256은 `ae6af1938931635083ebd52c1b008ba6b3d7ef5846196d4d3c0bf0668cc64a93`로 양 호스트가 일치한다. Rust 70파일과 Cargo 설정·lock을 현재 소스와 다시 대조했다. `target/release/mathcraft.exe`는 **21,533,696 bytes**, SHA-256 `9760fa9454f3484837b9452368de2573be0ff172ce01a1e6a9dc02abea270eba`다. 파일별 해시는 ignored `artifacts/rea/original-workflow-integration-20261016/source-validation.json`에 보존한다.
+새 peets 디렉터리는 `/home/peets/Projects/mathfolio-original-workflow-20261016-r60`, source tar SHA-256은 `ae6af1938931635083ebd52c1b008ba6b3d7ef5846196d4d3c0bf0668cc64a93`로 양 호스트가 일치한다. Rust 70파일과 Cargo 설정·lock을 현재 소스와 다시 대조했다. `target/release/mathfolio.exe`는 **21,533,696 bytes**, SHA-256 `9760fa9454f3484837b9452368de2573be0ff172ce01a1e6a9dc02abea270eba`다. 파일별 해시는 ignored `artifacts/rea/original-workflow-integration-20261016/source-validation.json`에 보존한다.
 
 [0057](analysis/0057-shortcut-and-subscript-contract.md)의 Ctrl+- 이름 아래첨자, 비교 6종·논리 3종·NOT, 무한대와 원본 키 명령을 구조 AST·MathML·조판·계산에 연결했다. global→history→실제 수식 key 이벤트 회귀는 Ctrl+-가 배율을 바꾸지 않고, Ctrl+Shift+Z가 Undo를 하지 않으며, Ctrl+Shift+2가 도표 대신 OR를 만드는 것을 검사한다. 추가 Shift/Alt를 전역 키 소비가 무시하던 결함을 교정했다. Ctrl+F1 리본 그룹 숨김/복원, F1 안내, F5 가시 계산과 Ctrl+F5 전체 계산도 구분한다. 이름 중간의 임의 rich-run 깊이와 텍스트 위/아래첨자 저작 전체는 미완료다.
 
@@ -449,13 +449,13 @@ ignored 파일 probe·PDF fixture·CPU benchmark는 workspace 430개와 별도�
 
 최종 실제 문서 회귀도 양 OS에서 다시 실행했다. 1015/1016 각각 첫 표 값을 42 A로 수정한 뒤 계산 80행·오류 0개, 자체 저장 재열기 64개 표시·Pending 0개·실행 0회를 확인했다. MCDX export/reopen은 셀·단위를 보존하며 원본 XamlPackage 27개도 바이트 단위 동일하다. 수정 MCDX 4개는 설치 XSD 16개 part를 통과했고 신규 빈/채운 표 2개까지 합하면 **6개 MCDX·24개 XML part**다.
 
-원본 1015/1016과 수정된 자체 저장 1015를 양 OS에서 출력한 최종 벡터 PDF 6개는 모두 A3 2쪽·이미지 0개·표 숫자 55개·복원 표시 64개이며, 수정된 값 42도 확인했다. 원본 출력의 색상과 기준점 대조도 통과했다. 편집 MCDX의 결과 cache는 export 시 Pending으로 무효화하므로, 해당 MCDX를 계산 없이 다시 연 PDF와 결과 cache를 가진 `.mathcraft` 출력은 구분한다. 이를 원본 실행 없이 Synchronized로 조작하지 않는다. 새 증거는 `artifacts/rea/original-workflow-integration-20261016/{schema-and-table-validation.json,pdf-verified/validation.json,new-table-schema/validation.json}`에 있다. GUI·스크린샷·원본 실행은 추가하지 않았다.
+원본 1015/1016과 수정된 자체 저장 1015를 양 OS에서 출력한 최종 벡터 PDF 6개는 모두 A3 2쪽·이미지 0개·표 숫자 55개·복원 표시 64개이며, 수정된 값 42도 확인했다. 원본 출력의 색상과 기준점 대조도 통과했다. 편집 MCDX의 결과 cache는 export 시 Pending으로 무효화하므로, 해당 MCDX를 계산 없이 다시 연 PDF와 결과 cache를 가진 `.mathfolio` 출력은 구분한다. 이를 원본 실행 없이 Synchronized로 조작하지 않는다. 새 증거는 `artifacts/rea/original-workflow-integration-20261016/{schema-and-table-validation.json,pdf-verified/validation.json,new-table-schema/validation.json}`에 있다. GUI·스크린샷·원본 실행은 추가하지 않았다.
 
 ## 배열 원소 정의·표 clipboard 교정·계산 준비 2차 — 2026-10-16
 
 동일 r64 소스로 Windows와 peets 각각 **526개 통과·실패 0개·18개 ignored**, fmt·전체 타깃 Clippy(`-D warnings`)·workspace 빌드가 통과했다. 앱 248개, compat 161개, document 70개, editor 34개, core 13개다. Windows 실행 파일은 release이며 테스트는 최적화된 dev/test profile이다. 양 OS CLI에서 기존 원본 참조 사례의 saved/input 좌표 각각 38/38, 차이 0을 다시 확인했다.
 
-peets의 새 격리 소스는 `/home/peets/Projects/mathcraft-indexed-workflow-20261016-r64`, source tar SHA-256은 `56ad07499aeea659d8ff3b4b1e95c8ba8467ea357e93b83d0ec4e047a4f7f67d`다. 양 호스트의 archive SHA가 일치하며 Rust 73개 파일과 Cargo 설정·lock을 현재 파일과 재대조했다. `target/release/mathcraft.exe`는 **21,626,368 bytes**, SHA-256 `707036f81f27e4f140d385ce7bb2751b1a12f31ee6ec4509dce299ed249a0247`다. 증거 manifest는 `artifacts/rea/indexed-workflow-integration-20261016/source-validation.json`이다.
+peets의 새 격리 소스는 `/home/peets/Projects/mathfolio-indexed-workflow-20261016-r64`, source tar SHA-256은 `56ad07499aeea659d8ff3b4b1e95c8ba8467ea357e93b83d0ec4e047a4f7f67d`다. 양 호스트의 archive SHA가 일치하며 Rust 73개 파일과 Cargo 설정·lock을 현재 파일과 재대조했다. `target/release/mathfolio.exe`는 **21,626,368 bytes**, SHA-256 `707036f81f27e4f140d385ce7bb2751b1a12f31ee6ec4509dce299ed249a0247`다. 증거 manifest는 `artifacts/rea/indexed-workflow-integration-20261016/source-validation.json`이다.
 
 [0063](analysis/0063-indexed-definition-contract.md)의 배열 원소 정의는 1/2 인덱스, 범위 변수·대각선, 새 배열의 확장·0 채움, ORIGIN, 단위·복소수, 기존 값·alias·captured scope·checkpoint, 실패한 정의와 취소 경계를 연결했다. SI 이름 A/m/V의 정의 LHS와 명시 UNIT RHS도 구분한다. 단위 있는 배열의 빈칸은 최초 값의 차원을 보존한다. 행벡터 단일-index 할당은 명시 설치 도움말 예제를 따른다. 저수준 setter와 상위 wrapper의 미확인 부분을 구분하며, 일반 행벡터 단일-index 조회·문자열/중첩 배열 원소·자기참조 범위 recurrence·fill metadata 없는 혼합 단위 배열 확장은 미완료다. 엔진 집중 회귀 11개와 실제 한 글자 키 입력→MathML→계산·Undo/Redo 회귀를 검사했다.
 

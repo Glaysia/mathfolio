@@ -1,5 +1,5 @@
 // This module is packaged locally beside the WASM; no CDN or helper server.
-import init, { CalculatorWorker } from "./mathcraft.js";
+import init, { CalculatorWorker } from "./mathfolio.js";
 const ready = init().then(() => new CalculatorWorker());
 // Install before asynchronous WASM loading so the first message cannot be lost.
 self.onmessage = async ({ data }) => {

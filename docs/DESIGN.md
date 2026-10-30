@@ -1,8 +1,8 @@
-# Mathcraft 작성 경험의 기준
+# Mathfolio 작성 경험의 기준
 
 현재 상태 갱신: 2026-10-22. 다음 작업은 [스크롤 성능](PERFORMANCE.md)과 [현대적인 UI·옵시디언 내장 구조](UI-MODERNIZATION.md)다. Excalidraw처럼 문서 중심으로 화면을 간결하게 정리하고, 기존 단축키와 수식·계산·저장 의미는 유지한다. 같은 Rust 구현과 내장 편집 컴포넌트를 호스트 어댑터로 연결한다. 아래 Prime 외형 재현 기록은 이전 설계 이력이다. 구현 판정은 [통합 목록](FEATURES.md)을 기준으로 한다.
 
-Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 않다. 사용자가 종이에 쓰듯 수식을 작성하고, 구조를 고치고, 단위와 결과를 같은 자리에서 읽으며 생각을 이어갈 수 있어야 한다. 계산 엔진과 문서 형식은 그 작성 흐름을 지탱한다. Mathcad의 이 흐름을 이해하기 위해 REA로 명령 진입점, 편집 모드, 상태 변경과 저장 표현을 추적한다.
+Mathfolio의 제품 가치는 계산 함수를 많이 제공하는 데 있지 않다. 사용자가 종이에 쓰듯 수식을 작성하고, 구조를 고치고, 단위와 결과를 같은 자리에서 읽으며 생각을 이어갈 수 있어야 한다. 계산 엔진과 문서 형식은 그 작성 흐름을 지탱한다. Mathcad의 이 흐름을 이해하기 위해 REA로 명령 진입점, 편집 모드, 상태 변경과 저장 표현을 추적한다.
 
 원본 내부 구조에서 확인한 사실과 우리가 재구성한 정책을 구분한다. 정적 코드에서 보인 경로를 실제 키보드·IME·화면 동작까지 검증했다고 부르지 않는다. 현재 사용자의 지시에 따라 Windows와 peets 모두 GUI·스크린샷·원본 실행 없이 작업한다.
 
@@ -38,7 +38,7 @@ Mathcraft의 제품 가치는 계산 함수를 많이 제공하는 데 있지 �
 
 검증은 창·스크린샷 없이 egui context의 이벤트·텍스트 스타일·기하·트리 상태를 검사한다. 50%·100%·200% 클릭 역변환, 리본 메뉴를 닫은 뒤 연속 입력, Undo 후 입력, 동명 변수/단위 스타일과 갤러리 의미, 큰 괄호의 폭, 근호의 숨긴 기본 차수, source node hit 일관성, 페이지 간 본문 좌표를 포함한다. 실제 Windows/Linux IME·마우스 사용감과 최종 화면의 동일성은 아직 실기 검증하지 않았다.
 
-2026-10-15의 해당 변경 당시 Windows와 peets(Kubuntu 26.04)에서 각각 전체 215개 테스트, rustfmt, Clippy 경고 금지, workspace build를 통과했다. peets 검증 소스는 `/home/peets/Projects/mathcraft-prime-20261015`, 공유 빌드 결과는 `/home/peets/Projects/mathcraft/target/debug/mathcraft`다. 당시 Windows 실행 파일은 `target/debug/mathcraft.exe`였다. 현재 기본 실행은 `scripts/run.ps1`의 release 빌드이며 `target/release/mathcraft.exe`를 사용한다. 이 단락의 검사 개수는 과거 기록이다. 검증 과정에서 GUI·스크린샷·원본 실행은 사용하지 않았다.
+2026-10-15의 해당 변경 당시 Windows와 peets(Kubuntu 26.04)에서 각각 전체 215개 테스트, rustfmt, Clippy 경고 금지, workspace build를 통과했다. peets 검증 소스는 `/home/peets/Projects/mathfolio-prime-20261015`, 공유 빌드 결과는 `/home/peets/Projects/mathfolio/target/debug/mathfolio`다. 당시 Windows 실행 파일은 `target/debug/mathfolio.exe`였다. 현재 기본 실행은 `scripts/run.ps1`의 release 빌드이며 `target/release/mathfolio.exe`를 사용한다. 이 단락의 검사 개수는 과거 기록이다. 검증 과정에서 GUI·스크린샷·원본 실행은 사용하지 않았다.
 
 ## 기본 계산서 작성의 연결
 

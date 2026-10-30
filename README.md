@@ -1,6 +1,8 @@
-# Mathcraft
+# Mathfolio
 
-라이선스: **[GNU AGPLv3 only](LICENSE)** (`AGPL-3.0-only`). Mathcraft 자체 작성 소스와 문서에 적용하며, 포함된 제3자 구성요소의 원래 라이선스는 [NOTICE.md](NOTICE.md)를 따른다.
+**0.1.1 (2026-10-30):** 프로젝트와 앱 이름을 **Mathfolio**로 변경했다. 실행 파일은 `mathfolio`, CLI는 `mathfolio-cli`, SDK는 `@mathfolio/wasm-sdk`다. 새 자체 문서는 `.mathfolio`로 저장하며, 기존 `.mathcraft` 문서와 저장 결과·클립보드 형식은 계속 지원한다. [이름 변경과 호환 범위](docs/RENAME-0.1.1.md).
+
+라이선스: **[GNU AGPLv3 only](LICENSE)** (`AGPL-3.0-only`). Mathfolio 자체 작성 소스와 문서에 적용하며, 포함된 제3자 구성요소의 원래 라이선스는 [NOTICE.md](NOTICE.md)를 따른다.
 
 **2026-10-23:** [Windows 스크롤 지연 수정](docs/analysis/0211-windows-scroll-renderer-fix.md)을 반영했다. 같은 실행체의 native 간격을 약219ms에서6.5ms로 줄였고 사용자가 개선을 확인했다.
 
@@ -10,7 +12,7 @@
 
 [호스트 색상 연동·Nord](docs/HOST-THEMES.md): UI 테마 메뉴와 Rust 색 토큰 계약을 제공한다. CSS 수집·설정 저장과 실제 내장 연결은 별도 플러그인 레포의 후속 범위다.
 
-**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. [WASM SDK 0.1.0](docs/WASM-SDK.md)의 Canvas·Worker·열기/저장·벡터 PDF를 실제 브라우저에서 검증했다. 두 플러그인의 실제 연결은 별도 레포의 범위다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
+**현재 두 작업:** [스크롤 성능 개선](docs/PERFORMANCE.md)과 [현대적인 UI/UX](docs/UI-MODERNIZATION.md). [네이티브·WASM 구조 계획](docs/NATIVE-WASM.md)에 따라 독립판은 JS/TS 실행 엔진·브라우저·WebView 없는 Rust 앱으로 유지하고, 공통 Rust/egui 구현의 WASM을 별도 Obsidian·VS Code TS 플러그인에 연결한다. [WASM SDK 0.1.1](docs/WASM-SDK.md)의 Canvas·Worker·열기/저장·벡터 PDF를 실제 브라우저에서 검증했다. 두 플러그인의 실제 연결은 별도 레포의 범위다. 기존 단축키를 유지한다. [기능 체크포인트](docs/CHECKPOINT-2026-10-20.md)와 [r222 고정 검증](docs/analysis/0207-typed-source-matrix-window.md)은 당시 이력으로 보존한다.
 
 **XY 첫 수식 후속:** [0181 계약](docs/analysis/0181-xy-typed-expression-contract.md)·[0182 통합](docs/analysis/0182-xy-typed-expression-integration.md)에 typed source와 일반 expression-only 편집, label/contextual/문자 아래첨자 보존·물리량 pointwise 계산·Undo/Redo·Pending 저장·cold reopen·벡터 출력을 연결한다. typed-xy-r193은 Windows/peets 각각1486검사, 양 OS98MCDX/10별도XML·58PDF 검증을 통과했다. 원본 전체 navigator·IME·sampling/domain·legend와 marker CPU 공백은 남아 있으며 완성률로 환산하지 않는다.
 
@@ -47,14 +49,14 @@ UI는 Excalidraw처럼 간결하고 현대적인 작업 공간으로 개선하�
 프로젝트의 `rust-toolchain.toml`에서 Rust 1.99.0과 rustfmt, Clippy, rust-analyzer를 고정한다.
 
 ```sh
-cargo run -p mathcraft-cli --locked
-cargo run --release -p mathcraft-app --locked
-cargo run -p mathcraft-cli --locked -- conformance tests/reference/mathcad12.json
-cargo run -p mathcraft-cli --locked -- native-inspect INPUT.mcdx
-cargo run -p mathcraft-cli --locked -- native-copy INPUT.mcdx NEW.mcdx
-cargo run -p mathcraft-cli --locked -- native-run INPUT.mcdx
-cargo run -p mathcraft-cli --locked -- features
-cargo run -p mathcraft-cli --locked -- mathml-run examples/engineering.xml
+cargo run -p mathfolio-cli --locked
+cargo run --release -p mathfolio-app --locked
+cargo run -p mathfolio-cli --locked -- conformance tests/reference/mathcad12.json
+cargo run -p mathfolio-cli --locked -- native-inspect INPUT.mcdx
+cargo run -p mathfolio-cli --locked -- native-copy INPUT.mcdx NEW.mcdx
+cargo run -p mathfolio-cli --locked -- native-run INPUT.mcdx
+cargo run -p mathfolio-cli --locked -- features
+cargo run -p mathfolio-cli --locked -- mathml-run examples/engineering.xml
 ```
 
 전체 검사는 Windows에서 `./scripts/check.ps1`, Linux에서 `bash scripts/check.sh`로 실행한다. 신규 환경 준비 절차와 검증 상태는 [개발 환경](docs/DEVELOPMENT.md)을 참고한다.

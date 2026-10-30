@@ -6,7 +6,7 @@
 
 ## 앱 수명과 명령 순서
 
-[실제 컨트롤러 회귀](../../crates/mathcraft-app/src/worksheet_ui/plot_slot_key_integration.rs)는 X=[1,2,3], Y 목록=[2*x,5*x]에서 시작한다. 같은 OS 입력 묶음의 선택·3*x 치환·ShiftEnter·4*x 입력을 raw hook으로 나누어 처리한다. 확정 전 document, 이전 곡선, 문서 Undo, 계산 generation은 그대로다. Enter 이후 source는 [3*x,4*x,5*x]이며 한 문서 Undo다. 이전 첫/마지막 식 identity의 곡선만 Pending으로 유지하고 새 가운데 곡선에는 이웃 결과를 붙이지 않는다.
+[실제 컨트롤러 회귀](../../crates/mathfolio-app/src/worksheet_ui/plot_slot_key_integration.rs)는 X=[1,2,3], Y 목록=[2*x,5*x]에서 시작한다. 같은 OS 입력 묶음의 선택·3*x 치환·ShiftEnter·4*x 입력을 raw hook으로 나누어 처리한다. 확정 전 document, 이전 곡선, 문서 Undo, 계산 generation은 그대로다. Enter 이후 source는 [3*x,4*x,5*x]이며 한 문서 Undo다. 이전 첫/마지막 식 identity의 곡선만 Pending으로 유지하고 새 가운데 곡선에는 이웃 결과를 붙이지 않는다.
 
 이어 붙은 F5·저장도 뒤쪽 텍스트보다 먼저 실행하지 않아야 한다. 실제 global editing shortcut과 page draw 순서를 사용하는 headless 회귀가 이 경계를 검사한다. 명시 계산 뒤 세 곡선은 각각 3*x,4*x,5*x이며 own/native 저장과 cold reopen에서 계산하지 않고 복원되어야 한다. 별도 Pending native 저장/복사에서는 세 resultRef 모두 Pending, 가운데 trace payload 없음, 이전 첫/마지막 곡선만 유지한다. PDF의 image object 및 텍스트 내용은 별도 검증 스크립트로 확인한다.
 

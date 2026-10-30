@@ -8,7 +8,7 @@
 
 요청은 바로 문서를 변경하지 않고 page frame 끝에서 처리한다. 입력 위치가 바뀌거나 영역이 선택되었거나 draft·dialog·popup·drag가 생기면 폐기한다. New/Open/Undo/Redo도 보류 요청을 제거한다. 원본의 빈 crosshair 문맥과 활성 수식 문맥을 분리한다.
 
-앱은 모든 non-break 영역의 실제 표현 bounds를 구한 뒤 [문서 트랜잭션](../../crates/mathcraft-document/src/page_break.rs)을 호출한다. 성공한 candidate만 설치하고 영역 이동·break 추가/삭제·삽입점 변경을 하나의 전체 문서 history 항목으로 보존한다. 실패하면 source·좌표·선택·history를 바꾸지 않고 status에 이유를 남긴다. 계산 갱신은 기존 위치 이동과 같은 `calculation_changed(false)`를 사용해 Automatic/Manual과 Pending 처리 계약을 따른다.
+앱은 모든 non-break 영역의 실제 표현 bounds를 구한 뒤 [문서 트랜잭션](../../crates/mathfolio-document/src/page_break.rs)을 호출한다. 성공한 candidate만 설치하고 영역 이동·break 추가/삭제·삽입점 변경을 하나의 전체 문서 history 항목으로 보존한다. 실패하면 source·좌표·선택·history를 바꾸지 않고 status에 이유를 남긴다. 계산 갱신은 기존 위치 이동과 같은 `calculation_changed(false)`를 사용해 Automatic/Manual과 Pending 처리 계약을 따른다.
 
 빈 삽입점 Backspace/Delete는 각각 위/아래 방향의 한 grid 구간에서만 제거를 요청한다. 앱의 일반 region clipboard Delete가 키를 먼저 없애므로 blank-only 페이지 명령을 그보다 앞에 배치했다. 키 테스트도 실제 global shortcuts → document history → region clipboard → page 순서로 실행한다. 활성 수식의 문자 삭제나 선택 영역 삭제를 이 경로로 바꾸지 않는다.
 
@@ -52,6 +52,6 @@ fixture 설정의 명시적 계산과 파일 재열기를 구분한다. 자체 �
 
 ## 변경 경로와 남은 범위
 
-앱 구현과 회귀는 [page_break_ui.rs](../../crates/mathcraft-app/src/worksheet_ui/page_break_ui.rs), 좁은 field/default/request/shortcut/painter/Tab 연결은 [worksheet_ui.rs](../../crates/mathcraft-app/src/worksheet_ui.rs), 리본 enum/context와 메뉴는 [ribbon.rs](../../crates/mathcraft-app/src/ribbon.rs)이다. f64 getter는 [page.rs](../../crates/mathcraft-app/src/page.rs), 계산 inert whitelist는 [edit_commit.rs](../../crates/mathcraft-app/src/worksheet_ui/edit_commit.rs)이다. 문서 pure API와 exporter/print 구현은 별도 root 소유 범위다.
+앱 구현과 회귀는 [page_break_ui.rs](../../crates/mathfolio-app/src/worksheet_ui/page_break_ui.rs), 좁은 field/default/request/shortcut/painter/Tab 연결은 [worksheet_ui.rs](../../crates/mathfolio-app/src/worksheet_ui.rs), 리본 enum/context와 메뉴는 [ribbon.rs](../../crates/mathfolio-app/src/ribbon.rs)이다. f64 getter는 [page.rs](../../crates/mathfolio-app/src/page.rs), 계산 inert whitelist는 [edit_commit.rs](../../crates/mathfolio-app/src/worksheet_ui/edit_commit.rs)이다. 문서 pure API와 exporter/print 구현은 별도 root 소유 범위다.
 
 현재 삭제는 단일 인접 break의 안전한 배치만 지원한다. 일반 공백 삽입/제거 전체, 여러 break를 한꺼번에 제거하기, 교차하는 page-wide item을 native처럼 재배치하기, 임의 marker drag, 원본 색과 모든 panel pixel layout은 남은 범위다. source에 없는 명령이나 native payload 속성을 추가하지 않았다.

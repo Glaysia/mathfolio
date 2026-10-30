@@ -28,7 +28,7 @@ Controls.Core **060009f9**, IL SHA `cd449ad079a0f475abb374b14b941f180e6fe5372c5b
 
 원본 리본 BAML은 Calculation Options의 `ToggleBinOctHexModeCalculationOptionCommand`에 연결된다. Worksheet **044f → 048f**, **07d5 → 07d6**은 옵션 변경을 활성 NUMERIC descriptor의 입력 모드에 전달한다. 새 키보드 단축키는 이 근거에서 도출하지 않는다. 기존 native의 명시적 `base`를 읽는 것과 새 접미사 입력을 발견하는 모드는 분리되어 있다.
 
-현재 [native_calculation.rs](../../crates/mathcraft-document/src/native_calculation.rs)는 고유 content-type Override로 활성 설정 part를 찾고, 직접 자식·namespace·중복을 검사한다. relocated part와 UTF-16은 기존 package decoder를 사용한다. 원문에 없는 가짜 속성이나 고정 파일명으로 carrier를 대신하지 않는다.
+현재 [native_calculation.rs](../../crates/mathfolio-document/src/native_calculation.rs)는 고유 content-type Override로 활성 설정 part를 찾고, 직접 자식·namespace·중복을 검사한다. relocated part와 UTF-16은 기존 package decoder를 사용한다. 원문에 없는 가짜 속성이나 고정 파일명으로 carrier를 대신하지 않는다.
 
 ## 원본 숫자 원문과 writer/reader
 
@@ -46,13 +46,13 @@ EquationEditor **0bbb** NUMERIC은 `StringValueNodeInfo`와 원래 lexeme를 사
 
 Math50 XSD는 real/imag 모두 optional `base` 기본10, 허용 문자열 2/8/10/16으로 선언한다. 그러나 `numberType`은 최소 길이1인 문자열일 뿐이다. XSD PASS가 digit·부호·소수·범위·정밀도 검증은 아니다. [설치 문서 표본 검색](../../artifacts/rea/radix-shipped-samples-20261019.json)은 77개 mcdx/mctx에서 명시적 base2/8/16 숫자를 찾지 못했다. 위 XML 구문과 새 fixture는 원본 writer/reader에서 도출하거나 직접 구성한 예이며, 원본 계산 결과 캡처로 표기하지 않는다.
 
-현재 [editor radix carrier](../../crates/mathcraft-editor/src/radix_literal.rs)는 `BasedNumber { literal, base }`에 소문자 접미사를 포함한 원문을 저장한다. 기존 Number JSON은 별도다. [bridge](../../crates/mathcraft-compat/src/editor_bridge.rs)와 [두 번째 writer](../../crates/mathcraft-compat/src/editor_bridge/serialization_writer.rs)는 원문 digits/base를 직렬화하며 계산 Quantity를 source로 역투영하지 않는다.
+현재 [editor radix carrier](../../crates/mathfolio-editor/src/radix_literal.rs)는 `BasedNumber { literal, base }`에 소문자 접미사를 포함한 원문을 저장한다. 기존 Number JSON은 별도다. [bridge](../../crates/mathfolio-compat/src/editor_bridge.rs)와 [두 번째 writer](../../crates/mathfolio-compat/src/editor_bridge/serialization_writer.rs)는 원문 digits/base를 직렬화하며 계산 Quantity를 source로 역투영하지 않는다.
 
 ## 계산의 독립적인 명시 범위
 
 원본 mplrun **0561 IntDv**, IL SHA `137fdcfbf32289defc239b816f91bf128d30a454826467ad8d66d023078209f0`의 `conv.r8`과 NumVal의 실수·허수 R8 필드는 일반 숫자 저장소를 확인해 준다. 이것은 원본의 진법 파서·정수 중간 저장형·overflow·tie rounding·소수 계산을 복원한 증거가 아니다. 별도 `Engine.ParseHex`/`StringUtils.ParseInt`를 worksheet 숫자 파서로 연결할 양성 call path도 확보하지 못했다.
 
-현재 [radix_integral.rs](../../crates/mathcraft-compat/src/radix_integral.rs)는 다음 **독립 Rust 지원 정책**을 사용한다.
+현재 [radix_integral.rs](../../crates/mathfolio-compat/src/radix_integral.rs)는 다음 **독립 Rust 지원 정책**을 사용한다.
 
 | 항목 | 명시 지원 또는 경계 |
 | --- | --- |
@@ -67,7 +67,7 @@ Math50 XSD는 real/imag 모두 optional `base` 기본10, 허용 문자열 2/8/10
 
 부호 경계는 중요하다. Native bridge는 `real base="2"`의 `-00101`을 읽어 `UnaryNeg(BasedNumber("00101b"))`로 구조화할 수 있고, 다시 쓸 때 neg 적용식으로 표현한다. 반면 raw compat MathML parser는 unsigned decoder에 `-00101`을 직접 넘기는 signed-in-text 기반 숫자를 거절한다. 이미 구조화된 `<apply><neg/><real base="2">00101</real></apply>`는 별도 unary 연산으로 계산한다. 두 경로의 차이를 원본 raw parser 전체 지원으로 확대하지 않는다. unchanged native package 보존과 편집 후 구조적 재직렬화도 바이트 동일성 주장은 다르다.
 
-이전 캐시 reader의 `base` 무시 문제는 현재 [numeric_literal.rs](../../crates/mathcraft-app/src/result_display/numeric_literal.rs)에서 공유 decoder와 속성 검사를 사용하도록 연결되어 있다. 실수·복소수 실수부·행렬 cell·unitedValue 경로가 이를 재사용한다. unsupported based imaginary/미지 메타데이터를 decimal로 표시하지 않고 raw cache는 보존한다. 이 연결은 원본 cached result가 항상 radix를 쓴다는 주장과 별개다.
+이전 캐시 reader의 `base` 무시 문제는 현재 [numeric_literal.rs](../../crates/mathfolio-app/src/result_display/numeric_literal.rs)에서 공유 decoder와 속성 검사를 사용하도록 연결되어 있다. 실수·복소수 실수부·행렬 cell·unitedValue 경로가 이를 재사용한다. unsupported based imaginary/미지 메타데이터를 decimal로 표시하지 않고 raw cache는 보존한다. 이 연결은 원본 cached result가 항상 radix를 쓴다는 주장과 별개다.
 
 ## `2b` 오른쪽 끝에 `3` 입력: 확인된 중간 구조
 
@@ -75,7 +75,7 @@ NavigatorState **1324**, IL SHA `3efa93935fb11f8f0ef1a044d61d9d94bd7befb023ef6b6
 
 **0491**, IL SHA `b311d98b0803311bac7aa92700b56b39364b860d5858b3dc7e89544281f281f4`는 이전 NUMERIC의 i/j 또는 based suffix를 발견하면 **0492**로 숫자 prefix와 tail을 나눈다. 0492는 `Char.IsDigit` 또는 decimal point를 스캔하며, 모든 문자열에서 단순히 마지막 한 글자만 떼는 함수가 아니다.
 
-따라서 ASCII decimal prefix를 가진 `2b`와 새 `3`의 확인된 분석 중간값은 **기존 숫자2 + 새 식별자b3**다. `3`을 버리거나 binary 원문23으로 만드는 동작은 맞지 않는다. 현재 [입력 adapter](../../crates/mathcraft-app/src/formula/radix_input.rs)는 Normal·선택 없음·끝 위치·순수 ASCII decimal old digits·새 ASCII hex 문자·독립 root/Evaluate operand라는 제한으로 `Scale(Number(2), Identifier(b3))`를 만든다. 임의 ancestor, callee, literal suffix, 부분 선택, typeover, 기존 alpha/fraction/exponent digit까지 이 규칙을 넓히지 않는다.
+따라서 ASCII decimal prefix를 가진 `2b`와 새 `3`의 확인된 분석 중간값은 **기존 숫자2 + 새 식별자b3**다. `3`을 버리거나 binary 원문23으로 만드는 동작은 맞지 않는다. 현재 [입력 adapter](../../crates/mathfolio-app/src/formula/radix_input.rs)는 Normal·선택 없음·끝 위치·순수 ASCII decimal old digits·새 ASCII hex 문자·독립 root/Evaluate operand라는 제한으로 `Scale(Number(2), Identifier(b3))`를 만든다. 임의 ancestor, callee, literal suffix, 부분 선택, typeover, 기존 alpha/fraction/exponent digit까지 이 규칙을 넓히지 않는다.
 
 0491 자체에는 모드/라이선스 guard가 없다. 이후 **0493** 후보 fusion과 **0494**의 based-candidate 검사는 별개다. 원본0494는 mode ON과 유효 라이선스를 검사하며 lowercase를 허용하고 uppercase에는 전달 flag를 사용한다. **라이선스 조건은 관찰한 원본 분기이며 Mathcraft에 재현한 유료 제한이 아니다.**
 

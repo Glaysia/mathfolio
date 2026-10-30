@@ -1,4 +1,4 @@
-// Mathcraft local change (2026-10-16): preserve modified C key events for math
+// Mathfolio local change (2026-10-16): preserve modified C key events for math
 // shortcuts without reinterpreting actual Copy/Insert clipboard commands.
 //! [`egui`] bindings for [`winit`](https://github.com/rust-windowing/winit).
 //!
@@ -2337,7 +2337,7 @@ pub fn short_window_event_description(event: &winit::event::WindowEvent) -> &'st
 }
 
 #[cfg(test)]
-mod mathcraft_shortcut_tests {
+mod mathfolio_shortcut_tests {
     use super::*;
 
     #[test]

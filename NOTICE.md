@@ -1,11 +1,11 @@
-# Mathcraft licensing notices
+# Mathfolio licensing notices
 
-Copyright (C) 2026 Mathcraft contributors.
+Copyright (C) 2026 Mathfolio contributors.
 
 SPDX-License-Identifier: AGPL-3.0-only
 
 Except for third-party materials identified by their own licenses or notices,
-the original Mathcraft source code, scripts and documentation in this repository
+the original Mathfolio source code, scripts and documentation in this repository
 are licensed under the GNU Affero General Public License, version 3 only.
 
 This program is free software: you can redistribute it and/or modify it under
@@ -26,11 +26,11 @@ text is in [LICENSE](LICENSE).
   Preserve [LICENSE-MIT](vendor/egui-winit/LICENSE-MIT),
   [LICENSE-APACHE](vendor/egui-winit/LICENSE-APACHE) and the provenance and patch
   notes in [UPSTREAM.json](vendor/egui-winit/UPSTREAM.json) and
-  [MATHCRAFT.md](vendor/egui-winit/MATHCRAFT.md).
+  [MATHFOLIO.md](vendor/egui-winit/MATHFOLIO.md).
 - The original vendored `egui-wgpu`, `egui_software_backend` and `constify`
   sources retain their MIT OR Apache-2.0 licenses. Preserve their bundled
-  license texts and provenance in [egui-wgpu](vendor/egui-wgpu/MATHCRAFT.md)
-  and [egui-software](vendor/egui-software/MATHCRAFT.md). The new Mathcraft
+  license texts and provenance in [egui-wgpu](vendor/egui-wgpu/MATHFOLIO.md)
+  and [egui-software](vendor/egui-software/MATHFOLIO.md). The new Mathfolio
   Windows surface module and its regression tests are AGPL-3.0-only, as
   identified in their source headers.
 - STIX Two Math and Text fonts retain the SIL Open Font License 1.1. Preserve
@@ -46,7 +46,7 @@ text is in [LICENSE](LICENSE).
 - Nord palette values are credited to Sven Greb and the Nord project (MIT).
   Preserve [LICENSE-MIT](assets/themes/nord/LICENSE-MIT) and
   [SOURCE.json](assets/themes/nord/SOURCE.json). The semantic UI mapping is
-  Mathcraft's implementation; no Nord CSS runtime or web engine is bundled.
+  Mathfolio's implementation; no Nord CSS runtime or web engine is bundled.
 - Other dependencies retain the licenses and copyright notices supplied by
   their respective authors. This project-level notice does not relicense
   third-party materials, including interoperability reference fixtures.

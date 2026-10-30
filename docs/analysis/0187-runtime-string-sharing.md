@@ -98,7 +98,7 @@ fixture는 빈 문자열, 32B, 8KiB, 256KiB와 0/1/8/32개 조회 및 숫자 대
 
 ## byte oracle와 검증 상태
 
-기능 후보는 [독립 원본 wire enum 대비 검사](../../artifacts/rea/string-sharing-next-20261019/source/crates/mathcraft-compat/src/string_value.rs)에서 빈 문자열, 숫자처럼 보이는 문자열, escaping/CR/LF/tab/한글/보충 Unicode, generic wire의 XML-invalid 문자, 최대 1MiB를 비교했다. 전체 JSON bytes, `numeric_json`, Debug 및 decode→encode bytes가 같다. 누락/null/잘못된 타입/중복 value의 serde 오류 문자열도 기존 enum과 같으며 generic Value의 기존 unknown-field 허용을 새롭게 확대하거나 축소하지 않았다. 엄격 inert cache admission은 별도 caller 그대로 필요하다. clone의 실제 Arc 공유, 독립 equal 값의 내용 equality, 마지막 소유자 drop과 Send+Sync도 검사했다.
+기능 후보는 [독립 원본 wire enum 대비 검사](../../artifacts/rea/string-sharing-next-20261019/source/crates/mathfolio-compat/src/string_value.rs)에서 빈 문자열, 숫자처럼 보이는 문자열, escaping/CR/LF/tab/한글/보충 Unicode, generic wire의 XML-invalid 문자, 최대 1MiB를 비교했다. 전체 JSON bytes, `numeric_json`, Debug 및 decode→encode bytes가 같다. 누락/null/잘못된 타입/중복 value의 serde 오류 문자열도 기존 enum과 같으며 generic Value의 기존 unknown-field 허용을 새롭게 확대하거나 축소하지 않았다. 엄격 inert cache admission은 별도 caller 그대로 필요하다. clone의 실제 Arc 공유, 독립 equal 값의 내용 equality, 마지막 소유자 drop과 Send+Sync도 검사했다.
 
 [기능 검사 기록](../../artifacts/rea/string-sharing-next-20261019/validation.json)은 compat 전체 371 pass / 0 fail / 13 ignored 및 all-target Clippy `-D warnings` 통과를 담는다. 이는 계측 추가 전 후보의 검사이며 그때의 별도 manifest·실행체를 보존한다. 12개 비용 프로세스에서는 값·독립 old wire·실행 횟수·동일 source bytes를 다시 검사했다. 이 문서는 기존 native 결과 계약을 새롭게 REA했다고 주장하지 않으며, 원본 프로그램의 공유 방식도 추정하지 않는다.
 

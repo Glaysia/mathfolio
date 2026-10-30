@@ -1261,8 +1261,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
-name = "mathcraft-app"
-version = "0.1.0"
+name = "mathfolio-app"
+version = "0.1.1"
 dependencies = [
  "eframe",
  "egui_plot",
@@ -1271,10 +1271,10 @@ dependencies = [
  "image",
  "js-sys",
  "libc",
- "mathcraft-compat",
- "mathcraft-core",
- "mathcraft-document",
- "mathcraft-editor",
+ "mathfolio-compat",
+ "mathfolio-core",
+ "mathfolio-document",
+ "mathfolio-editor",
  "rfd",
  "roxmltree",
  "serde",
@@ -1289,22 +1289,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "mathcraft-cli"
-version = "0.1.0"
+name = "mathfolio-cli"
+version = "0.1.1"
 dependencies = [
- "mathcraft-compat",
- "mathcraft-core",
- "mathcraft-document",
- "mathcraft-editor",
+ "mathfolio-compat",
+ "mathfolio-core",
+ "mathfolio-document",
+ "mathfolio-editor",
  "serde_json",
 ]
 
 [[package]]
-name = "mathcraft-compat"
-version = "0.1.0"
+name = "mathfolio-compat"
+version = "0.1.1"
 dependencies = [
- "mathcraft-core",
- "mathcraft-editor",
+ "mathfolio-core",
+ "mathfolio-editor",
  "num-complex",
  "roxmltree",
  "serde",
@@ -1312,20 +1312,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "mathcraft-core"
-version = "0.1.0"
+name = "mathfolio-core"
+version = "0.1.1"
 dependencies = [
  "num-complex",
  "serde",
 ]
 
 [[package]]
-name = "mathcraft-document"
-version = "0.1.0"
+name = "mathfolio-document"
+version = "0.1.1"
 dependencies = [
- "mathcraft-compat",
- "mathcraft-core",
- "mathcraft-editor",
+ "mathfolio-compat",
+ "mathfolio-core",
+ "mathfolio-editor",
  "num-complex",
  "roxmltree",
  "serde",
@@ -1335,8 +1335,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "mathcraft-editor"
-version = "0.1.0"
+name = "mathfolio-editor"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",

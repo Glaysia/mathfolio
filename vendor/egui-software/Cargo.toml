@@ -3,7 +3,7 @@ name = "egui_software_backend"
 version = "0.0.3"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-description = "CPU rasterizer for egui, ported to the locked Mathcraft egui version"
+description = "CPU rasterizer for egui, ported to the locked Mathfolio egui version"
 repository = "https://github.com/DGriffin91/egui_software_backend"
 publish = false
 [dependencies]

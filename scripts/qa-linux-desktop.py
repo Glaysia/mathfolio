@@ -53,7 +53,7 @@ def main():
         env["DBUS_SESSION_BUS_ADDRESS"] = bus[0]
         run(["dbus-update-activation-environment", "DISPLAY", "XDG_RUNTIME_DIR", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP"], env)
         manager = spawn(["openbox"], env, args.session / "openbox.log")
-        source = args.session.resolve() / "worksheet.mathcraft"
+        source = args.session.resolve() / "worksheet.mathfolio"
         source.write_text(json.dumps(dict(version=2, title="GUI test worksheet", width=816.0, height=1056.0,
                                          grid=19.2, next_id=1, regions=[], native_archive=None)))
         app = spawn([str(application), "--open", str(source)], env, args.session / "application.log")

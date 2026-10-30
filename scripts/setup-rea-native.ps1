@@ -1,4 +1,4 @@
-param([string]$ToolsDirectory = (Join-Path $env:USERPROFILE '.local/share/mathcraft-tools'))
+param([string]$ToolsDirectory = (Join-Path $env:USERPROFILE '.local/share/mathfolio-tools'))
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $ToolsDirectory | Out-Null
 $taskPackages = @(

@@ -1,4 +1,4 @@
-import init, { MathcraftSession } from "./mathcraft.js";
+import init, { MathfolioSession } from "./mathfolio.js";
 
 export const protocolVersion = 1;
 let initialization: ReturnType<typeof init> | undefined;
@@ -30,25 +30,25 @@ export interface MountOptions {
   fonts?: { name: string; bytes: Uint8Array }[];
 }
 /** Thin lifecycle/IO binding. The document, editor, undo and calculations live in Rust. */
-export class MathcraftEditor {
+export class MathfolioEditor {
   private disposed = false;
   private observers = new Set<(state: SessionState) => void>();
   private requestObservers = new Set<(request: HostRequest) => void>();
   private timer?: ReturnType<typeof setInterval>;
   private lastState = "";
   private active = true;
-  private constructor(private readonly session: MathcraftSession, private readonly canvas: HTMLCanvasElement) {}
-  static async mount(options: MountOptions): Promise<MathcraftEditor> {
-    initialization ??= init({ module_or_path: options.wasm ?? new URL("mathcraft_bg.wasm", import.meta.url) }).catch(error => { initialization = undefined; throw error; });
+  private constructor(private readonly session: MathfolioSession, private readonly canvas: HTMLCanvasElement) {}
+  static async mount(options: MountOptions): Promise<MathfolioEditor> {
+    initialization ??= init({ module_or_path: options.wasm ?? new URL("mathfolio_bg.wasm", import.meta.url) }).catch(error => { initialization = undefined; throw error; });
     await initialization;
-    if (mountedCanvases.has(options.canvas)) throw new Error("Canvas already has a Mathcraft editor");
+    if (mountedCanvases.has(options.canvas)) throw new Error("Canvas already has a Mathfolio editor");
     mountedCanvases.add(options.canvas);
-    let session: MathcraftSession | undefined;
+    let session: MathfolioSession | undefined;
     try {
-      session = new MathcraftSession(protocolVersion);
+      session = new MathfolioSession(protocolVersion);
       for (const font of options.fonts ?? []) session.provideFont(font.name, font.bytes);
       await session.mount(options.canvas, String(options.workerUrl ?? new URL("worker.js", import.meta.url)));
-      return new MathcraftEditor(session, options.canvas);
+      return new MathfolioEditor(session, options.canvas);
     } catch (error) { session?.dispose(); session?.free(); mountedCanvases.delete(options.canvas); throw error; }
   }
   private check(): void { if (this.disposed) throw new Error("Editor disposed"); }
@@ -58,7 +58,7 @@ export class MathcraftEditor {
   state(): SessionState { this.check(); return this.session.state() as SessionState; }
   takeRequests(): HostRequest[] { this.check(); return this.session.takeRequests() as HostRequest[]; }
   command(command: Command): void { this.check(); this.session.command(command); }
-  exportDocument(format: "mathcraft" | "mcdx"): Uint8Array { this.check(); return this.session.exportDocument(format); }
+  exportDocument(format: "mathfolio" | "mathcraft" | "mcdx"): Uint8Array { this.check(); return this.session.exportDocument(format); }
   exportPdf(): Uint8Array { this.check(); return this.session.exportPdf(); }
   prepareSave(name: string): SavePacket { this.check(); return this.session.prepareSave(name) as SavePacket; }
   acknowledgeSave(id: number, success: boolean): boolean {
@@ -100,3 +100,6 @@ export class MathcraftEditor {
     clearInterval(this.timer); this.observers.clear(); this.requestObservers.clear(); this.session.dispose(); this.session.free(); this.disposed = true; mountedCanvases.delete(this.canvas);
   }
 }
+
+/** @deprecated Use MathfolioEditor. Retained for clients of the 0.1.0 SDK. */
+export { MathfolioEditor as MathcraftEditor };

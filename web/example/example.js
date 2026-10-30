@@ -1,4 +1,4 @@
-import { MathcraftEditor } from "../wasm-sdk/sdk.js";
+import { MathfolioEditor } from "../wasm-sdk/sdk.js";
 const status = document.querySelector("#status");
 const canvas = document.querySelector("canvas");
 // Test-host instrumentation, absent from the SDK and normal example execution.
@@ -18,11 +18,11 @@ const download = (data, name, type) => {
 };
 try {
   const font = await bytes("../wasm-sdk/fonts/nanum/NanumGothic-Regular.ttf");
-  const editor = await MathcraftEditor.mount({ canvas, fonts: [{ name: "Nanum Gothic", bytes: font }] });
+  const editor = await MathfolioEditor.mount({ canvas, fonts: [{ name: "Nanum Gothic", bytes: font }] });
   const lifetime = new AbortController();
   window.editor = editor;
   editor.setThemeMode("nord");
-  let name = "worksheet.mathcraft";
+  let name = "worksheet.mathfolio";
   const save = () => { const packet = editor.prepareSave(name); download(packet.bytes, name, "application/octet-stream"); /* A download is not a confirmed host write: do not ack. */ };
   document.querySelector("#open").onchange = async ({ target }) => {
     const file = target.files[0]; if (file) { editor.loadDocument(file.name, new Uint8Array(await file.arrayBuffer()), confirm("현재 문서를 교체할까요?")); name = file.name; }
@@ -44,7 +44,7 @@ try {
   });
   document.addEventListener("visibilitychange", () => editor.setActive(!document.hidden), { signal: lifetime.signal });
   window.addEventListener("pagehide", () => { lifetime.abort(); editor.dispose(); }, { once: true, signal: lifetime.signal });
-  window.mathcraftReady = true;
+  window.mathfolioReady = true;
   const params = new URL(location.href).searchParams;
   if (params.has("scene")) { name=params.get("scene"); editor.loadDocument(name, await bytes(`/fixtures/${encodeURIComponent(name)}`)); }
   document.body.dataset.ready = "true";
