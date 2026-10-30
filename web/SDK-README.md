@@ -1,4 +1,4 @@
-# Mathfolio WASM SDK 0.1.1 / protocol 1
+# Mathfolio WASM SDK 0.1.2-dev / protocol 1
 
 The native Rust worksheet editor, calculator, unit system, history, formatting
 and vector PDF writer, hosted on a Canvas. No separate TS math/editor model.
@@ -57,6 +57,11 @@ views. setActive resumes rendering, not calculations. subscribe reports small
 state at up to 10Hz; onRequest separately receives explicit host actions.
 Unsubscribe or dispose to remove SDK timers. No document/AST snapshot crosses
 the boundary per frame. inspectDocument/inspectResults are explicit diagnostics.
+state().selected_regions reports selected region IDs. CAD marquee selection and
+group move/copy/cut/paste/delete use the same Rust path as the native app.
+inspectRegionBounds() explicitly returns last-measured Canvas bounds in egui
+points for diagnostics, omitting regions not yet measured. It uses committed
+positions during movement previews; do not poll it every frame.
 
 Workers start lazily on the first calculation job, not on idle mount or saved
 result opening. Calculations use one persistent Worker per calculation session. Stop

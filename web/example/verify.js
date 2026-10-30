@@ -178,6 +178,7 @@ export async function verify(editor, { canvas, font, bytes }) {
     assert(editor.state().frames === frameCount, "inactive surface stops worksheet frames"); editor.setActive(true);
     assert(editor.state().revision === stateBeforeInactive.revision, "visibility changes preserve revision");
     // Existing real-world source fixture, including tables and saved colors.
+    await (await import("./region-selection-tests.js")).verifyRegionSelection(editor, canvas, assert);
     for (const name of ["1015_LCC_S.mcdx", "1016_LCC_S.mcdx"]) {
       const data = await bytes(`/fixtures/${name}`); editor.loadDocument(name, data, true); await sleep(150);
       const doc = JSON.parse(editor.inspectDocument());

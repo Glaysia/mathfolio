@@ -1,5 +1,7 @@
 # Mathfolio
 
+**개발 중 0.1.2-dev:** CAD 방식 드래그 다중 선택과 묶음 이동·복사·잘라내기·붙여넣기·삭제를 네이티브와 WASM의 공통 Rust 구현에 연결했다. 왼쪽→오른쪽은 완전히 포함한 영역, 오른쪽→왼쪽은 걸친 영역을 선택한다. [동작·검증·제한](docs/analysis/0216-cad-region-selection.md). 공개 릴리즈는 아래 0.1.1이다.
+
 **0.1.1 (2026-10-30):** 프로젝트와 앱 이름을 **Mathfolio**로 변경했다. 실행 파일은 `mathfolio`, CLI는 `mathfolio-cli`, SDK는 `@mathfolio/wasm-sdk`다. 새 자체 문서는 `.mathfolio`로 저장하며, 기존 `.mathcraft` 문서와 저장 결과·클립보드 형식은 계속 지원한다. [이름 변경과 호환 범위](docs/RENAME-0.1.1.md).
 
 라이선스: **[GNU AGPLv3 only](LICENSE)** (`AGPL-3.0-only`). Mathfolio 자체 작성 소스와 문서에 적용하며, 포함된 제3자 구성요소의 원래 라이선스는 [NOTICE.md](NOTICE.md)를 따른다.

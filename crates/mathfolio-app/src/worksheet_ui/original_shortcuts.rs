@@ -42,8 +42,10 @@ impl WorksheetApp {
         let pasted = ctx.input(|i| {
             i.events.iter().find_map(|event| {
                 if let egui::Event::Paste(text) = event {
-                    (text.starts_with("mathcraft-region:") || text.starts_with("mathcraft-tree:"))
-                        .then(|| text.clone())
+                    (text.starts_with("mathcraft-region:")
+                        || text.starts_with("mathcraft-tree:")
+                        || text.starts_with(super::region_selection::CLIPBOARD_PREFIX))
+                    .then(|| text.clone())
                 } else {
                     None
                 }

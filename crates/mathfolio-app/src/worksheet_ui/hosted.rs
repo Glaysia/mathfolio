@@ -1,6 +1,16 @@
 //! WASM host boundary. File names are metadata, never filesystem authority.
 use super::*;
 use serde::Serialize;
+use wasm_bindgen::JsValue;
+
+#[derive(Serialize)]
+struct RegionBounds {
+    id: u64,
+    left: f32,
+    top: f32,
+    right: f32,
+    bottom: f32,
+}
 
 #[derive(Default)]
 pub(crate) struct HostState {
@@ -27,6 +37,7 @@ pub(crate) struct State {
     pub pending: usize,
     pub regions: usize,
     pub selected: Option<u64>,
+    pub selected_regions: Vec<u64>,
     pub status: String,
     pub frames: usize,
     pub undo: usize,
@@ -68,6 +79,35 @@ impl HostState {
     }
 }
 impl WorksheetApp {
+    pub(crate) fn host_region_bounds(&self) -> Result<JsValue, String> {
+        let Some(layer) = self.region_selection.layer else {
+            return serde_wasm_bindgen::to_value(&Vec::<u64>::new()).map_err(|e| e.to_string());
+        };
+        let context = self.host_context()?;
+        let transform = context.layer_transform_to_global(layer).unwrap_or_default();
+        let geometry = self.page_geometry();
+        let bounds: Vec<_> = self
+            .document
+            .regions
+            .iter()
+            .filter_map(|region| {
+                let local = self.region_selection.bounds.get(&region.id)?;
+                let rect = transform
+                    * local.translate(
+                        self.region_selection.paper_origin.to_vec2()
+                            + geometry.to_paper(region.left, region.top).to_vec2(),
+                    );
+                Some(RegionBounds {
+                    id: region.id,
+                    left: rect.left(),
+                    top: rect.top(),
+                    right: rect.right(),
+                    bottom: rect.bottom(),
+                })
+            })
+            .collect();
+        serde_wasm_bindgen::to_value(&bounds).map_err(|e| e.to_string())
+    }
     pub(crate) fn host_state(&self) -> State {
         State {
             revision: self.host.revision,
@@ -77,6 +117,7 @@ impl WorksheetApp {
             pending: self.pending_regions.len(),
             regions: self.document.regions.len(),
             selected: self.selected,
+            selected_regions: self.selected_region_ids(),
             status: self.status.clone(),
             frames: self.frames,
             undo: self.undo.len(),
@@ -115,6 +156,9 @@ impl WorksheetApp {
         self.host.active = true;
     }
     pub(crate) fn set_host_active(&mut self, active: bool) {
+        if !active {
+            self.region_selection.marquee_cancel();
+        }
         self.host.active = active;
         if active {
             self.host.repaint();

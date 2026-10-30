@@ -4771,12 +4771,13 @@
       "category": "문서·영역",
       "kind": "worksheet",
       "feature": "드래그 사각형으로 영역 다중 선택",
-      "status": "미구현",
-      "limits": "앱의 selected는 단일 영역 경로. 수식 내부 선택과 별개",
+      "status": "구현됨",
+      "limits": "사용자 지정 CAD 규칙: 왼쪽→오른쪽 완전 포함, 오른쪽→왼쪽 교차. 수식 내부 선택과 별개. 원본은 양방향 교차이며 이 차이는 명시적 요청에 따른다.",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -4790,11 +4791,12 @@
       "kind": "worksheet",
       "feature": "Shift+클릭 구간 영역 선택",
       "status": "미구현",
-      "limits": "앱의 selected는 단일 영역 경로. 수식 내부 선택과 별개",
+      "limits": "드래그 다중 선택은 있지만 Shift+클릭 구간 선택은 연결하지 않음",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -4808,11 +4810,12 @@
       "kind": "worksheet",
       "feature": "Ctrl+A 모든 영역 선택",
       "status": "미구현",
-      "limits": "앱의 selected는 단일 영역 경로. 수식 내부 선택과 별개",
+      "limits": "드래그 다중 선택은 있지만 Ctrl+A 전체 영역 선택은 연결하지 않음",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -4826,11 +4829,12 @@
       "kind": "worksheet",
       "feature": "영역 자유 위치 이동",
       "status": "부분 구현",
-      "limits": "개별 영역 drag/좌표 저장 있음. 원본 다중 선택 이동·겹침 계약 미완료",
+      "limits": "개별·선택 묶음 drag, 상대 위치 유지·drop 1회 Undo·확장 페이지 이동 연결. 원본 전체 보호/겹침 계약은 미완료.",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -4844,11 +4848,12 @@
       "kind": "worksheet",
       "feature": "영역 복사·잘라내기·붙여넣기",
       "status": "부분 구현",
-      "limits": "내부 단일 영역 경로 있음. 원본 OS 포맷/다중 영역 호환 미완료",
+      "limits": "내부 단일·다중 영역, 새 ID·상대 위치·일괄 검증·Undo 연결. 원본 OS 포맷과 읽기 전용 opaque 영역 복사는 미완료",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -4862,11 +4867,12 @@
       "kind": "worksheet",
       "feature": "선택 영역 삭제",
       "status": "부분 구현",
-      "limits": "단일 영역 삭제/Undo 있음. 전체 다중선택 계약 미완료",
+      "limits": "단일·선택 묶음 삭제와 1회 Undo/Redo 연결. 원본 전체 보호/접이식 영역 계약은 미완료",
       "implementation_paths": [
-        "crates/mathcraft-app/src/ribbon.rs",
-        "crates/mathcraft-app/src/worksheet_ui.rs",
-        "crates/mathcraft-document/src/canvas.rs"
+        "crates/mathfolio-app/src/ribbon.rs",
+        "crates/mathfolio-app/src/worksheet_ui.rs",
+        "crates/mathfolio-document/src/canvas.rs",
+        "crates/mathfolio-app/src/worksheet_ui/region_selection.rs"
       ],
       "evidence": [
         {
@@ -13092,8 +13098,9 @@
   "counts": {
     "detailed_rows": 555,
     "status": {
+      "구현됨": 1,
       "부분 구현": 159,
-      "미구현": 396
+      "미구현": 395
     },
     "sources": 216,
     "spelling_aliases": 34

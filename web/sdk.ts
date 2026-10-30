@@ -14,13 +14,14 @@ export interface HostTheme {
 }
 export interface SessionState {
   revision: number; document_epoch: number; dirty: boolean; calculating: boolean;
-  pending: number; regions: number; selected?: number; status: string;
+  pending: number; regions: number; selected?: number; selected_regions: number[]; status: string;
   frames: number; undo: number; redo: number;
   worker_memory_bytes?: number; worker_count: number;
   calculation_generation: number; worker_started_generation?: number;
 }
 export interface HostRequest { id: number; kind: "open" | "save" | "save_as" | "export_mcdx" | "pdf" | "print" | "close" }
 export interface SavePacket { id: number; revision: number; bytes: Uint8Array }
+export interface RegionBounds { id: number; left: number; top: number; right: number; bottom: number }
 export type Command = "undo" | "redo" | "calculate_now" | "calculate_worksheet" | "stop" | "new" | "save" | "open" | "close";
 export interface MountOptions {
   canvas: HTMLCanvasElement;
@@ -93,6 +94,8 @@ export class MathfolioEditor {
   /** Diagnostic snapshots are explicit and are never used by the render loop. */
   inspectDocument(): string { this.check(); return this.session.inspectDocument(); }
   inspectResults(): Map<number, unknown> { this.check(); return this.session.inspectResults() as Map<number, unknown>; }
+  /** Explicit diagnostic: measured region rectangles in canvas egui points. */
+  inspectRegionBounds(): RegionBounds[] { this.check(); return this.session.inspectRegionBounds() as RegionBounds[]; }
   /** Memory is for the shared UI WASM instance, not per-session or total worker memory. */
   memoryBytes(): number { this.check(); return this.session.memoryBytes(); }
   dispose(): void {

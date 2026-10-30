@@ -396,29 +396,7 @@ impl WorksheetApp {
         &mut self,
         candidate: &CanvasRegion,
     ) -> Result<(), String> {
-        self.document.validate_text_append_budget(candidate)?;
-        if candidate.authored_text.is_some() {
-            candidate.validated_authored_text()?;
-            return Ok(());
-        }
-        if candidate.rich_text.is_none() {
-            return Ok(());
-        }
-        let package = self.rich_text.package.get_or_insert_with(|| {
-            NativePackage::from_bytes(
-                self.document
-                    .native_archive
-                    .as_deref()
-                    .ok_or("Missing original rich Text archive")?,
-            )
-            .map(Arc::new)
-        });
-        mathfolio_document::export::validate_rich_text_append(
-            &self.document,
-            package.as_ref().map_err(Clone::clone)?,
-            candidate,
-        )?;
-        Ok(())
+        self.rich_text.validate_append_to(&self.document, candidate)
     }
 
     pub(super) fn restore_rich_text_affinity(&mut self, id: u64, affinity: &RunAffinity) {
@@ -784,3 +762,36 @@ impl WorksheetApp {
 
 #[path = "rich_text_input/paragraph_alignment.rs"]
 mod paragraph_alignment;
+
+impl State {
+    /// Validate against the progressively built document without changing live source.
+    pub(super) fn validate_append_to(
+        &mut self,
+        document: &CanvasDocument,
+        candidate: &CanvasRegion,
+    ) -> Result<(), String> {
+        document.validate_text_append_budget(candidate)?;
+        if candidate.authored_text.is_some() {
+            candidate.validated_authored_text()?;
+            return Ok(());
+        }
+        if candidate.rich_text.is_none() {
+            return Ok(());
+        }
+        let package = self.package.get_or_insert_with(|| {
+            NativePackage::from_bytes(
+                document
+                    .native_archive
+                    .as_deref()
+                    .ok_or("Missing original rich Text archive")?,
+            )
+            .map(Arc::new)
+        });
+        mathfolio_document::export::validate_rich_text_append(
+            document,
+            package.as_ref().map_err(Clone::clone)?,
+            candidate,
+        )?;
+        Ok(())
+    }
+}

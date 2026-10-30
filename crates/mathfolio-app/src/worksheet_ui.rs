@@ -40,6 +40,7 @@ const AMBER: Color32 = Color32::from_rgb(181, 118, 24);
 struct HistoryEntry {
     document: DocumentHistory,
     selected: Option<u64>,
+    selected_regions: std::collections::BTreeSet<u64>,
     insertion: Option<(f64, f64)>,
     editing_region: Option<u64>,
     active_editor: Option<(u64, Editor)>,
@@ -51,6 +52,7 @@ struct HistoryEntry {
 enum DocumentHistory {
     Full(Box<CanvasDocument>),
     Region(Box<CanvasRegion>),
+    Positions(Vec<(u64, f64, f64)>),
     NumericInputMode(Option<bool>),
     MatrixResultView {
         target: MatrixResultTarget,
@@ -62,7 +64,7 @@ impl DocumentHistory {
         match self {
             Self::Full(document) => &document.regions,
             Self::Region(region) => std::slice::from_ref(region.as_ref()),
-            Self::NumericInputMode(_) | Self::MatrixResultView { .. } => &[],
+            Self::Positions(_) | Self::NumericInputMode(_) | Self::MatrixResultView { .. } => &[],
         }
     }
 }
@@ -376,6 +378,7 @@ pub struct WorksheetApp {
     status: String,
     dirty: bool,
     selected: Option<u64>,
+    region_selection: region_selection::State,
     editing_region: Option<u64>,
     insertion: Option<(f64, f64)>,
     page_break_request: Option<page_break_ui::QueuedPageBreak>,
@@ -466,6 +469,7 @@ impl Default for WorksheetApp {
             status: String::new(),
             dirty: false,
             selected: None,
+            region_selection: Default::default(),
             editing_region: None,
             insertion: Some((0., CanvasDocument::default().grid)),
             page_break_request: None,
@@ -791,6 +795,7 @@ impl WorksheetApp {
                 .selected
                 .and_then(|id| self.text_cursors.get(&id).map(|range| (id, *range))),
             selected: self.selected,
+            selected_regions: self.region_selection.ids.clone(),
             insertion: self.insertion,
             editing_region: self.editing_region,
             active_editor: self.selected.and_then(|id| {
@@ -819,6 +824,24 @@ impl WorksheetApp {
     }
     fn restore(&mut self, state: HistoryEntry) {
         self.cancel_matrix_view_drag();
+        self.region_selection.marquee_cancel();
+        if let DocumentHistory::Positions(positions) = &state.document {
+            let positions: HashMap<_, _> =
+                positions.iter().map(|(id, x, y)| (*id, (*x, *y))).collect();
+            for region in &mut self.document.regions {
+                if let Some((x, y)) = positions.get(&region.id) {
+                    region.left = *x;
+                    region.top = *y;
+                }
+            }
+            self.selected = state.selected;
+            self.region_selection.ids = state.selected_regions;
+            self.editing_region = None;
+            self.focus_new = None;
+            self.mark_dirty();
+            self.calculation_changed(false);
+            return;
+        }
         if let DocumentHistory::MatrixResultView { target, viewport } = &state.document {
             match self.set_matrix_result_view(target.owner_id, *viewport) {
                 Ok(_) => self.mark_dirty(),
@@ -873,7 +896,9 @@ impl WorksheetApp {
         let restored_region = match &state.document {
             DocumentHistory::Region(region) => Some(region.id),
             DocumentHistory::Full(_) => None,
-            DocumentHistory::NumericInputMode(_) | DocumentHistory::MatrixResultView { .. } => {
+            DocumentHistory::Positions(_)
+            | DocumentHistory::NumericInputMode(_)
+            | DocumentHistory::MatrixResultView { .. } => {
                 unreachable!("handled before source restore")
             }
         };
@@ -899,7 +924,9 @@ impl WorksheetApp {
                 self.region_heights.remove(&id);
                 self.region_widths.remove(&id);
             }
-            DocumentHistory::NumericInputMode(_) | DocumentHistory::MatrixResultView { .. } => {
+            DocumentHistory::Positions(_)
+            | DocumentHistory::NumericInputMode(_)
+            | DocumentHistory::MatrixResultView { .. } => {
                 unreachable!("handled before source restore")
             }
         }
@@ -959,6 +986,12 @@ impl WorksheetApp {
         self.selected = state
             .selected
             .filter(|id| self.document.regions.iter().any(|r| r.id == *id));
+        self.region_selection = Default::default();
+        self.region_selection.ids = state
+            .selected_regions
+            .into_iter()
+            .filter(|id| existing.contains(id))
+            .collect();
         self.insertion = state.insertion;
         self.editing_region = state.editing_region.filter(|id| Some(*id) == self.selected);
         self.focus_new = self.editing_region;
@@ -1055,6 +1088,20 @@ impl WorksheetApp {
         }
     }
     fn inverse_snapshot(&self, document: &DocumentHistory) -> HistoryEntry {
+        if let DocumentHistory::Positions(positions) = document {
+            return self.snapshot_with_document(DocumentHistory::Positions(
+                positions
+                    .iter()
+                    .filter_map(|(id, _, _)| {
+                        self.document
+                            .regions
+                            .iter()
+                            .find(|r| r.id == *id)
+                            .map(|r| (*id, r.left, r.top))
+                    })
+                    .collect(),
+            ));
+        }
         if let DocumentHistory::MatrixResultView { target, .. } = document {
             return self.snapshot_with_document(DocumentHistory::MatrixResultView {
                 target: target.clone(),
@@ -1298,6 +1345,7 @@ impl WorksheetApp {
         self.redo.clear();
         self.results.clear();
         self.dirty = false;
+        self.region_selection = Default::default();
         self.selected = None;
         self.editing_region = None;
         self.focus_new = None;
@@ -2298,18 +2346,22 @@ impl WorksheetApp {
     }
     fn remove_selected(&mut self) {
         self.cancel_matrix_view_drag();
-        if let Some(id) = self.selected {
-            if self
-                .document
-                .regions
-                .iter()
-                .any(|region| region.id == id && page_break_ui::is_marker(region))
-            {
-                return;
-            }
-            let before = self.snapshot();
-            self.selected = None;
-            self.document.regions.retain(|r| r.id != id);
+        let ids: HashSet<_> = self.selected_region_ids().into_iter().collect();
+        let ids: Vec<_> = self
+            .document
+            .regions
+            .iter()
+            .filter(|r| ids.contains(&r.id) && !page_break_ui::is_marker(r))
+            .map(|r| r.id)
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        let before = self.snapshot();
+        let removed: HashSet<_> = ids.iter().copied().collect();
+        self.document.regions.retain(|r| !removed.contains(&r.id));
+        self.document.calculation_cache = None;
+        for id in ids {
             self.document.matrix_result_views.remove_owner(id);
             self.editors.remove(&id);
             self.table_editors.remove(&id);
@@ -2333,13 +2385,21 @@ impl WorksheetApp {
             self.saved_results.remove(&id);
             self.labelled_trees.remove(&id);
             self.uncommitted_math.remove(&id);
-            self.editing_region = None;
-            self.remember(before);
-            self.retain_plot_equation_floors();
-            self.calculation_changed(false);
+            self.results.remove(&id);
         }
+        self.region_selection = Default::default();
+        self.selected = None;
+        self.editing_region = None;
+        self.focus_new = None;
+        self.remember(before);
+        self.retain_plot_equation_floors();
+        self.calculation_changed(false);
     }
     fn duplicate_selected(&mut self) {
+        if self.selected_region_ids().len() > 1 {
+            self.duplicate_region_group();
+            return;
+        }
         self.cancel_matrix_view_drag();
         let rich = match self
             .selected
@@ -2404,6 +2464,10 @@ impl WorksheetApp {
         }
     }
     fn copy_region(&mut self, ctx: &egui::Context, cut: bool) {
+        if self.selected_region_ids().len() > 1 {
+            self.copy_region_group(ctx, cut);
+            return;
+        }
         let rich = match self
             .selected
             .map(|id| self.clipboard_rich_text(id))
@@ -2455,6 +2519,12 @@ impl WorksheetApp {
         }
     }
     fn paste_region(&mut self, text: &str) -> bool {
+        if let Some(encoded) = text.strip_prefix(region_selection::CLIPBOARD_PREFIX) {
+            if let Err(error) = self.paste_clipboard_regions(encoded, true) {
+                self.status = error;
+            }
+            return true;
+        }
         if let Some(xml) = text.strip_prefix("mathcraft-table:") {
             if xml.len() > 8 * 1024 * 1024
                 || mathfolio_document::spec_table::SpecTable::parse(xml).is_err()
@@ -2462,8 +2532,7 @@ impl WorksheetApp {
                 self.status = "Clipboard table is invalid or too large".into();
                 return true;
             }
-            let format = self.worksheet_math_defaults();
-            let payload = serde_json::json!({"content": CanvasContent::Opaque { xml: xml.into(), kind: "spec-table".into() }, "format":format});
+            let payload = serde_json::json!({"content":CanvasContent::Opaque {xml:xml.into(),kind:"spec-table".into()},"format":self.worksheet_math_defaults()});
             return self.paste_region(&format!("mathcraft-region:{payload}"));
         }
         let encoded = if let Some(encoded) = text.strip_prefix("mathcraft-region:") {
@@ -2472,8 +2541,7 @@ impl WorksheetApp {
             if encoded.len() > 8 * 1024 * 1024 {
                 return true;
             }
-            let tree = serde_json::from_str::<PortableTree>(encoded);
-            if let Ok(tree) = tree
+            if let Ok(tree) = serde_json::from_str::<PortableTree>(encoded)
                 && let Ok(json) = serde_json::to_string(&CanvasContent::Math(tree))
             {
                 return self.paste_region(&format!("mathcraft-region:{json}"));
@@ -2483,163 +2551,9 @@ impl WorksheetApp {
         } else {
             return false;
         };
-        if encoded.len() > 8 * 1024 * 1024 {
-            self.status = "Clipboard region is too large".into();
-            return true;
-        }
-        let matrix_view = match matrix_region_clipboard::read_view(encoded) {
-            Ok(view) => view,
-            Err(error) => {
-                self.status = format!("Clipboard matrix result view is invalid: {error}");
-                return true;
-            }
-        };
-        let parsed = serde_json::from_str::<serde_json::Value>(encoded);
-        let (mut content, format, calculation_disabled, rich_text, authored_text) = match parsed {
-            Ok(value) => {
-                let rich = value
-                    .get("rich_text")
-                    .cloned()
-                    .map(
-                        serde_json::from_value::<
-                            Option<Box<mathfolio_document::rich_text_source::RichTextWire>>,
-                        >,
-                    )
-                    .transpose();
-                let authored = value
-                    .get("authored_text")
-                    .cloned()
-                    .map(
-                        serde_json::from_value::<
-                            Option<Box<mathfolio_document::rich_text_source::AuthoredTextWire>>,
-                        >,
-                    )
-                    .transpose();
-                let disabled = value
-                    .get("calculation_disabled")
-                    .cloned()
-                    .map(serde_json::from_value::<bool>)
-                    .transpose();
-                let format = value
-                    .get("format")
-                    .cloned()
-                    .map(serde_json::from_value::<MathFormat>)
-                    .transpose();
-                let content = serde_json::from_value::<CanvasContent>(
-                    value.get("content").cloned().unwrap_or(value),
-                );
-                match (content, format, disabled, rich, authored) {
-                    (Ok(content), Ok(format), Ok(disabled), Ok(rich), Ok(authored)) => (
-                        content,
-                        format.unwrap_or_default(),
-                        disabled.unwrap_or(false),
-                        rich.flatten(),
-                        authored.flatten(),
-                    ),
-                    _ => {
-                        self.status = "Clipboard region is invalid".into();
-                        return true;
-                    }
-                }
-            }
-            Err(_) => {
-                self.status = "Clipboard region is invalid".into();
-                return true;
-            }
-        };
-        if let CanvasContent::Opaque { kind, .. } = &mut content
-            && kind == "specTable"
-        {
-            *kind = "spec-table".into();
-        }
-        let valid = match &content {
-            CanvasContent::Math(tree) => tree.validate().is_ok(),
-            CanvasContent::Text(text) => text.len() <= 1024 * 1024,
-            CanvasContent::Plot(plot) => plot.validate().is_ok(),
-            CanvasContent::Opaque { xml, kind }
-                if matches!(kind.as_str(), "spec-table" | "specTable") =>
-            {
-                mathfolio_document::spec_table::SpecTable::parse(xml).is_ok()
-            }
-            _ => false,
-        };
-        if !valid
-            || (matrix_view.is_some() && !matches!(content, CanvasContent::Math(_)))
-            || ((rich_text.is_some() || authored_text.is_some())
-                && !matches!(content, CanvasContent::Text(_)))
-            || (rich_text.is_some() && authored_text.is_some())
-            || (calculation_disabled && matches!(content, CanvasContent::Text(_)))
-            || !format.font_points.is_finite()
-            || !(1. ..=200.).contains(&format.font_points)
-            || format.precision > 15
-        {
-            self.status = "Clipboard region is invalid or unsupported".into();
-            return true;
-        }
-        if matches!(&content, CanvasContent::Opaque {kind, ..} if kind == "spec-table")
-            && let Err(error) = self.commit_table_edits(None)
-        {
+        if let Err(error) = self.paste_clipboard_regions(encoded, false) {
             self.status = error;
-            return true;
         }
-        let position = self.insertion.unwrap_or_else(|| {
-            self.selected
-                .and_then(|id| self.document.regions.iter().find(|r| r.id == id))
-                .map(|r| {
-                    (
-                        r.left + self.document.grid * 2.,
-                        r.top + self.document.grid * 2.,
-                    )
-                })
-                .unwrap_or((0., self.document.grid))
-        });
-        let id = self.document.next_id;
-        let candidate = CanvasRegion {
-            id,
-            left: position.0,
-            top: position.1,
-            content,
-            source_region: None,
-            rich_text,
-            authored_text,
-            format,
-            calculation_disabled,
-            calculation_enabled_override: false,
-        };
-        if matches!(candidate.content, CanvasContent::Text(_))
-            && let Err(error) = self.validate_rich_text_append(&candidate)
-        {
-            self.status = error;
-            return true;
-        }
-        // Metadata-only clipboard requests do not promise a calculated result.
-        // Validate DTO/map/type budgets now; actual value projection is deferred
-        // until a complete result exists, exactly as for an own saved request.
-        let mut next_views = None;
-        if let Some(view) = matrix_view {
-            let mut views = self.document.matrix_result_views.clone();
-            if let Err(error) = views.set(MatrixResultTarget::math(id), view) {
-                self.status = error;
-                return true;
-            }
-            next_views = Some(views);
-        }
-        let before = self.snapshot();
-        self.document.next_id += 1;
-        self.document.regions.push(candidate);
-        if let Some(views) = next_views {
-            self.document.matrix_result_views = views;
-        }
-        self.refresh_rich_text_visual(id);
-        self.selected = Some(id);
-        self.insertion = None;
-        if self.document.regions.last().is_some_and(is_spec_table) {
-            self.editing_region = None;
-            self.focus_new = None;
-            self.refresh_table_visual(id);
-        }
-        self.remember(before);
-        self.calculation_changed(false);
         true
     }
     fn prepare_native_export(&mut self) -> Result<(), String> {
@@ -4133,6 +4047,9 @@ impl WorksheetApp {
         }
     }
     fn region_keyboard(&mut self, ui: &mut egui::Ui, previous_editing: Option<u64>) {
+        if self.region_selection.busy() {
+            return;
+        }
         if self.pending.is_some() || ui.ctx().any_popup_open() {
             return;
         }
@@ -4185,6 +4102,7 @@ impl WorksheetApp {
         if (toggle || ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)))
             && self.selected.is_some()
         {
+            self.region_selection.ids.clear();
             self.focus_new = self.selected;
             ui.ctx().request_repaint();
             return;
@@ -4257,6 +4175,27 @@ impl WorksheetApp {
         }
     }
     fn nudge(&mut self, x: f64, y: f64) {
+        if self.selected_region_ids().len() > 1 {
+            let ids: HashSet<_> = self.selected_region_ids().into_iter().collect();
+            let positions: Vec<_> = self
+                .document
+                .regions
+                .iter()
+                .filter(|r| ids.contains(&r.id))
+                .map(|r| (r.id, r.left, r.top))
+                .collect();
+            let min_x = positions.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+            let min_y = positions.iter().map(|p| p.2).fold(f64::INFINITY, f64::min);
+            self.commit_region_move(
+                &positions,
+                (
+                    (x * self.document.grid).max(-min_x),
+                    (y * self.document.grid).max(-min_y),
+                ),
+            );
+            return;
+        }
+
         let step = self.document.grid;
         let width = if self.expand_right {
             f64::from(self.paper_size().x)
@@ -4293,7 +4232,11 @@ impl WorksheetApp {
         }
         let actions = ribbon::show_help(ctx, &mut self.ribbon, &mut self.show_shortcuts);
         if !self.show_shortcuts && actions.is_empty() {
-            self.focus_new = self.editing_region.or(self.selected);
+            self.focus_new = if self.selected_region_count() > 1 {
+                None
+            } else {
+                self.editing_region.or(self.selected)
+            };
         }
         for action in actions {
             self.ribbon_command(ctx, action);
@@ -4407,10 +4350,15 @@ impl WorksheetApp {
             .chain(self.drag_preview.map(|(id, _, y)| {
                 y + f64::from(self.region_heights.get(&id).copied().unwrap_or(180.)) + 8.
             }))
+            .chain(self.region_selection.preview_bottom(&self.region_heights))
             .fold(0., f64::max);
         let mut size = self.page_geometry().size(bottom);
         if self.expand_right {
-            size.x = (size.x * 2.).max(self.right_content_edge());
+            size.x = (size.x * 2.).max(self.right_content_edge()).max(
+                self.region_selection
+                    .preview_right(&self.region_widths)
+                    .unwrap_or(0.),
+            );
         }
         size
     }
@@ -4593,6 +4541,7 @@ impl WorksheetApp {
         let geometry = self.page_geometry();
         let pages = ((size.y + geometry.grid) / geometry.stride()).round() as usize;
         let (paper, background) = ui.allocate_exact_size(size, Sense::click());
+        self.selection_pointer_before(ui, paper, geometry);
         let grid = geometry.grid.max(6.);
         let visible = paper.intersect(ui.clip_rect());
         let first_page = ((visible.top() - paper.top()) / geometry.stride())
@@ -4741,7 +4690,11 @@ impl WorksheetApp {
                 .filter(|(id, _, _)| *id == region.id)
                 .map(|(_, x, y)| (x, y))
                 .unwrap_or((region.left, region.top));
+            let (paint_left, paint_top) = self
+                .region_selection
+                .preview(region.id, paint_left, paint_top);
             let mut origin = paper.min + geometry.to_paper(paint_left, paint_top).to_vec2();
+            let region_anchor = origin;
             let native_visual = self.native_visuals.region(region);
             let visual_error = native_visual.and_then(|v| v.as_ref().err());
             let visual = native_visual.and_then(|v| v.as_ref().ok());
@@ -4807,6 +4760,10 @@ impl WorksheetApp {
                     .layout(egui::Layout::left_to_right(egui::Align::Min)),
             );
             child.set_clip_rect(paper.intersect(ui.clip_rect()));
+            if self.region_selection.busy() {
+                child.style_mut().visuals.disabled_alpha = 1.;
+                child.disable();
+            }
             let row_result = self.results.get(&id);
             let saved_result = self.saved_results.get(&id);
             let result_pending = region.calculation_disabled || self.pending_regions.contains(&id);
@@ -4950,6 +4907,10 @@ impl WorksheetApp {
                         .layout(egui::Layout::left_to_right(egui::Align::Min)),
                 );
                 child.set_clip_rect(paper.intersect(ui.clip_rect()));
+                if self.region_selection.busy() {
+                    child.style_mut().visuals.disabled_alpha = 1.;
+                    child.disable();
+                }
                 if result_pending {
                     child.set_opacity(0.45);
                 }
@@ -5392,7 +5353,11 @@ impl WorksheetApp {
                 }
                 self.focus_new = None;
             }
+            self.region_selection
+                .bounds
+                .insert(id, response.rect.translate(-region_anchor.to_vec2()));
             if response.clicked() || response.has_focus() {
+                self.region_selection.ids.clear();
                 self.selected = Some(id);
                 self.insertion = None;
             }
@@ -5434,7 +5399,7 @@ impl WorksheetApp {
                     }
                 }
             });
-            if self.selected == Some(id) || response.hovered() {
+            if self.region_selection.contains(self.selected, id) || response.hovered() {
                 let border = response.rect.expand(1.);
                 let stroke = Stroke::new(0.5, Color32::from_rgb(78, 126, 155));
                 if response.has_focus() {
@@ -5458,7 +5423,15 @@ impl WorksheetApp {
                     vec2(12., response.rect.height().max(20.)),
                 );
                 let drag = ui
-                    .interact(handle, egui::Id::new(("move", id)), Sense::click_and_drag())
+                    .interact(
+                        handle,
+                        egui::Id::new(("move", id)),
+                        if self.region_selection.busy() {
+                            Sense::hover()
+                        } else {
+                            Sense::click_and_drag()
+                        },
+                    )
                     .on_hover_cursor(egui::CursorIcon::Grab)
                     .on_hover_text("드래그하여 이동 · 클릭 후 방향키로 미세 이동");
                 hit_region |= drag.hovered();
@@ -5471,7 +5444,10 @@ impl WorksheetApp {
                     .layer_transform_from_global(ui.layer_id())
                     .unwrap_or_default();
                 let coalesced_origin = ui.input(|input| {
-                    if !input.pointer.primary_down() || input.pointer.could_any_button_be_click() {
+                    if self.region_selection.busy()
+                        || !input.pointer.primary_down()
+                        || input.pointer.could_any_button_be_click()
+                    {
                         return None;
                     }
                     input.events.iter().find_map(|event| match event {
@@ -5496,6 +5472,7 @@ impl WorksheetApp {
                         }),
                         document: DocumentHistory::Region(Box::new(region.clone())),
                         selected: self.selected,
+                        selected_regions: self.region_selection.ids.clone(),
                         insertion: self.insertion,
                         editing_region: previous_editing,
                         active_editor: self.selected.and_then(|selected| {
@@ -5529,6 +5506,7 @@ impl WorksheetApp {
                             }),
                             document: DocumentHistory::Region(Box::new(region.clone())),
                             selected: self.selected,
+                            selected_regions: self.region_selection.ids.clone(),
                             insertion: self.insertion,
                             editing_region: previous_editing,
                             active_editor: self.selected.and_then(|selected| {
@@ -5733,6 +5711,9 @@ impl WorksheetApp {
             ui.ctx().request_repaint();
         }
         if let Some(id) = context_selection {
+            if !self.region_selection.ids.contains(&id) {
+                self.region_selection.ids.clear();
+            }
             self.selected = Some(id);
             self.editing_region = None;
             self.insertion = None;
@@ -5745,7 +5726,10 @@ impl WorksheetApp {
         if let Some((id, action)) = context_action {
             self.selected = Some(id);
             match action {
-                RegionAction::Edit => self.focus_new = Some(id),
+                RegionAction::Edit => {
+                    self.region_selection.ids.clear();
+                    self.focus_new = Some(id);
+                }
                 RegionAction::Copy => self.copy_region(ui.ctx(), false),
                 RegionAction::Cut => self.copy_region(ui.ctx(), true),
                 RegionAction::Duplicate => self.duplicate_selected(),
@@ -5766,7 +5750,9 @@ impl WorksheetApp {
                 Stroke::new(1., BLUE),
             );
         }
+        let selection_gesture = self.selection_pointer_after(ui, paper, geometry);
         if background.clicked()
+            && !selection_gesture
             && !hit_region
             && let Some(pointer) = background.interact_pointer_pos()
         {
@@ -5792,6 +5778,7 @@ impl WorksheetApp {
                     v - r
                 }
             };
+            self.region_selection.ids.clear();
             self.insertion = Some((snap(body_x), snap(body_y)));
             self.selected = None;
             self.editing_region = None;
@@ -6534,7 +6521,11 @@ impl WorksheetApp {
             })
         {
             self.show_shortcuts = false;
-            self.focus_new = self.editing_region.or(self.selected);
+            self.focus_new = if self.selected_region_count() > 1 {
+                None
+            } else {
+                self.editing_region.or(self.selected)
+            };
         }
         // Help owns all input for the frame, including its closing keystroke.
         // The editor still paints, retaining caches and its pending source.
@@ -6595,7 +6586,11 @@ impl WorksheetApp {
             ctx.input_mut(|i| i.events = events);
         }
         if chrome_owned_input && !self.chrome_owns_keyboard(&ctx) && !self.show_shortcuts {
-            self.focus_new = self.editing_region.or(self.selected);
+            self.focus_new = if self.selected_region_count() > 1 {
+                None
+            } else {
+                self.editing_region.or(self.selected)
+            };
         }
         self.shortcuts_ui(&ctx);
         self.page_sections_ui(&ctx);
@@ -10018,6 +10013,8 @@ mod matrix_result_view;
 mod matrix_result_view_app_tests;
 
 mod matrix_region_clipboard;
+mod region_clipboard;
+mod region_selection;
 
 mod matrix_indices_input;
 
@@ -10026,3 +10023,6 @@ mod source_matrix_display_app_tests;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod hosted;
+
+#[cfg(test)]
+mod region_selection_tests;

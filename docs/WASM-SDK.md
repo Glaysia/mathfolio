@@ -1,6 +1,6 @@
 # WASM SDK
 
-2026-10-30. 버전 **0.1.1 / 프로토콜 1**. 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
+2026-10-30. 작업 버전 **0.1.2-dev / 프로토콜 1** (공개 릴리즈 0.1.1). 공통 Rust 워크시트·egui 화면·계산기를 실제 브라우저 Canvas에 올리는 SDK다. Obsidian·VS Code 플러그인은 이 SDK를 사용하는 **별도 레포**에서 만든다. 독립판에는 JS 실행 엔진을 추가하지 않았다.
 
 ## 빌드와 실행
 
@@ -21,7 +21,7 @@ python web/serve.py --fixtures artifacts/rea/unit-selected-sources --output arti
 | 경로 | 내용 |
 | --- | --- |
 | `dist/wasm-sdk/` | `sdk.js`, 생성 TS 타입, WASM/glue, Worker, 선택 한글 글꼴, 라이선스 |
-| `dist/mathfolio-wasm-sdk-0.1.1.tar.gz` | 다른 레포에서 가져갈 패키지 |
+| `dist/mathfolio-wasm-sdk-0.1.2-dev.tar.gz` | 현재 작업 버전을 다른 레포에서 가져갈 패키지 |
 | `dist/wasm-sdk-size.json` | 파일별 바이트·SHA-256, 최적화 전후·gzip·패키지 크기와 도구 버전 |
 
 빌드는 Cargo.lock과 wasm-bindgen CLI 버전 일치를 검사한다. Binaryen 132.0.0의 `-O2`를 적용하고, 더 커지면 최적화 전 파일을 유지한다. 입력·도구·옵션·출력 해시가 일치할 때만 최적화 캐시를 재사용한다. `--skip-opt`는 개발용 비최적화 빌드다. 네이티브 release 프로필은 변경하지 않았다.
@@ -73,6 +73,7 @@ stopState(); stopRequests(); editor.dispose();
 - `setThemeMode`는 `follow_host`, `light`, `dark`, `nord`다. `setTheme`는 [의미별 RGBA 계약](HOST-THEMES.md)을 따른다. 실제 호스트 CSS 변수 수집·변경 이벤트·설정 저장은 플러그인에 둔다. 문서의 수식·표·강조 색은 유지한다.
 - Enter 확정, F5/Ctrl+F5, Ctrl+- 문자 아래첨자, Ctrl+Y Redo 등 기존 의미를 유지한다. 호스트가 먼저 잡는 단축키·실제 OS 한글 IME·클립보드는 두 플러그인에서 추가로 검증한다. 브라우저 검사의 한국어 키 입력은 합성 DOM 이벤트이며 물리 IME 검증을 뜻하지 않는다.
 - `subscribe`는 최대10Hz의 작은 상태만 알린다. 호스트 요청은 `onRequest`에서 별도로 전달한다. 문서/AST 전체를 프레임마다 직렬화하지 않는다. `inspectDocument`와 `inspectResults`는 명시적 진단용 snapshot이다.
+- `state().selected_regions`는 선택한 영역 ID 목록이다. 드래그 다중 선택·묶음 이동·Copy/Cut/Paste/Delete·Undo/Redo는 네이티브와 같은 Rust 경로를 사용한다. `inspectRegionBounds()`는 마지막으로 측정한 영역의 Canvas 좌표(egui points)를 명시적으로 조회하는 진단 API다. 초기 프레임 이전이나 아직 그리지 않은 영역은 빠질 수 있고, 이동 미리보기 중에는 확정 좌표를 기준으로 한다. 매 프레임 호출하는 API가 아니다. [선택 규칙과 제한](analysis/0216-cad-region-selection.md).
 
 ## 계산과 수명
 
@@ -92,4 +93,4 @@ stopState(); stopRequests(); editor.dispose();
 
 원본 전체 호환 범위는 [기능 목록](FEATURES.md)을 그대로 따른다. SDK에서 파일 수정시각/로캘 저장 날짜 주입, PDF 페이지 범위 API, 읽기 전용 미리보기 API와 공용 계산 스케줄러는 후속 범위다. 두 호스트 플러그인이 이미 완성됐다고 주장하지 않는다.
 
-실측 용량·브라우저/네이티브 검증과 한계는 [0215 기록](analysis/0215-mathfolio-0.1.1.md)을 따른다.
+0.1.1의 실측 용량·브라우저/네이티브 검증은 [0215 기록](analysis/0215-mathfolio-0.1.1.md)에 보존한다. 현재 변경과 검증은 [0216 기록](analysis/0216-cad-region-selection.md)을 따른다.
